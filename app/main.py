@@ -76,6 +76,7 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
             geometry=candidate["geometry"],
             tolled_km=candidate.get("tolled_km", 0),
             toll_ranges=candidate.get("toll_ranges"),
+            road_class_link_details=candidate.get("road_class_link_details"),
             demo_toll=candidate.get("demo_toll"),
         )
         costs = calculate_costs(

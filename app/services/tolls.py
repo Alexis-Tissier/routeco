@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -85,6 +86,9 @@ class TollStation:
     lon: float
     system_type: str
     osm_name: str = ""
+    # Physical topology from the station dataset. It stays available when a
+    # closed interchange or a mainline barrier receives an open-tariff twin.
+    physical_type: str = ""
 
     @property
     def display_name(self) -> str:
@@ -105,7 +109,10 @@ class TollStation:
             text = "".join(char for char in text if not unicodedata.combining(char))
             return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
 
-        if self.system_type in {"mainline", "barrier"}:
+        if (
+            self.system_type in {"mainline", "barrier"}
+            or self.physical_type in {"mainline", "barrier"}
+        ):
             return True
         raw = marker_text(self.name)
         osm = marker_text(self.osm_name)
@@ -219,6 +226,7 @@ class TollPricingService:
                             lat=float(row["lat"]),
                             lon=float(row["lon"]),
                             system_type=station_type,
+                            physical_type=station_type,
                         )
                     except (KeyError, TypeError, ValueError):
                         continue
@@ -333,6 +341,7 @@ class TollPricingService:
                     lat=station.lat,
                     lon=station.lon,
                     system_type="open",
+                    physical_type=station.physical_type or station.system_type,
                 )
             )
         self.stations.extend(additions)
@@ -342,6 +351,7 @@ class TollPricingService:
         geometry: list[list[float]],
         tolled_km: float,
         toll_ranges: list[dict[str, Any]] | None = None,
+        road_class_link_details: list[list] | None = None,
         demo_toll: float | None = None,
     ) -> TollQuote:
         if demo_toll is not None:
@@ -355,7 +365,11 @@ class TollPricingService:
         # matrix pairs are never credible for only a few hundred metres.
         if tolled_km <= 0.5:
             if self.ready and len(geometry) >= 2:
-                exact_open = self._quote_open_only(geometry, toll_ranges or [])
+                exact_open = self._quote_open_only(
+                    geometry,
+                    toll_ranges or [],
+                    road_class_link_details or [],
+                )
                 if exact_open is not None:
                     return exact_open
             return TollQuote(
@@ -366,7 +380,12 @@ class TollPricingService:
             )
 
         if self.ready and len(geometry) >= 2:
-            exact = self._quote_from_ranges(geometry, tolled_km, toll_ranges or [])
+            exact = self._quote_from_ranges(
+                geometry,
+                tolled_km,
+                toll_ranges or [],
+                road_class_link_details or [],
+            )
             if exact is not None:
                 return exact
 
@@ -389,7 +408,10 @@ class TollPricingService:
         )
 
     def _quote_open_only(
-        self, geometry: list[list[float]], raw_ranges: list[dict[str, Any]]
+        self,
+        geometry: list[list[float]],
+        raw_ranges: list[dict[str, Any]],
+        road_class_link_details: list[list],
     ) -> TollQuote | None:
         projections, cumulative = self._project_stations(geometry)
         if not projections:
@@ -411,7 +433,11 @@ class TollPricingService:
         segments: list[TollSegmentQuote] = []
         total = 0.0
         for toll_range in ranges:
-            for projection in self._open_stations_in_range(projections, toll_range):
+            for projection in self._open_stations_in_range(
+                projections,
+                toll_range,
+                road_class_link_details,
+            ):
                 price = self._lookup_open(projection.station)
                 if price is None:
                     continue
@@ -448,6 +474,7 @@ class TollPricingService:
         geometry: list[list[float]],
         tolled_km: float,
         raw_ranges: list[dict[str, Any]],
+        road_class_link_details: list[list],
     ) -> TollQuote | None:
         projections, cumulative = self._project_stations(geometry)
         if not projections:
@@ -483,6 +510,62 @@ class TollPricingService:
 
             if pair is not None:
                 record, entry, exit_ = pair
+                physical_coverage = max(
+                    0.0,
+                    min(exit_.route_km, toll_range.end_km)
+                    - max(entry.route_km, toll_range.start_km),
+                )
+                start_gap = max(0.0, entry.route_km - toll_range.start_km)
+                end_gap = max(0.0, toll_range.end_km - exit_.route_km)
+
+                # An official matrix may measure the charged motorway distance more
+                # accurately than a simplified route polyline. It can explain the
+                # whole GraphHopper range only when the matrix length is coherent
+                # and the crossed pair still covers most of that range physically.
+                matrix_consistent = (
+                    record.distance_km is not None
+                    and abs(record.distance_km - toll_range.distance_km)
+                    <= max(30.0, toll_range.distance_km * 0.18)
+                )
+                matrix_resolves_range = (
+                    matrix_consistent
+                    and physical_coverage
+                    >= max(5.0, toll_range.distance_km * 0.60)
+                )
+
+                # OSM frequently starts the toll tag shortly before the entry plaza
+                # and ends it shortly after the exit. Such boundary padding is not
+                # an additional fare. Internal gaps are never hidden here.
+                boundary_padding = min(start_gap, 25.0) + min(end_gap, 25.0)
+                boundary_coverage = min(
+                    toll_range.distance_km,
+                    physical_coverage + boundary_padding,
+                )
+                boundary_residual = max(
+                    0.0, toll_range.distance_km - boundary_coverage
+                )
+                boundary_resolves_range = (
+                    start_gap <= 25.0
+                    and end_gap <= 25.0
+                    and boundary_residual <= self.MINOR_RESIDUAL_KM
+                    and boundary_residual * self.FALLBACK_EUR_PER_KM
+                    < self.MINOR_RESIDUAL_EUR
+                )
+
+                full_range = matrix_resolves_range or boundary_resolves_range
+                if full_range:
+                    coverage = toll_range.distance_km
+                else:
+                    credible_matrix_coverage = (
+                        record.distance_km
+                        if matrix_consistent and record.distance_km is not None
+                        else physical_coverage
+                    )
+                    coverage = min(
+                        toll_range.distance_km,
+                        max(physical_coverage, credible_matrix_coverage),
+                    )
+
                 proposals.append(
                     ClosedMatch(
                         range_index,
@@ -490,8 +573,8 @@ class TollPricingService:
                         record,
                         entry,
                         exit_,
-                        coverage_km=toll_range.distance_km,
-                        full_range=True,
+                        coverage_km=coverage,
+                        full_range=full_range,
                     )
                 )
             else:
@@ -499,6 +582,9 @@ class TollPricingService:
                     projections, toll_range, range_index
                 )
                 if chain:
+                    # Boundary padding around physical plazas is not a second toll.
+                    # A chain is promoted only when its internal gaps are fully
+                    # explained by the strict completeness test below.
                     if chain_is_complete:
                         chain[0].full_range = True
                     proposals.extend(chain)
@@ -557,7 +643,11 @@ class TollPricingService:
         for range_index, toll_range in enumerate(ranges):
             if range_index in resolved_ranges:
                 continue
-            open_matches = self._open_stations_in_range(projections, toll_range)
+            open_matches = self._open_stations_in_range(
+                projections,
+                toll_range,
+                road_class_link_details,
+            )
             accepted_open: list[tuple[StationProjection, float]] = []
             for projection in open_matches:
                 if any(
@@ -585,6 +675,10 @@ class TollPricingService:
             # the gantry is added but the remaining distance still has to be
             # explained instead of declaring the entire range resolved.
             if range_covered_km.get(range_index, 0.0) <= 0.05:
+                # In an open system, the crossed gantry is the tariff event: its
+                # official fixed charge prices the range even when OSM marks a long
+                # approach. The station has already passed a very tight on-route
+                # projection test and an exact local tariff lookup.
                 resolved_ranges.add(range_index)
             for projection, price in accepted_open:
                 name = projection.station.display_name
@@ -819,11 +913,23 @@ class TollPricingService:
             for previous_item, current in zip(selected, selected[1:])
         ]
         unexplained = max(0.0, toll_range.distance_km - covered)
+        # Gaps before the first physical plaza and after the last one are
+        # ordinary OSM boundary padding. Only internal holes can represent an
+        # unpriced toll. Keep those internal holes at the strict 5 km / 1 euro
+        # threshold introduced by the reliability patch.
+        boundary_padding = min(start_gap, 25.0) + min(end_gap, 25.0)
+        unexplained_after_boundaries = max(
+            0.0, toll_range.distance_km - covered - boundary_padding
+        )
+        estimated_unexplained = (
+            unexplained_after_boundaries * self.FALLBACK_EUR_PER_KM
+        )
         complete = (
             start_gap <= 25.0
             and end_gap <= 25.0
-            and all(gap <= 35.0 for gap in internal_gaps)
-            and unexplained <= max(10.0, toll_range.distance_km * 0.12)
+            and all(gap <= self.MINOR_RESIDUAL_KM for gap in internal_gaps)
+            and unexplained_after_boundaries <= self.MINOR_RESIDUAL_KM
+            and estimated_unexplained < self.MINOR_RESIDUAL_EUR
         )
         return selected, complete
 
@@ -1054,13 +1160,28 @@ class TollPricingService:
         prepared.sort(key=lambda item: item.start_index)
         merged: list[TollRange] = []
         for item in prepared:
-            if not merged or item.start_index > merged[-1].end_index + 2:
+            if not merged:
                 merged.append(item)
                 continue
+
             previous = merged[-1]
+            physical_gap = max(0.0, item.start_km - previous.end_km)
+            overlaps = item.start_index <= previous.end_index
+            if not overlaps and physical_gap > 0.75:
+                merged.append(item)
+                continue
+
+            previous_end_index = previous.end_index
             previous.end_index = max(previous.end_index, item.end_index)
             previous.end_km = max(previous.end_km, item.end_km)
-            previous.distance_km = max(previous.distance_km, previous.end_km - previous.start_km)
+            if item.start_index <= previous_end_index:
+                previous.distance_km = max(
+                    previous.distance_km,
+                    item.distance_km,
+                    previous.end_km - previous.start_km,
+                )
+            else:
+                previous.distance_km += item.distance_km
         return merged
 
     def _project_stations(
@@ -1092,10 +1213,22 @@ class TollPricingService:
                 start = geometry[index - 1]
                 end = geometry[index]
                 # Cheap rejection before doing the planar projection.
-                margin = 0.025
-                if station.lon < min(start[0], end[0]) - margin or station.lon > max(start[0], end[0]) + margin:
+                # A fixed longitude margin loses valid stations in northern France,
+                # where one degree of longitude is shorter than at the equator.
+                mean_lat = (start[1] + end[1]) / 2.0
+                margin_lat = 2.7 / 111.32
+                margin_lon = 2.7 / (
+                    111.32 * max(0.20, abs(math.cos(math.radians(mean_lat))))
+                )
+                if (
+                    station.lon < min(start[0], end[0]) - margin_lon
+                    or station.lon > max(start[0], end[0]) + margin_lon
+                ):
                     continue
-                if station.lat < min(start[1], end[1]) - margin or station.lat > max(start[1], end[1]) + margin:
+                if (
+                    station.lat < min(start[1], end[1]) - margin_lat
+                    or station.lat > max(start[1], end[1]) + margin_lat
+                ):
                     continue
                 lateral, fraction = point_segment_projection_km(
                     (station.lon, station.lat),
@@ -1146,7 +1279,7 @@ class TollPricingService:
                     if record.distance_km is not None:
                         mismatch = abs(record.distance_km - toll_range.distance_km)
                         allowed = max(15.0, toll_range.distance_km * 0.12)
-                        if progress_window > 7.0 and mismatch > allowed:
+                        if mismatch > allowed:
                             continue
 
                     # A side-ramp plaza may be only a few hundred metres from
@@ -1185,17 +1318,116 @@ class TollPricingService:
         candidates.sort(key=lambda item: item[0])
         return candidates
 
+    @staticmethod
+    def _is_open_ramp_station(station: TollStation) -> bool:
+        # A fixed open tariff can be joined to a station originally classified
+        # as a closed interchange. That physical type is stronger evidence than
+        # the label: a locality name may not contain "sortie" even though the
+        # tariff applies only when taking the branch.
+        if station.physical_type == "closed" and not station.is_mainline_barrier:
+            return True
+
+        # Keep label detection for datasets that directly declare open stations
+        # but encode the direction or branch in their name.
+        raw = f"{station.name} {station.osm_name}"
+        text = unicodedata.normalize("NFKD", raw)
+        text = "".join(char for char in text if not unicodedata.combining(char))
+        text = re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+        return bool(
+            re.search(
+                r"\b(?:entree|sortie|bretelle|diffuseur|echangeur|exit)\b"
+                r"|\bfl\s*e\b",
+                text,
+            )
+        )
+
+    @staticmethod
+    def _road_class_link_at_projection(
+        projection: StationProjection,
+        details: list[list] | None,
+    ) -> bool | None:
+        # GraphHopper path details use point-index intervals [from, to, value].
+        # StationProjection.segment_index identifies the interval ending at that
+        # point, hence the -1 conversion below.
+        if not details:
+            return None
+        segment_start = max(0, projection.segment_index - 1)
+        for detail in details:
+            if len(detail) != 3:
+                continue
+            try:
+                start = int(detail[0])
+                end = int(detail[1])
+            except (TypeError, ValueError):
+                continue
+            if not (start <= segment_start < end):
+                continue
+            value = detail[2]
+            if isinstance(value, bool):
+                return value
+            if value is None:
+                return None
+            normalized = str(value).strip().casefold()
+            if normalized in {"true", "1", "yes"}:
+                return True
+            if normalized in {"false", "0", "no"}:
+                return False
+            return None
+        return None
+
     def _open_stations_in_range(
-        self, projections: list[StationProjection], toll_range: TollRange
+        self,
+        projections: list[StationProjection],
+        toll_range: TollRange,
+        road_class_link_details: list[list] | None = None,
     ) -> list[StationProjection]:
-        matches = [
-            projection
-            for projection in projections
-            if projection.station.system_type == "open"
-            and projection.lateral_km <= 0.12
-            and toll_range.start_km - 1.5 <= projection.route_km <= toll_range.end_km + 1.5
-            and self._lookup_open(projection.station) is not None
-        ]
+        matches: list[StationProjection] = []
+        for projection in projections:
+            station = projection.station
+            if station.system_type != "open":
+                continue
+
+            ramp_station = self._is_open_ramp_station(station)
+            if ramp_station:
+                lateral_limit = 0.05
+            elif station.is_mainline_barrier:
+                lateral_limit = 0.12
+            else:
+                lateral_limit = 0.06
+            if projection.lateral_km > lateral_limit:
+                continue
+
+            if not (
+                toll_range.start_km - 1.5
+                <= projection.route_km
+                <= toll_range.end_km + 1.5
+            ):
+                continue
+
+            # An interchange tariff is charged only when the tolled OSM range
+            # starts or ends at that branch. Merely passing nearby is not enough.
+            if ramp_station:
+                boundary_gap = min(
+                    abs(projection.route_km - toll_range.start_km),
+                    abs(projection.route_km - toll_range.end_km),
+                )
+                if boundary_gap > 4.0:
+                    continue
+
+                # A tariff attached to an interchange is only crossed when the
+                # route itself uses a link road. A toll-range boundary alone is
+                # insufficient because OSM toll tags can start/end at a nearby
+                # junction while the vehicle remains on the motorway.
+                is_link = self._road_class_link_at_projection(
+                    projection,
+                    road_class_link_details,
+                )
+                if is_link is False:
+                    continue
+
+            if self._lookup_open(station) is None:
+                continue
+            matches.append(projection)
         matches.sort(key=lambda item: item.route_km)
         if not matches:
             return []
@@ -1287,9 +1519,9 @@ class TollPricingService:
 
                 # Avoid selecting a short interchange-to-interchange fare for a
                 # long tolled motorway section.
-                if target_km > 40.0 and span_km < target_km * 0.68:
+                if target_km > 40.0 and span_km < target_km * 0.72:
                     continue
-                if target_km and span_km > target_km + max(35.0, target_km * 0.35):
+                if target_km and span_km > target_km + max(45.0, target_km * 0.28):
                     continue
 
                 boundary_gap = 0.0
@@ -1299,18 +1531,20 @@ class TollPricingService:
                     )
                     # The OSM toll tag can start/end well outside the plazas, but
                     # a candidate hundreds of kilometres away is not credible.
-                    if entry.route_km > toll_range.start_km + 110.0:
+                    if entry.route_km > toll_range.start_km + 90.0:
                         continue
-                    if exit_.route_km < toll_range.end_km - 110.0:
+                    if exit_.route_km < toll_range.end_km - 90.0:
                         continue
 
                 tariff_mismatch = 0.0
                 if record.distance_km is not None:
-                    tariff_mismatch = abs(record.distance_km - span_km)
-                    # Tariff distance is not always the exact driven distance.
-                    allowed_tariff_mismatch = max(30.0, span_km * 0.45)
-                    if target_km >= 80.0:
-                        allowed_tariff_mismatch = max(160.0, span_km * 0.45)
+                    # On sparse/simplified polylines, the projected station-to-station
+                    # span can be much shorter than the driven motorway distance. For a
+                    # route-wide match, compare the tariff matrix with GraphHopper's
+                    # measured tolled range; keep the projected span for geometry/order.
+                    comparison_km = target_km or span_km
+                    tariff_mismatch = abs(record.distance_km - comparison_km)
+                    allowed_tariff_mismatch = max(30.0, comparison_km * 0.18)
                     if tariff_mismatch > allowed_tariff_mismatch:
                         continue
 

@@ -69,17 +69,18 @@ start_graphhopper() {
     echo "  GRAPHHOPPER_RAM=8g ./scripts/setup_graphhopper.sh" >&2
     return 1
   fi
+  local wait_attempts=90
   if [[ ! -d "$ROOT/data/graph-cache" ]]; then
-    echo "Le graphe France n'est pas construit. Lance d'abord :" >&2
-    echo "  GRAPHHOPPER_RAM=8g ./scripts/setup_graphhopper.sh" >&2
-    return 1
+    wait_attempts=3600
+    echo "Le graphe France est absent : reconstruction automatique en cours."
+    echo "Cette étape peut prendre plusieurs minutes ; suivi : $LOG_DIR/graphhopper.log"
   fi
   echo "Démarrage de GraphHopper…"
   nohup java -Xms1g -Xmx"${GRAPHHOPPER_RAM:-8g}" \
     -jar "$jar" server "$ROOT/infra/graphhopper/config.yml" \
     >"$LOG_DIR/graphhopper.log" 2>&1 &
   echo $! > "$GRAPHHOPPER_PID"
-  if wait_http http://127.0.0.1:8989/info 90; then
+  if wait_http http://127.0.0.1:8989/info "$wait_attempts"; then
     echo "GraphHopper prêt."
   else
     echo "GraphHopper ne répond pas encore. Consulte : $LOG_DIR/graphhopper.log" >&2

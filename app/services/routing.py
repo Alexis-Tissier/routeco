@@ -11,7 +11,7 @@ import httpx
 
 from app.models import Coordinate
 from app.services.demo import demo_candidates
-from app.services.geo import polyline_distance_km
+from app.services.geo import haversine_km, polyline_distance_km
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,21 @@ class GraphHopperClient:
                     result.last_error,
                 )
 
+        # Native alternatives are usable even when every custom profile fails.
+        # Add them before choosing a fallback geometry so a bounded native path can
+        # seed segmented recovery instead of silently losing all economic profiles.
+        native_result = responses[-1]
+        if isinstance(native_result, Exception):
+            # A native alternative-route failure is expected on some very long
+            # searches. Do not print it as a warning when custom profiles already
+            # produced usable routes; it remains visible at INFO level.
+            log_native_failure = logger.info if candidates else logger.warning
+            log_native_failure(
+                "GraphHopper native alternatives unavailable: %s", native_result
+            )
+        else:
+            candidates.extend(native_result)
+
         # A France-wide low-toll search can still hit the server's visited-node
         # ceiling even with landmarks. Re-run only the failed profiles through
         # one or two waypoints sampled from the fastest geometry. GraphHopper
@@ -125,6 +140,17 @@ class GraphHopperClient:
             ),
             [],
         )
+        if not fastest_geometry and candidates:
+            baseline = min(
+                candidates,
+                key=lambda item: (
+                    item.get("duration_minutes", float("inf")),
+                    item.get("distance_km", float("inf")),
+                ),
+            )
+            candidate_geometry = baseline.get("geometry", [])
+            if len(candidate_geometry) >= 2:
+                fastest_geometry = candidate_geometry
         recovered_names: set[str] = set()
         if fastest_geometry and failed_profile_results:
             profile_by_name = {name: (motorway, toll, rank) for name, motorway, toll, rank in profiles}
@@ -171,12 +197,6 @@ class GraphHopperClient:
             if result.name not in recovered_names
         ]
 
-        native_result = responses[-1]
-        if isinstance(native_result, Exception):
-            logger.warning("GraphHopper native alternatives unavailable: %s", native_result)
-        else:
-            candidates.extend(native_result)
-
         candidates = self._deduplicate(candidates)
         if not candidates:
             return EngineResult(
@@ -212,19 +232,39 @@ class GraphHopperClient:
         remains usable on long France-wide journeys where low motorway/toll
         priorities can exceed the flexible-search node limit.
         """
+        direct_km = haversine_km(
+            (start.lon, start.lat),
+            (end.lon, end.lat),
+        )
+        # Three native alternatives are sufficient for regional journeys. Restore
+        # a fourth one only on France-scale routes, where diversity matters most.
+        # The supplemental request remains bounded by the 25-second timeout below.
+        native_max_paths = 4 if direct_km >= 450.0 else 3
         body: dict[str, Any] = {
             "points": [[start.lon, start.lat], [end.lon, end.lat]],
             "profile": "car",
             "locale": "fr",
             "instructions": False,
             "points_encoded": False,
-            "details": ["road_class", "toll"],
+            "details": ["road_class", "road_class_link", "toll"],
             "algorithm": "alternative_route",
-            "alternative_route.max_paths": 4,
-            "alternative_route.max_weight_factor": 1.65,
-            "alternative_route.max_share_factor": 0.82,
+            "alternative_route.max_paths": native_max_paths,
+            "alternative_route.max_weight_factor": 1.55,
+            "alternative_route.max_share_factor": 0.80,
         }
-        payload = await self._post_route(body)
+        try:
+            # Native alternatives are supplemental: custom profiles must not wait
+            # up to the global 120/180 s ceiling for them. The request already runs
+            # concurrently with the custom profiles, so this is a wall-clock cap.
+            payload = await asyncio.wait_for(
+                self._post_route(body),
+                timeout=min(self.timeout, 25.0),
+            )
+        except TimeoutError as exc:
+            raise GraphHopperRequestError(
+                408,
+                "native alternative-route timeout after 25 seconds",
+            ) from exc
         return self._paths_to_candidates(payload, "native", 0)
 
     async def _request_profile(
@@ -315,45 +355,63 @@ class GraphHopperClient:
         still applied to every leg, so the resulting path can leave the fastest
         corridor to avoid motorways or tolls.
         """
-        plans = ((0.5,), (1 / 3, 2 / 3))
+        total_km = polyline_distance_km(baseline_geometry)
+        if total_km < 450.0:
+            plans = ((0.5,), (1 / 3, 2 / 3))
+        elif total_km < 800.0:
+            plans = ((0.5,), (1 / 3, 2 / 3), (0.25, 0.5, 0.75))
+        else:
+            plans = ((0.25, 0.5, 0.75), (0.2, 0.4, 0.6, 0.8))
+
+        retry_models = self._retry_plan(motorway_priority, toll_priority)
+        models = [retry_models[0]]
+        if retry_models[-1] != retry_models[0]:
+            models.append(retry_models[-1])
+
         last_error: Exception | None = None
-        for plan_index, fractions in enumerate(plans, start=1):
-            vias = [self._point_at_fraction(baseline_geometry, value) for value in fractions]
-            points = [[start.lon, start.lat], *vias, [end.lon, end.lat]]
-            body: dict[str, Any] = {
-                "points": points,
-                "profile": "car",
-                "locale": "fr",
-                "instructions": False,
-                "points_encoded": False,
-                "details": ["road_class", "toll"],
-                "pass_through": True,
-                "custom_model": {
-                    "priority": [
-                        {
-                            "if": "road_class == MOTORWAY",
-                            "multiply_by": motorway_priority,
-                        },
-                        {"if": "toll == ALL", "multiply_by": toll_priority},
-                    ],
-                    "distance_influence": 120.0,
-                },
-            }
-            try:
-                payload = await self._post_route(body)
-                routes = self._paths_to_candidates(
-                    payload, f"{name}-seg{plan_index}", rank
-                )
-                if routes:
-                    return routes
-            except (GraphHopperRequestError, httpx.HTTPError) as exc:
-                last_error = exc
-                logger.info(
-                    "GraphHopper segmented fallback %s/%s failed: %s",
-                    name,
-                    plan_index,
-                    exc,
-                )
+        attempt_index = 0
+        for motorway, toll, distance_influence in models:
+            for fractions in plans:
+                attempt_index += 1
+                vias = [
+                    self._point_at_fraction(baseline_geometry, value)
+                    for value in fractions
+                ]
+                points = [[start.lon, start.lat], *vias, [end.lon, end.lat]]
+                body: dict[str, Any] = {
+                    "points": points,
+                    "profile": "car",
+                    "locale": "fr",
+                    "instructions": False,
+                    "points_encoded": False,
+                    "details": ["road_class", "road_class_link", "toll"],
+                    "pass_through": True,
+                    "custom_model": {
+                        "priority": [
+                            {
+                                "if": "road_class == MOTORWAY",
+                                "multiply_by": motorway,
+                            },
+                            {"if": "toll == ALL", "multiply_by": toll},
+                        ],
+                        "distance_influence": distance_influence,
+                    },
+                }
+                try:
+                    payload = await self._post_route(body)
+                    routes = self._paths_to_candidates(
+                        payload, f"{name}-seg{attempt_index}", rank
+                    )
+                    if routes:
+                        return routes
+                except (GraphHopperRequestError, httpx.HTTPError) as exc:
+                    last_error = exc
+                    logger.info(
+                        "GraphHopper segmented fallback %s/%s failed: %s",
+                        name,
+                        attempt_index,
+                        exc,
+                    )
         if last_error is not None:
             logger.warning("GraphHopper segmented fallback %s exhausted: %s", name, last_error)
         return []
@@ -402,7 +460,7 @@ class GraphHopperClient:
             "locale": "fr",
             "instructions": False,
             "points_encoded": False,
-            "details": ["road_class", "toll"],
+            "details": ["road_class", "road_class_link", "toll"],
             "custom_model": {
                 "priority": [
                     {
@@ -426,11 +484,16 @@ class GraphHopperClient:
             if len(geometry) < 2:
                 continue
             road_class_details = path.get("details", {}).get("road_class", [])
+            road_class_link_details = path.get("details", {}).get(
+                "road_class_link", []
+            )
             toll_details = path.get("details", {}).get("toll", [])
             motorway_km = self._detail_distance(
                 geometry, road_class_details, {"MOTORWAY"}
             )
-            toll_ranges = self._detail_ranges(geometry, toll_details, {"ALL", "HGV"})
+            # Routeco prices passenger vehicles (classe 1). GraphHopper's
+            # HGV value means "toll for heavy goods vehicles only", not all cars.
+            toll_ranges = self._detail_ranges(geometry, toll_details, {"ALL"})
             tolled_km = sum(item["distance_km"] for item in toll_ranges)
             total_km = float(path.get("distance", 0)) / 1000 or polyline_distance_km(
                 geometry
@@ -452,6 +515,7 @@ class GraphHopperClient:
                     "road_km": round(max(0, total_km - motorway_km), 1),
                     "tolled_km": round(tolled_km, 1),
                     "toll_ranges": toll_ranges,
+                    "road_class_link_details": road_class_link_details,
                     "geometry": geometry,
                     "source": "graphhopper",
                 }
@@ -484,15 +548,34 @@ class GraphHopperClient:
             distance = polyline_distance_km(geometry[start_index : end_index + 1])
             if distance <= 0.01:
                 continue
-            if ranges and start_index <= ranges[-1]["end_index"] + 2:
-                previous = ranges[-1]
-                previous["end_index"] = max(previous["end_index"], end_index)
-                previous["distance_km"] = round(
-                    polyline_distance_km(
-                        geometry[previous["start_index"] : previous["end_index"] + 1]
-                    ),
-                    3,
-                )
+            previous = ranges[-1] if ranges else None
+            merge = False
+            if previous is not None:
+                if start_index <= previous["end_index"]:
+                    merge = True
+                else:
+                    physical_gap = polyline_distance_km(
+                        geometry[previous["end_index"] : start_index + 1]
+                    )
+                    merge = physical_gap <= 0.75
+
+            if previous is not None and merge:
+                old_end = previous["end_index"]
+                previous["end_index"] = max(old_end, end_index)
+                if start_index <= old_end:
+                    previous["distance_km"] = round(
+                        polyline_distance_km(
+                            geometry[
+                                previous["start_index"] : previous["end_index"] + 1
+                            ]
+                        ),
+                        3,
+                    )
+                else:
+                    previous["distance_km"] = round(
+                        previous["distance_km"] + distance,
+                        3,
+                    )
             else:
                 ranges.append(
                     {
@@ -527,6 +610,9 @@ class GraphHopperClient:
                 abs(candidate["distance_km"] - other["distance_km"]) < 1.2
                 and abs(candidate["duration_minutes"] - other["duration_minutes"]) < 3
                 and abs(candidate["motorway_km"] - other["motorway_km"]) < 4
+                and abs(
+                    candidate.get("tolled_km", 0.0) - other.get("tolled_km", 0.0)
+                ) < 2.0
                 for other in kept
             )
             if not duplicate:

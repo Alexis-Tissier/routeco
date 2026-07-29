@@ -104,9 +104,9 @@ def test_native_alternative_route_request_is_bounded() -> None:
 
     assert len(routes) == 2
     assert client.body["algorithm"] == "alternative_route"
-    assert client.body["alternative_route.max_paths"] == 4
-    assert client.body["alternative_route.max_weight_factor"] == 1.65
-    assert client.body["alternative_route.max_share_factor"] == 0.82
+    assert client.body["alternative_route.max_paths"] == 3
+    assert client.body["alternative_route.max_weight_factor"] == 1.55
+    assert client.body["alternative_route.max_share_factor"] == 0.80
     assert "custom_model" not in client.body
 
 
@@ -259,3 +259,154 @@ def test_segmented_profile_uses_distance_sampled_via_points() -> None:
     assert client.bodies[1]["pass_through"] is True
     assert routes
     assert routes[0]["profile"] == "free-seg2"
+
+# ROUTECO_V034_RELIABILITY_PATCH
+def test_passenger_toll_detection_ignores_hgv_only_segments() -> None:
+    client = GraphHopperClient("http://graphhopper.test")
+    payload = {
+        "paths": [{
+            "distance": 30_000,
+            "time": 1_800_000,
+            "points": {"coordinates": [[2.0, 48.0], [2.1, 47.9], [2.2, 47.8]]},
+            "details": {"road_class": [], "toll": [[0, 1, "HGV"], [1, 2, "ALL"]]},
+        }]
+    }
+    route = client._paths_to_candidates(payload, "passenger", 0)[0]
+    assert len(route["toll_ranges"]) == 1
+    assert route["toll_ranges"][0]["start_index"] == 1
+
+
+def test_sparse_geometry_toll_ranges_are_not_merged_by_point_count() -> None:
+    geometry = [[0.0, 45.0], [0.001, 45.0], [2.0, 45.0], [2.001, 45.0]]
+    details = [[0, 1, "ALL"], [2, 3, "ALL"]]
+    ranges = GraphHopperClient._detail_ranges(geometry, details, {"ALL"})
+    assert len(ranges) == 2
+
+
+def test_deduplication_keeps_materially_different_toll_usage() -> None:
+    base = {
+        "profile": "test", "profile_rank": 0, "distance_km": 300.0,
+        "duration_minutes": 180, "motorway_km": 200.0, "road_km": 100.0,
+        "toll_ranges": [], "geometry": [[2.0, 48.0], [3.0, 47.0]],
+        "source": "graphhopper",
+    }
+    free = {**base, "id": "free", "tolled_km": 0.0}
+    paid = {**base, "id": "paid", "tolled_km": 25.0}
+    kept = GraphHopperClient._deduplicate([free, paid])
+    assert {item["id"] for item in kept} == {"free", "paid"}
+
+
+def test_native_geometry_can_seed_segmented_recovery_when_fastest_fails() -> None:
+    from app.services.routing import ProfileResult
+
+    class NativeSeedClient(GraphHopperClient):
+        def __init__(self) -> None:
+            super().__init__("http://graphhopper.test")
+            self.segmented_baselines: list[list[list[float]]] = []
+
+        async def available(self) -> bool:
+            return True
+
+        async def _request_profile(self, start, end, name, motorway_priority, toll_priority, rank) -> ProfileResult:
+            return ProfileResult(name, [], 3, "maximum nodes exceeded")
+
+        async def _request_native_alternatives(self, start, end) -> list[dict]:
+            return [{
+                "id": "native", "profile": "native", "profile_rank": 0,
+                "distance_km": 900.0, "duration_minutes": 520,
+                "motorway_km": 800.0, "road_km": 100.0, "tolled_km": 500.0,
+                "toll_ranges": [], "geometry": [[2.0, 50.0], [3.0, 48.0], [5.0, 43.0]],
+                "source": "graphhopper",
+            }]
+
+        async def _request_segmented_profile(self, start, end, name, motorway_priority, toll_priority, rank, baseline_geometry) -> list[dict]:
+            self.segmented_baselines.append(baseline_geometry)
+            if name != "free":
+                return []
+            return [{
+                "id": "recovered-free", "profile": "free-seg", "profile_rank": rank,
+                "distance_km": 930.0, "duration_minutes": 650,
+                "motorway_km": 100.0, "road_km": 830.0, "tolled_km": 0.0,
+                "toll_ranges": [], "geometry": [[2.0, 50.0], [2.4, 46.0], [5.0, 43.0]],
+                "source": "graphhopper",
+            }]
+
+    client = NativeSeedClient()
+    result = asyncio.run(client.candidates(Coordinate(lat=50.0, lon=2.0), Coordinate(lat=43.0, lon=5.0)))
+    assert client.segmented_baselines
+    assert "recovered-free" in {item["id"] for item in result.candidates}
+    assert "free" not in result.failed_profiles
+
+# ROUTECO_V034_PERFORMANCE_FOLLOWUP
+class SlowNativeAlternativeClient(GraphHopperClient):
+    def __init__(self) -> None:
+        super().__init__("http://graphhopper.test", timeout_seconds=0.01)
+
+    async def _post_route(self, body: dict) -> dict:
+        await asyncio.sleep(0.05)
+        return {"paths": []}
+
+
+def test_native_alternative_route_has_a_short_supplemental_timeout() -> None:
+    client = SlowNativeAlternativeClient()
+    try:
+        asyncio.run(
+            client._request_native_alternatives(
+                Coordinate(lat=48.0, lon=2.0),
+                Coordinate(lat=47.0, lon=3.0),
+            )
+        )
+    except GraphHopperRequestError as exc:
+        assert exc.status_code == 408
+        assert "native alternative-route timeout" in exc.detail
+    else:
+        raise AssertionError("La recherche native aurait dû expirer.")
+
+# ROUTECO_V034_ADAPTIVE_NATIVE_PATHS
+def test_native_alternative_route_uses_four_paths_on_long_distance() -> None:
+    client = NativeAlternativeClient()
+    asyncio.run(
+        client._request_native_alternatives(
+            Coordinate(lat=50.63, lon=3.06),
+            Coordinate(lat=43.30, lon=5.37),
+        )
+    )
+
+    assert client.body["alternative_route.max_paths"] == 4
+
+# ROUTECO_V034_ROAD_CLASS_LINK_DETAILS
+def test_candidate_preserves_road_class_link_details() -> None:
+    client = GraphHopperClient("http://graphhopper.test")
+    link_details = [[0, 1, False], [1, 2, True]]
+    payload = {
+        "paths": [
+            {
+                "distance": 20_000,
+                "time": 1_200_000,
+                "points": {
+                    "coordinates": [
+                        [2.0, 48.0],
+                        [2.1, 48.0],
+                        [2.2, 48.0],
+                    ]
+                },
+                "details": {
+                    "road_class": [[0, 2, "MOTORWAY"]],
+                    "road_class_link": link_details,
+                    "toll": [[0, 2, "ALL"]],
+                },
+            }
+        ]
+    }
+
+    route = client._paths_to_candidates(payload, "details", 0)[0]
+
+    assert route["road_class_link_details"] == link_details
+
+
+def test_graphhopper_config_encodes_road_class_link() -> None:
+    from pathlib import Path
+
+    config = Path("infra/graphhopper/config.yml").read_text(encoding="utf-8")
+
+    assert "road_class_link" in config

@@ -1081,3 +1081,331 @@ def test_one_osm_range_can_be_explained_by_multiple_closed_matrices(tmp_path: Pa
     assert quote.confidence == "exact"
     assert quote.cost == 11.0
     assert [(segment.entry, segment.exit) for segment in quote.segments] == [("Alpha", "Bravo"), ("Charlie", "Delta")]
+
+# ROUTECO_V034_RELIABILITY_PATCH
+def test_station_projection_uses_latitude_aware_longitude_margin(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [
+        {"name": "OFFSET", "osm_name": "Offset", "operator": "TEST", "lat": "50.050", "lon": "2.030", "type": "closed"}
+    ])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [])
+    service = TollPricingService(tmp_path)
+    projections, _ = service._project_stations([[2.0, 50.0], [2.0, 50.1]])
+    assert projections
+    assert projections[0].lateral_km < 2.5
+
+
+def test_sparse_raw_toll_ranges_are_not_merged_by_point_count(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [])
+    service = TollPricingService(tmp_path)
+    geometry = [[0.0, 45.0], [0.001, 45.0], [2.0, 45.0], [2.001, 45.0]]
+    _, cumulative = service._project_stations(geometry)
+    ranges = service._prepare_ranges(geometry, cumulative, [
+        {"start_index": 0, "end_index": 1, "distance_km": 0.1},
+        {"start_index": 2, "end_index": 3, "distance_km": 0.1},
+    ])
+    assert len(ranges) == 2
+
+
+def test_boundary_pair_rejects_gross_matrix_distance_mismatch(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [
+        {"name": "ENTRY", "osm_name": "Entry", "operator": "TEST", "lat": "45.0", "lon": "0.0", "type": "closed"},
+        {"name": "EXIT", "osm_name": "Exit", "operator": "TEST", "lat": "45.0", "lon": "0.6", "type": "closed"},
+    ])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [
+        {"operator": "TEST", "name_from": "ENTRY", "name_to": "EXIT", "distance": "500", "price1": "35.00"}
+    ])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [])
+    service = TollPricingService(tmp_path)
+    distance = 47.2
+    quote = service.quote([[0.0, 45.0], [0.6, 45.0]], distance, [{"start_index": 0, "end_index": 1, "distance_km": distance}])
+    assert quote.confidence == "estimated"
+
+
+def test_incomplete_closed_chain_keeps_residual_estimated(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [
+        {"name": "ALPHA", "osm_name": "Alpha", "operator": "NET1", "lat": "45.0", "lon": "0.0", "type": "mainline"},
+        {"name": "BRAVO", "osm_name": "Bravo", "operator": "NET1", "lat": "45.0", "lon": "0.4", "type": "mainline"},
+        {"name": "CHARLIE", "osm_name": "Charlie", "operator": "NET2", "lat": "45.0", "lon": "0.52", "type": "mainline"},
+        {"name": "DELTA", "osm_name": "Delta", "operator": "NET2", "lat": "45.0", "lon": "1.0", "type": "mainline"},
+    ])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [
+        {"operator": "NET1", "name_from": "ALPHA", "name_to": "BRAVO", "distance": "31.5", "price1": "5.00"},
+        {"operator": "NET2", "name_from": "CHARLIE", "name_to": "DELTA", "distance": "37.8", "price1": "6.00"},
+    ])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [])
+    service = TollPricingService(tmp_path)
+    geometry = [[0.0, 45.0], [0.4, 45.0], [0.52, 45.0], [1.0, 45.0]]
+    distance = 78.6
+    quote = service.quote(geometry, distance, [{"start_index": 0, "end_index": 3, "distance_km": distance}])
+    assert quote.confidence == "estimated"
+    assert any(segment.confidence == "estimated" for segment in quote.segments)
+
+
+def test_single_verified_open_gantry_resolves_its_open_range(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [
+        {"name": "OPEN ONE", "osm_name": "Open One", "operator": "TEST", "lat": "45.0", "lon": "0.5", "type": "open"}
+    ])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [
+        {"operator": "TEST", "name": "OPEN ONE", "distance": "", "price1": "2.00"}
+    ])
+    service = TollPricingService(tmp_path)
+    geometry = [[0.0, 45.0], [0.5, 45.0], [1.0, 45.0]]
+    distance = 78.6
+    quote = service.quote(
+        geometry,
+        distance,
+        [{"start_index": 0, "end_index": 2, "distance_km": distance}],
+    )
+    assert quote.confidence == "exact"
+    assert quote.cost == 2.0
+    assert len(quote.segments) == 1
+    assert quote.segments[0].entry == "Open One"
+
+
+def test_open_gantry_off_route_does_not_resolve_range(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [
+        {"name": "OPEN FAR", "osm_name": "Open Far", "operator": "TEST", "lat": "45.04", "lon": "0.5", "type": "open"}
+    ])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [
+        {"operator": "TEST", "name": "OPEN FAR", "distance": "", "price1": "2.00"}
+    ])
+    service = TollPricingService(tmp_path)
+    geometry = [[0.0, 45.0], [0.5, 45.0], [1.0, 45.0]]
+    distance = 78.6
+    quote = service.quote(
+        geometry,
+        distance,
+        [{"start_index": 0, "end_index": 2, "distance_km": distance}],
+    )
+    assert quote.confidence == "estimated"
+    assert quote.cost == 8.25
+
+
+# ROUTECO_V034_VALIDATION_HOTFIX
+def test_closed_chain_ignores_boundary_padding_but_not_internal_gaps(tmp_path: Path) -> None:
+    write_csv(tmp_path / "stations.csv", ["name", "osm_name", "operator", "lat", "lon", "type"], [
+        {"name": "ALPHA", "osm_name": "Alpha", "operator": "NET1", "lat": "45.0", "lon": "0.10", "type": "mainline"},
+        {"name": "BRAVO", "osm_name": "Bravo", "operator": "NET1", "lat": "45.0", "lon": "0.50", "type": "mainline"},
+        {"name": "CHARLIE", "osm_name": "Charlie", "operator": "NET2", "lat": "45.0", "lon": "0.506", "type": "mainline"},
+        {"name": "DELTA", "osm_name": "Delta", "operator": "NET2", "lat": "45.0", "lon": "0.90", "type": "mainline"},
+    ])
+    write_csv(tmp_path / "closed_prices.csv", ["operator", "name_from", "name_to", "distance", "price1"], [
+        {"operator": "NET1", "name_from": "ALPHA", "name_to": "BRAVO", "distance": "31.5", "price1": "5.00"},
+        {"operator": "NET2", "name_from": "CHARLIE", "name_to": "DELTA", "distance": "31.0", "price1": "6.00"},
+    ])
+    write_csv(tmp_path / "open_prices.csv", ["operator", "name", "distance", "price1"], [])
+    service = TollPricingService(tmp_path)
+    geometry = [
+        [0.0, 45.0],
+        [0.10, 45.0],
+        [0.50, 45.0],
+        [0.506, 45.0],
+        [0.90, 45.0],
+        [1.0, 45.0],
+    ]
+    distance = 78.6
+    quote = service.quote(
+        geometry,
+        distance,
+        [{"start_index": 0, "end_index": 5, "distance_km": distance}],
+    )
+    assert quote.confidence == "exact"
+    assert quote.cost == 11.0
+    assert len(quote.segments) == 2
+
+# ROUTECO_V034_OPEN_RAMP_FOLLOWUP
+def test_open_exit_ramp_is_not_charged_when_route_stays_on_mainline(tmp_path: Path) -> None:
+    write_csv(
+        tmp_path / "stations.csv",
+        ["name", "osm_name", "operator", "lat", "lon", "type"],
+        [
+            {
+                "name": "PEAGE DE MAINLINE",
+                "osm_name": "Péage principal",
+                "operator": "TEST",
+                "lat": "45.0",
+                "lon": "0.25",
+                "type": "open",
+            },
+            {
+                "name": "RAMP TEST FL E",
+                "osm_name": "Ramp Test",
+                "operator": "TEST",
+                "lat": "45.0",
+                "lon": "0.50",
+                "type": "open",
+            },
+        ],
+    )
+    write_csv(
+        tmp_path / "closed_prices.csv",
+        ["operator", "name_from", "name_to", "distance", "price1"],
+        [],
+    )
+    write_csv(
+        tmp_path / "open_prices.csv",
+        ["operator", "name", "distance", "price1"],
+        [
+            {
+                "operator": "TEST",
+                "name": "PEAGE DE MAINLINE",
+                "distance": "",
+                "price1": "4.00",
+            },
+            {
+                "operator": "TEST",
+                "name": "RAMP TEST FL E",
+                "distance": "",
+                "price1": "2.60",
+            },
+        ],
+    )
+    service = TollPricingService(tmp_path)
+    geometry = [
+        [0.0, 45.0],
+        [0.25, 45.0],
+        [0.50, 45.0],
+        [1.0, 45.0],
+    ]
+    distance = 78.6
+    quote = service.quote(
+        geometry,
+        distance,
+        [{"start_index": 0, "end_index": 3, "distance_km": distance}],
+    )
+
+    assert quote.confidence == "exact"
+    assert quote.cost == 4.0
+    assert [segment.entry for segment in quote.segments] == ["Péage principal"]
+
+# ROUTECO_V034_PHYSICAL_OPEN_TOPOLOGY
+def test_materialized_open_interchange_is_not_charged_on_mainline(tmp_path: Path) -> None:
+    write_csv(
+        tmp_path / "stations.csv",
+        ["name", "osm_name", "operator", "lat", "lon", "type"],
+        [
+            {
+                "name": "MAINLINE A",
+                "osm_name": "Mainline A",
+                "operator": "TEST",
+                "lat": "45.0",
+                "lon": "0.10",
+                "type": "mainline",
+            },
+            {
+                "name": "INTERCHANGE B",
+                "osm_name": "Interchange B",
+                "operator": "TEST",
+                "lat": "45.0",
+                "lon": "0.45",
+                "type": "closed",
+            },
+            {
+                "name": "MAINLINE C",
+                "osm_name": "Mainline C",
+                "operator": "TEST",
+                "lat": "45.0",
+                "lon": "0.80",
+                "type": "mainline",
+            },
+        ],
+    )
+    write_csv(
+        tmp_path / "closed_prices.csv",
+        ["operator", "name_from", "name_to", "distance", "price1"],
+        [],
+    )
+    write_csv(
+        tmp_path / "open_prices.csv",
+        ["operator", "name", "distance", "price1"],
+        [
+            {
+                "operator": "TEST",
+                "name": "MAINLINE A",
+                "distance": "",
+                "price1": "10.00",
+            },
+            {
+                "operator": "TEST",
+                "name": "INTERCHANGE B",
+                "distance": "",
+                "price1": "2.60",
+            },
+            {
+                "operator": "TEST",
+                "name": "MAINLINE C",
+                "distance": "",
+                "price1": "3.00",
+            },
+        ],
+    )
+    service = TollPricingService(tmp_path)
+    geometry = [
+        [0.0, 45.0],
+        [0.10, 45.0],
+        [0.45, 45.0],
+        [0.80, 45.0],
+        [1.0, 45.0],
+    ]
+    distance = 78.6
+    quote = service.quote(
+        geometry,
+        distance,
+        [{"start_index": 0, "end_index": 4, "distance_km": distance}],
+    )
+
+    assert quote.confidence == "exact"
+    assert quote.cost == 13.0
+    assert [segment.entry for segment in quote.segments] == [
+        "Mainline A",
+        "Mainline C",
+    ]
+
+# ROUTECO_V034_OPEN_RAMP_PATH_TOPOLOGY
+def test_open_interchange_requires_a_link_road(tmp_path: Path) -> None:
+    from app.services.tolls import StationProjection, TollRange, TollStation
+
+    service = TollPricingService(tmp_path)
+    service.open_prices[("TEST", "interchange")] = 2.60
+
+    station = TollStation(
+        name="INTERCHANGE",
+        osm_name="Interchange",
+        operator="TEST",
+        lat=45.0,
+        lon=1.0,
+        system_type="open",
+        physical_type="closed",
+    )
+    projection = StationProjection(
+        station=station,
+        route_km=10.2,
+        lateral_km=0.01,
+        segment_index=1,
+    )
+    toll_range = TollRange(
+        start_index=0,
+        end_index=2,
+        start_km=10.0,
+        end_km=30.0,
+        distance_km=20.0,
+    )
+
+    mainline = service._open_stations_in_range(
+        [projection],
+        toll_range,
+        [[0, 2, False]],
+    )
+    ramp = service._open_stations_in_range(
+        [projection],
+        toll_range,
+        [[0, 2, True]],
+    )
+
+    assert mainline == []
+    assert ramp == [projection]

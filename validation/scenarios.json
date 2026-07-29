@@ -106,7 +106,7 @@
   },
   {
     "id": "paris-rouen",
-    "name": "Paris → Rouen (SAPN flux libre)",
+    "name": "Paris → Rouen (A13/A14 SAPN flux libre)",
     "start": {
       "lat": 48.8566,
       "lon": 2.3522
@@ -120,8 +120,8 @@
       "exact"
     ],
     "expected_fastest_toll_eur": {
-      "min": 6.0,
-      "max": 9.0
+      "min": 15.0,
+      "max": 17.5
     }
   },
   {

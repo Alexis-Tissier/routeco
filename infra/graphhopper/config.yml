@@ -14,8 +14,8 @@ graphhopper:
   custom_models.directory: infra/graphhopper/custom_models
 
   graph.encoded_values: |
-    car_access, car_average_speed, country, road_class, road_environment,
-    roundabout, max_speed, toll
+    car_access, car_average_speed, country, road_class, road_class_link,
+    road_environment, roundabout, max_speed, toll
 
   import.osm.ignored_highways: footway,cycleway,path,pedestrian,steps,platform,bridleway
   routing.max_visited_nodes: 8000000

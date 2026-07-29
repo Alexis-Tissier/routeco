@@ -22,8 +22,11 @@ def calculate_costs(
         motorway_km * motorway_consumption / 100 + road_km * road_consumption / 100
     )
     fuel_cost = fuel_liters * fuel_price
+    rounded_fuel_cost = round(fuel_cost, 2)
+    rounded_toll_cost = round(toll_cost, 2)
     return CostBreakdown(
         fuel_liters=round(fuel_liters, 2),
-        fuel_cost=round(fuel_cost, 2),
-        total_cost=round(fuel_cost + toll_cost, 2),
+        fuel_cost=rounded_fuel_cost,
+        # The displayed components must add up to the displayed total.
+        total_cost=round(rounded_fuel_cost + rounded_toll_cost, 2),
     )
