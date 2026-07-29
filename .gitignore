@@ -34,3 +34,5 @@ data/tmp/
 # Conserver les petites matrices normalisées versionnées
 !data/tolls/.gitkeep
 !data/tolls/*.csv
+.routeco-backups/
+scripts/debug_routeco_paris_rouen_link.py
