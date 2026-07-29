@@ -1,0 +1,32 @@
+graphhopper:
+  datareader.file: data/france-latest.osm.pbf
+  graph.location: data/graph-cache
+
+  profiles:
+    - name: car
+      custom_model_files: [car.json]
+
+  # No CH: request-specific custom models are required. LM keeps them usable on large graphs.
+  profiles_ch: []
+  profiles_lm:
+    - profile: car
+
+  custom_models.directory: infra/graphhopper/custom_models
+
+  graph.encoded_values: |
+    car_access, car_average_speed, country, road_class, road_environment,
+    roundabout, max_speed, toll
+
+  import.osm.ignored_highways: footway,cycleway,path,pedestrian,steps,platform,bridleway
+  routing.max_visited_nodes: 8000000
+  routing.timeout_ms: 180000
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      bind_host: 127.0.0.1
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: 127.0.0.1

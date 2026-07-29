@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.env
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Données lourdes ou générées
+data/*.pbf
+data/*.osm
+data/*.osm.gz
+data/*.csv.gz
+data/*.sqlite
+data/ban/
+data/graph-cache/
+data/graphhopper*.jar
+data/opentolldata/
+data/logs/
+data/reports/
+data/tmp/
+.runtime/
+
+# Archives et journaux locaux
+*.log
+*.zip
+*.tar.gz
+
+# Conserver les petites matrices normalisées versionnées
+!data/tolls/.gitkeep
+!data/tolls/*.csv

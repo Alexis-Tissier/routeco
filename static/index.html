@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Détour — Optimiseur de trajet</title>
+  <meta name="description" content="Comparez temps, carburant et péages pour trouver le vrai meilleur trajet.">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Détour, accueil">
+        <span class="brand-mark">D</span>
+        <span><strong>Détour</strong><small>Optimiseur de trajet</small></span>
+      </a>
+      <div class="status" id="status"><span class="status-dot"></span><span>Vérification du moteur…</span></div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel form-panel">
+        <div class="eyebrow">Nouveau trajet</div>
+        <h1>Économiser sans perdre sa journée.</h1>
+        <p class="intro">Détour compare les trajets mixtes et garde uniquement les compromis réellement utiles.</p>
+
+        <form id="route-form">
+          <div class="route-inputs">
+            <label class="field route-field">
+              <span>Départ</span>
+              <input id="start" autocomplete="off" value="Paris" placeholder="Adresse ou ville" required>
+              <input id="start-coords" type="hidden">
+              <div class="suggestions" id="start-suggestions"></div>
+            </label>
+            <button class="swap" type="button" id="swap" aria-label="Inverser départ et arrivée">⇅</button>
+            <label class="field route-field">
+              <span>Arrivée</span>
+              <input id="end" autocomplete="off" value="Lyon" placeholder="Adresse ou ville" required>
+              <input id="end-coords" type="hidden">
+              <div class="suggestions" id="end-suggestions"></div>
+            </label>
+          </div>
+
+          <div class="section-label">Temps supplémentaire maximal</div>
+          <div class="chips" id="time-chips">
+            <button type="button" data-minutes="20">20 min</button>
+            <button type="button" data-minutes="45" class="active">45 min</button>
+            <button type="button" data-minutes="60">1 h</button>
+            <button type="button" data-minutes="90">1 h 30</button>
+            <button type="button" data-minutes="all">Tout voir</button>
+          </div>
+
+          <div class="vehicle-card">
+            <div class="vehicle-title">
+              <div class="car-icon">↗</div>
+              <div><strong>Renault Twingo 2</strong><small>Essence · classe 1</small></div>
+              <span class="saved">Profil</span>
+            </div>
+            <div class="two-cols">
+              <label class="field compact"><span>Autoroute</span><div class="unit-input"><input id="motorway-consumption" type="number" step="0.1" value="6.5"><b>L/100</b></div></label>
+              <label class="field compact"><span>Autres routes</span><div class="unit-input"><input id="road-consumption" type="number" step="0.1" value="5.5"><b>L/100</b></div></label>
+            </div>
+          </div>
+
+          <div class="fuel-row">
+            <div class="segmented" id="fuel-type">
+              <button type="button" class="active" data-fuel="SP95-E10">SP95-E10</button>
+              <button type="button" data-fuel="SP98">SP98</button>
+            </div>
+            <label class="field compact price"><span>Prix du litre</span><div class="unit-input"><input id="fuel-price" type="number" step="0.001" value="1.820"><b>€/L</b></div></label>
+          </div>
+
+          <button class="primary" id="calculate" type="submit"><span>Comparer les itinéraires</span><span>→</span></button>
+        </form>
+      </aside>
+
+      <section class="workspace">
+        <div class="map-card">
+          <div class="map-toolbar">
+            <div><span class="map-kicker">Aperçu</span><strong id="map-title">Paris → Lyon</strong></div>
+            <div class="legend"><span><i class="line active-line"></i>Sélection</span><span><i class="line alt-line"></i>Alternatives</span></div>
+          </div>
+          <svg id="route-map" viewBox="0 0 900 520" role="img" aria-label="Carte schématique des itinéraires">
+            <defs>
+              <pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(38,49,44,.07)" stroke-width="1"/></pattern>
+              <filter id="shadow"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-opacity=".16"/></filter>
+            </defs>
+            <rect width="900" height="520" fill="#eef0eb" rx="24"></rect>
+            <rect width="900" height="520" fill="url(#grid)" rx="24"></rect>
+            <g id="route-lines"></g>
+            <g id="markers"></g>
+          </svg>
+          <div class="map-note">Fond cartographique local prévu · aucun service Google, HERE ou Mapbox</div>
+        </div>
+
+        <section class="results-section">
+          <div class="results-heading">
+            <div><div class="eyebrow">Alternatives pertinentes</div><h2 id="results-title">Prêt à calculer</h2></div>
+            <div class="summary-pill" id="summary-pill">Twingo 2 · SP95-E10</div>
+          </div>
+          <div id="empty-state" class="empty-state"><strong>Choisis ta tolérance de temps.</strong><span>Nous afficherons le plus rapide, le meilleur compromis et le moins cher.</span></div>
+          <div id="results" class="results"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="/static/map-adapter.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,674 @@
+name,osm_name,operator,lat,lon,type,source,route
+Abbeville-Est,Abbeville-Est,OFFICIAL,50.0998052,1.8695407,closed,data.gouv.fr-2025,80A901640CD
+Abbeville-Nord,Abbeville-Nord,OFFICIAL,50.1353798,1.8110840,closed,data.gouv.fr-2025,80A901645CD
+Ablis,Ablis,OFFICIAL,48.5287839,1.8322206,closed,data.gouv.fr-2025,78A901105CD
+Agde-Pezenas,Agde-Pezenas,OFFICIAL,43.3739492,3.4179327,closed,data.gouv.fr-2025,34A900915CD
+Agen,Agen,OFFICIAL,44.1647839,0.6054386,closed,data.gouv.fr-2025,47A906215CD
+Aigrefeuille,Aigrefeuille,OFFICIAL,47.0692520,-1.4373991,closed,data.gouv.fr-2025,44A908310CD
+Aiguebelette,Aiguebelette,OFFICIAL,45.5768702,5.7992554,closed,data.gouv.fr-2025,73A904310CD
+Aiguillon,Aiguillon,OFFICIAL,44.2845846,0.2699251,closed,data.gouv.fr-2025,47A906210CD
+Aiton,Aiton,OFFICIAL,45.5559509,6.2481889,closed,data.gouv.fr-2025,73A904345CD
+Aix Nord,Aix Nord,OFFICIAL,45.7165999,5.9222099,closed,data.gouv.fr-2025,73A904120CD
+Aix Sud,Aix Sud,OFFICIAL,45.6536414,5.9215420,closed,data.gouv.fr-2025,73A904115CD
+Alencon Nord,Alencon Nord,OFFICIAL,48.4530085,0.1237948,closed,data.gouv.fr-2025,61A902805CD
+Alencon Nord,Alencon Nord,OFFICIAL,48.4549151,0.1302197,closed,data.gouv.fr-2025,A0028
+Alencon Sud,Alencon Sud,OFFICIAL,48.3979004,0.1045287,closed,data.gouv.fr-2025,72A902835CD
+Allaines,Allaines,OFFICIAL,48.2051965,1.8460500,closed,data.gouv.fr-2025,28A901005CD
+Allainville,Allainville,OFFICIAL,48.4564621,1.9084417,closed,data.gouv.fr-2025,78A901015CD
+Allonzier,Allonzier,OFFICIAL,45.9901721,6.1277112,closed,data.gouv.fr-2025,74A941002CD
+Amberieu,Amberieu,OFFICIAL,45.9777914,5.3126394,closed,data.gouv.fr-2025,01A904240CD
+Amblainville,Amblainville,OFFICIAL,49.2052773,2.1689904,mainline,data.gouv.fr-2025,A0016
+Amboise Chateau Renault,Amboise Chateau Renault,OFFICIAL,47.5428548,0.9848241,closed,data.gouv.fr-2025,37A901005CD
+Amiens-Nord,Amiens-Nord,OFFICIAL,49.9337520,2.2435831,closed,data.gouv.fr-2025,80A901630CD
+Amiens-Ouest,Amiens-Ouest,OFFICIAL,49.8918019,2.2382937,closed,data.gouv.fr-2025,80A901625CD
+Ancenis,Ancenis,OFFICIAL,47.4007408,-1.1953800,mainline,data.gouv.fr-2025,A0011
+Ancenis Nord,Ancenis Nord,OFFICIAL,47.4024736,-1.1939311,closed,data.gouv.fr-2025,44A901105CD
+Ancenis Sud,Ancenis Sud,OFFICIAL,47.3992710,-1.1929391,closed,data.gouv.fr-2025,44A901105CD
+Annecy Centre,Annecy Centre,OFFICIAL,45.8979493,6.0920604,closed,data.gouv.fr-2025,74A904115CD
+Annecy Nord,Annecy Nord,OFFICIAL,45.9388058,6.1170920,closed,data.gouv.fr-2025,74A904120CD
+Antibes Est,Antibes Est,OFFICIAL,43.6042535,7.0866612,closed,data.gouv.fr-2025,06A900815CD
+Antibes Est 2/2,Antibes Est 2/2,OFFICIAL,43.6027661,7.0812298,closed,data.gouv.fr-2025,06A900815CD
+Antibes Nord,Antibes Nord,OFFICIAL,43.6046063,7.0664157,mainline,data.gouv.fr-2025,A0008
+Antibes Ouest,Antibes Ouest,OFFICIAL,43.6037230,7.0694695,closed,data.gouv.fr-2025,06A900812CD
+Antibes Sud,Antibes Sud,OFFICIAL,43.6025440,7.0783877,mainline,data.gouv.fr-2025,A0008
+Arlay,Arlay,OFFICIAL,46.7778430,5.5186255,closed,data.gouv.fr-2025,39A903915CD
+Arles,Arles,OFFICIAL,43.6903939,4.5446054,mainline,data.gouv.fr-2025,A0054
+Arsy,Arsy,OFFICIAL,49.3989814,2.6990896,closed,data.gouv.fr-2025,60A900125CD
+Artenay,Artenay,OFFICIAL,48.0842154,1.8555769,closed,data.gouv.fr-2025,28A901010CD
+Artix,Artix,OFFICIAL,43.3950757,-0.5511402,closed,data.gouv.fr-2025,64A906445CD
+Arveyres,Arveyres,OFFICIAL,44.8851108,-0.2687018,mainline,data.gouv.fr-2025,A0089
+Athies,Athies,OFFICIAL,49.8385193,2.9908399,closed,data.gouv.fr-2025,80A902945CD
+Auberives,Auberives,OFFICIAL,45.3898632,4.8053305,closed,data.gouv.fr-2025,38A900705CD
+Aubignosc Est,Aubignosc Est,OFFICIAL,44.1251724,5.9785810,closed,data.gouv.fr-2025,04A905120CD
+Aubignosc OUEST,Aubignosc OUEST,OFFICIAL,44.1244462,5.9844296,closed,data.gouv.fr-2025,04A905120CD
+Audomarois A,Audomarois A,OFFICIAL,50.7197996,2.1718338,closed,data.gouv.fr-2025,62A902610CD
+Audomarois B,Audomarois B,OFFICIAL,50.7230068,2.1662380,closed,data.gouv.fr-2025,62A902610CD
+Aumale Est,Aumale Est,OFFICIAL,49.7578069,1.7007133,closed,data.gouv.fr-2025,76A902955CD
+Aumale Ouest,Aumale Ouest,OFFICIAL,49.7591004,1.6985365,closed,data.gouv.fr-2025,76A902955CD
+Auriol,Auriol,OFFICIAL,43.3669709,5.6436096,closed,data.gouv.fr-2025,A0520
+Auvours,Auvours,OFFICIAL,48.0045285,0.3127662,closed,data.gouv.fr-2025,72A902820CD
+Auxerre Nord,Auxerre Nord,OFFICIAL,47.8516005,3.5486962,closed,data.gouv.fr-2025,89A900620CD
+Auxerre Sud,Auxerre Sud,OFFICIAL,47.7968323,3.6528539,closed,data.gouv.fr-2025,89A900625CD
+Auxy,Auxy,OFFICIAL,48.0848256,2.4682498,closed,data.gouv.fr-2025,45A901925CD
+Avallon,Avallon,OFFICIAL,47.5093433,3.9920503,closed,data.gouv.fr-2025,89A900635CD
+Avignon Nord,Avignon Nord,OFFICIAL,43.9819719,4.8885224,closed,data.gouv.fr-2025,84A900725CD
+Avignon Sud,Avignon Sud,OFFICIAL,43.8930059,4.9157771,closed,data.gouv.fr-2025,84A900730CD
+Baillargues,Baillargues,OFFICIAL,43.6715421,4.0139699,mainline,data.gouv.fr-2025,A0709
+Balan,Balan,OFFICIAL,45.8510209,5.0995542,closed,data.gouv.fr-2025,01A904230CD
+Balbigny,Balbigny,OFFICIAL,45.8414812,4.1640806,closed,data.gouv.fr-2025,42A908915CD
+Bandol,Bandol,OFFICIAL,43.1464186,5.7719846,mainline,data.gouv.fr-2025,A0050
+Bandol Echangeur,Bandol Echangeur,OFFICIAL,43.1443987,5.7685272,closed,data.gouv.fr-2025,83A905015CD
+Bapaume,Bapaume,OFFICIAL,50.1043497,2.8677274,closed,data.gouv.fr-2025,62A900102CD
+Baume-Les-Dames,Baume-Les-Dames,OFFICIAL,47.3708211,6.3796975,closed,data.gouv.fr-2025,25A903635CD
+Bayonne Sud E,Bayonne Sud E,OFFICIAL,43.4609700,-1.5027610,closed,data.gouv.fr-2025,64A906315CD
+Bayonne Sud S,Bayonne Sud S,OFFICIAL,43.4621673,-1.4983880,closed,data.gouv.fr-2025,64A906315CD
+Beaufort,Beaufort,OFFICIAL,47.4681250,-0.1935246,closed,data.gouv.fr-2025,49A908510CD
+Beaulieu Sur Layon,Beaulieu Sur Layon,OFFICIAL,47.3265425,-0.6040375,mainline,data.gouv.fr-2025,A0087
+Beaumont,Beaumont,OFFICIAL,49.1990624,5.9249319,mainline,data.gouv.fr-2025,A0004
+Beaune Nord,Beaune Nord,OFFICIAL,47.0419942,4.8506043,closed,data.gouv.fr-2025,21A900615CD
+Beaune Sud,Beaune Sud,OFFICIAL,47.0025062,4.8547972,closed,data.gouv.fr-2025,21A900625CD
+Beaupont,Beaupont,OFFICIAL,46.4409656,5.2698202,closed,data.gouv.fr-2025,01A903905CD
+Beaurepaire,Beaurepaire,OFFICIAL,46.6664499,5.4188954,closed,data.gouv.fr-2025,39A903920CD
+Beautot,Beautot,OFFICIAL,49.6353035,1.0506512,closed,data.gouv.fr-2025,76A902935CD
+Beauvais-Centre,Beauvais-Centre,OFFICIAL,49.4025347,2.1213029,closed,data.gouv.fr-2025,60A901615CD
+Beauvais-Centre 1,Beauvais-Centre 1,OFFICIAL,49.4025434,2.1210816,closed,data.gouv.fr-2025,60A901615CD
+Beauvais-Centre 2,Beauvais-Centre 2,OFFICIAL,49.3992297,2.1256324,closed,data.gouv.fr-2025,60A901615CD
+Beauvais-Nord,Beauvais-Nord,OFFICIAL,49.4336733,2.1263048,closed,data.gouv.fr-2025,60A901620CD
+Bellegarde,Bellegarde,OFFICIAL,46.1162819,5.7950206,closed,data.gouv.fr-2025,01A904005CD
+Belleville S/Saone,Belleville S/Saone,OFFICIAL,46.1037915,4.7502249,closed,data.gouv.fr-2025,69A900605CD
+Benesse vers Bordeaux,Benesse vers Bordeaux,OFFICIAL,43.6239348,-1.4003340,mainline,data.gouv.fr-2025,A0063
+Benesse vers Espagne,Benesse vers Espagne,OFFICIAL,43.6241943,-1.4008263,mainline,data.gouv.fr-2025,A0063
+Berck,Berck,OFFICIAL,50.4116048,1.6900646,closed,data.gouv.fr-2025,62A901603CD
+Bernay,Bernay,OFFICIAL,49.1377112,0.5780892,closed,data.gouv.fr-2025,27A902810CD
+Bersaillin,Bersaillin,OFFICIAL,46.8492667,5.5745642,mainline,data.gouv.fr-2025,A0391
+Besancon Est,Besancon Est,OFFICIAL,47.3323147,6.1512571,closed,data.gouv.fr-2025,25A903640CD
+Besancon Nord,Besancon Nord,OFFICIAL,47.2761185,5.9880288,closed,data.gouv.fr-2025,25A903645CD
+Besancon Ouest,Besancon Ouest,OFFICIAL,47.2347295,5.8981071,closed,data.gouv.fr-2025,25A903650CD
+Beuzeville,Beuzeville,OFFICIAL,49.3378532,0.3647658,mainline,data.gouv.fr-2025,A0013
+Beuzeville Echangeur Caen,Beuzeville Echangeur Caen,OFFICIAL,49.3399411,0.3703349,closed,data.gouv.fr-2025,27A901350CD
+Beuzeville Echangeur Rouen,Beuzeville Echangeur Rouen,OFFICIAL,49.3400353,0.3706989,closed,data.gouv.fr-2025,27A901350CD
+Beynost,Beynost,OFFICIAL,45.8220139,4.9967174,mainline,data.gouv.fr-2025,A0042
+Beziers Cabrials,Beziers Cabrials,OFFICIAL,43.3439427,3.2873752,mainline,data.gouv.fr-2025,A0075
+Beziers-Ouest,Beziers-Ouest,OFFICIAL,43.3045668,3.2190879,closed,data.gouv.fr-2025,34A900925CD
+Biarritz E,Biarritz E,OFFICIAL,43.4502701,-1.5544473,closed,data.gouv.fr-2025,64A906320CD
+Biarritz S,Biarritz S,OFFICIAL,43.4504075,-1.5543669,closed,data.gouv.fr-2025,64A906320CD
+Bierre-Les-Semur,Bierre-Les-Semur,OFFICIAL,47.4365860,4.3094687,closed,data.gouv.fr-2025,21A900605CD
+Bignon,Bignon,OFFICIAL,47.1147589,-1.4919964,mainline,data.gouv.fr-2025,A0083
+Biriatou vers Bordeaux,Biriatou vers Bordeaux,OFFICIAL,43.3409050,-1.7494119,mainline,data.gouv.fr-2025,A0063
+Biriatou vers Espagne,Biriatou vers Espagne,OFFICIAL,43.3413759,-1.7496113,mainline,data.gouv.fr-2025,A0063
+Blere,Blere,OFFICIAL,47.2864850,0.9844958,closed,data.gouv.fr-2025,37A908535CD
+Blois,Blois,OFFICIAL,47.6215353,1.3464618,closed,data.gouv.fr-2025,41A901010CD
+Bolbec,Bolbec,OFFICIAL,49.5814413,0.4430865,closed,data.gouv.fr-2025,76A902920CD
+Bollene,Bollene,OFFICIAL,44.2901354,4.7509627,closed,data.gouv.fr-2025,84A900705CD
+Bonneville Est,Bonneville Est,OFFICIAL,46.0706548,6.4251379,closed,data.gouv.fr-2025,74A904025CD
+Bonneville Ouest S1,Bonneville Ouest S1,OFFICIAL,46.0733586,6.3831971,closed,data.gouv.fr-2025,74A904030CD
+Bonneville Ouest S2,Bonneville Ouest S2,OFFICIAL,46.0730180,6.3821631,closed,data.gouv.fr-2025,74A904030CD
+Boulay PSB,Boulay PSB,OFFICIAL,49.1406016,6.4681889,closed,data.gouv.fr-2025,57A900430CD
+Bourg Nord,Bourg Nord,OFFICIAL,46.2599508,5.1670117,closed,data.gouv.fr-2025,01A904035CD
+Bourg Sud,Bourg Sud,OFFICIAL,46.1456724,5.2863042,closed,data.gouv.fr-2025,01A904025CD
+Bourg-Achard,Bourg-Achard,OFFICIAL,49.3667223,0.8169643,closed,data.gouv.fr-2025,27A901335CD
+Bourges,Bourges,OFFICIAL,47.0448712,2.3417972,closed,data.gouv.fr-2025,18A907115CD
+Bourges,Bourges,OFFICIAL,47.0421911,2.3423487,closed,data.gouv.fr-2025,A0071
+Bourgoin,Bourgoin,OFFICIAL,45.5822637,5.3002073,closed,data.gouv.fr-2025,38A904325CD
+Bourgueil,Bourgueil,OFFICIAL,47.2533648,0.1666894,closed,data.gouv.fr-2025,37A908505CD
+Bourneville Annexe,Bourneville Annexe,OFFICIAL,49.3775656,0.6256659,closed,data.gouv.fr-2025,27A901340CD
+Bourneville Principale,Bourneville Principale,OFFICIAL,49.3876648,0.6013093,mainline,data.gouv.fr-2025,A0131
+Bouville,Bouville,OFFICIAL,49.5481568,0.9216427,mainline,data.gouv.fr-2025,A0150
+Bram,Bram,OFFICIAL,43.2389984,2.1000013,closed,data.gouv.fr-2025,11A906110CD
+Brignoles,Brignoles,OFFICIAL,43.4186242,6.0643320,closed,data.gouv.fr-2025,83A900815CD
+Brionne,Brionne,OFFICIAL,49.2421337,0.7724532,closed,data.gouv.fr-2025,27A902815CD
+Buchelay,Buchelay,OFFICIAL,48.9836349,1.6811606,mainline,data.gouv.fr-2025,A0013
+Bulgneville,Bulgneville,OFFICIAL,48.2157800,5.8325039,closed,data.gouv.fr-2025,88A903110CD
+CRIQUEBEUF N°20 à MAISON-BRÛLEE N°24 / ROUEN LES ESSARTS (A139),Rouen Les Essarts (groupe tarifaire A13),SAPN,49.3216000,1.0065000,closed,SAPN-2026-alias,A13/A139
+Cabariot,Cabariot,OFFICIAL,45.9440036,-0.8491766,mainline,data.gouv.fr-2025,A0837
+Cagnes Est,Cagnes Est,OFFICIAL,43.6592221,7.1489827,closed,data.gouv.fr-2025,06A900827CD
+Cagnes Ouest Nord,Cagnes Ouest Nord,OFFICIAL,43.6479589,7.1389595,closed,data.gouv.fr-2025,06A900824CD
+Cagnes Ouest Sud,Cagnes Ouest Sud,OFFICIAL,43.6432607,7.1340244,closed,data.gouv.fr-2025,06A900821CD
+Cagny,Cagny,OFFICIAL,49.1681311,-0.2471030,closed,data.gouv.fr-2025,14A901325CD
+Cahors Nord,Cahors Nord,OFFICIAL,44.5323539,1.5063643,closed,data.gouv.fr-2025,46A902020CD
+Cahors Sud,Cahors Sud,OFFICIAL,44.3426841,1.4940165,closed,data.gouv.fr-2025,46A902025CD
+Capbreton,Capbreton,OFFICIAL,43.6300736,-1.3957234,closed,data.gouv.fr-2025,40A906360CD
+Capbreton Nord,Capbreton Nord,OFFICIAL,43.6329751,-1.3907244,closed,data.gouv.fr-2025,40A906360CD
+Capbreton Sud,Capbreton Sud,OFFICIAL,43.6296049,-1.3958442,closed,data.gouv.fr-2025,40A906360CD
+Capitou,Capitou,OFFICIAL,43.4685211,6.7281110,mainline,data.gouv.fr-2025,A0008
+Capvern,Capvern,OFFICIAL,43.1033622,0.3428653,closed,data.gouv.fr-2025,65A906420CD
+Carcassonne Est,Carcassonne Est,OFFICIAL,43.2019926,2.4181630,closed,data.gouv.fr-2025,11A906120CD
+Carcassonne Ouest,Carcassonne Ouest,OFFICIAL,43.2000461,2.3104092,closed,data.gouv.fr-2025,11A906115CD
+Carnoules,Carnoules,OFFICIAL,43.2934806,6.2004579,closed,data.gouv.fr-2025,83A905765CD
+Cassis,Cassis,OFFICIAL,43.2262663,5.5832701,closed,data.gouv.fr-2025,13A905025CD
+Castelnaudary,Castelnaudary,OFFICIAL,43.2908276,1.9467888,closed,data.gouv.fr-2025,11A906105CD
+Castelsarrasin,Castelsarrasin,OFFICIAL,44.0557795,1.0973504,closed,data.gouv.fr-2025,82A906210CD
+Caussade,Caussade,OFFICIAL,44.1497273,1.5155883,closed,data.gouv.fr-2025,82A902005CD
+Cavaillon,Cavaillon,OFFICIAL,43.8198702,5.0277263,closed,data.gouv.fr-2025,13A900705CD
+Chalon Nord,Chalon Nord,OFFICIAL,46.8025354,4.8299769,closed,data.gouv.fr-2025,71A900605CD
+Chalon Sud,Chalon Sud,OFFICIAL,46.7544559,4.8331094,closed,data.gouv.fr-2025,71A900610CD
+Chamant,Chamant,OFFICIAL,49.2157943,2.6277637,mainline,data.gouv.fr-2025,A0001
+Chambourcy,Chambourcy,OFFICIAL,48.9121776,2.0456827,closed,data.gouv.fr-2025,78A901405CD
+Chambray Est depuis RD910,Chambray Est depuis RD910,OFFICIAL,47.3489654,0.7038040,closed,data.gouv.fr-2025,37A901040CD
+Chambray Est depuis RD943,Chambray Est depuis RD943,OFFICIAL,47.3489829,0.7040842,closed,data.gouv.fr-2025,37A901035CD
+Chambray Ouest depuis RD943,Chambray Ouest depuis RD943,OFFICIAL,47.3491902,0.7031211,closed,data.gouv.fr-2025,37A901035CD
+Chambray Ouest vers RD910,Chambray Ouest vers RD910,OFFICIAL,47.3495306,0.7036792,closed,data.gouv.fr-2025,37A901040CD
+Chamb�ry Nord,Chamb�ry Nord,OFFICIAL,45.6024069,5.8869522,closed,data.gouv.fr-2025,A0043
+Chanas,Chanas,OFFICIAL,45.3211674,4.8097601,closed,data.gouv.fr-2025,38A900710CD
+Chantonnay,Chantonnay,OFFICIAL,46.6270782,-1.1557342,closed,data.gouv.fr-2025,85A908320CD
+Charmont-s-Barbuise,Charmont-s-Barbuise,OFFICIAL,48.4098622,4.1439263,closed,data.gouv.fr-2025,10A902610CD
+Chartres-Est,Chartres-Est,OFFICIAL,48.4550743,1.5390383,closed,data.gouv.fr-2025,28A901105CD
+Chateau-Thierry,Chateau-Thierry,OFFICIAL,49.0784030,3.3988481,closed,data.gouv.fr-2025,02A900405CD
+Chatellerault-Nord,Chatellerault-Nord,OFFICIAL,46.8370407,0.5303940,closed,data.gouv.fr-2025,86A901005CD
+Chatellerault-Sud,Chatellerault-Sud,OFFICIAL,46.7787093,0.5044734,closed,data.gouv.fr-2025,86A901010CD
+Chatenois,Chatenois,OFFICIAL,48.2994445,5.8528971,closed,data.gouv.fr-2025,88A903115CD
+Chatillon-Laborde,Chatillon-Laborde,OFFICIAL,48.5421647,2.7974977,closed,data.gouv.fr-2025,77A900515CD
+Chatuzange Barriere,Chatuzange Barriere,OFFICIAL,45.0259024,5.0966279,mainline,data.gouv.fr-2025,A0049
+Chaumont-Semoutiers,Chaumont-Semoutiers,OFFICIAL,48.0429205,5.0592286,closed,data.gouv.fr-2025,52A900505CD
+Chemery,Chemery,OFFICIAL,47.3248261,1.5001671,closed,data.gouv.fr-2025,41A908510CD
+Chemille,Chemille,OFFICIAL,47.2359543,-0.7276340,closed,data.gouv.fr-2025,49A908720CD
+Chesnes,Chesnes,OFFICIAL,45.6556381,5.0979298,closed,data.gouv.fr-2025,38A904305CD
+Chevrieres,Chevrieres,OFFICIAL,49.3207134,2.6945241,closed,data.gouv.fr-2025,60A900120CD
+Chignin Barriere,Chignin Barriere,OFFICIAL,45.5139672,5.9998426,mainline,data.gouv.fr-2025,A0043
+Chignin Bretelle,Chignin Bretelle,OFFICIAL,45.5125626,6.0024281,closed,data.gouv.fr-2025,73A904325CD
+Chignin Les Marches,Chignin Les Marches,OFFICIAL,45.5091333,6.0061376,closed,data.gouv.fr-2025,73A904325CD
+Choisey,Choisey,OFFICIAL,47.0646421,5.4468840,closed,data.gouv.fr-2025,39A903905CD
+Cholet Nord,Cholet Nord,OFFICIAL,47.0834314,-0.8280108,closed,data.gouv.fr-2025,49A908725CD
+Cholet Sud,Cholet Sud,OFFICIAL,47.0188268,-0.8804369,closed,data.gouv.fr-2025,49A908730CD
+Clermont en Argonne,Clermont en Argonne,OFFICIAL,49.0944279,5.1017093,closed,data.gouv.fr-2025,55A900405CD
+Clermont-Barriere,Clermont-Barriere,OFFICIAL,45.8404674,3.1608344,mainline,data.gouv.fr-2025,A0071
+Cluses Amont S1,Cluses Amont S1,OFFICIAL,46.0470817,6.5969543,closed,data.gouv.fr-2025,74A904015CD
+Cluses Amont S2,Cluses Amont S2,OFFICIAL,46.0464948,6.5964821,closed,data.gouv.fr-2025,74A904015CD
+Cluses Aval S1,Cluses Aval S1,OFFICIAL,46.0495090,6.5871438,closed,data.gouv.fr-2025,74A904015CD
+Cluses Aval S2,Cluses Aval S2,OFFICIAL,46.0492437,6.5868168,closed,data.gouv.fr-2025,74A904015CD
+Cluses-Est,Cluses-Est,OFFICIAL,46.0468474,6.5964245,mainline,data.gouv.fr-2025,A0040
+Colombey-Les-Belles,Colombey-Les-Belles,OFFICIAL,48.5406511,5.9089252,closed,data.gouv.fr-2025,54A903105CD
+Combronde,Combronde,OFFICIAL,45.9960281,3.1046030,closed,data.gouv.fr-2025,63A907105CD
+Condrieu E,Condrieu E,OFFICIAL,45.5051766,4.8389910,closed,data.gouv.fr-2025,69A9007N05CD
+Condrieu S,Condrieu S,OFFICIAL,45.5058202,4.8422578,closed,data.gouv.fr-2025,69A9007N05CD
+Corze,Corze,OFFICIAL,47.5394483,-0.3411327,mainline,data.gouv.fr-2025,A0011
+Cote picarde,Cote picarde,OFFICIAL,50.2543971,1.7466957,closed,data.gouv.fr-2025,80A901650CD
+Cottevrard,Cottevrard,OFFICIAL,49.6468936,1.2427499,mainline,data.gouv.fr-2025,A0029
+Coudoux S,Coudoux S,OFFICIAL,43.5532183,5.2379213,closed,data.gouv.fr-2025,13A900725CD
+Courbes,Courbes,OFFICIAL,49.6872728,3.4664309,closed,data.gouv.fr-2025,02A902620CD
+Courcy,Courcy,OFFICIAL,49.3220493,3.9838617,mainline,data.gouv.fr-2025,A0026
+Courtenay,Courtenay,OFFICIAL,48.0598060,3.0952320,closed,data.gouv.fr-2025,89A900605CD
+Coutevroult,Coutevroult,OFFICIAL,48.8536922,2.8382332,mainline,data.gouv.fr-2025,A0004
+Coutras,Coutras,OFFICIAL,45.0120694,-0.0997476,closed,data.gouv.fr-2025,33A908910CD
+Crolles Barriere,Crolles Barriere,OFFICIAL,45.2675064,5.8961607,mainline,data.gouv.fr-2025,A0041
+Crolles Brignoud,Crolles Brignoud,OFFICIAL,45.2694195,5.8989001,closed,data.gouv.fr-2025,38A904135CD
+Crottet,Crottet,OFFICIAL,46.2867084,4.8700932,closed,data.gouv.fr-2025,01A940605CD
+Cruseilles A410,Cruseilles A410,OFFICIAL,45.9952373,6.1268985,closed,data.gouv.fr-2025,74A941002CD
+Dijon Sud,Dijon Sud,OFFICIAL,47.2633864,5.0343053,mainline,data.gouv.fr-2025,A0311
+Dijon-Arc S/Tille,Dijon-Arc S/Tille,OFFICIAL,47.3446557,5.1592199,closed,data.gouv.fr-2025,21A903115CD
+Dijon-Crimolois,Dijon-Crimolois,OFFICIAL,47.2764394,5.1394183,mainline,data.gouv.fr-2025,A0039
+Dole,Dole,OFFICIAL,47.1360597,5.5062595,closed,data.gouv.fr-2025,39A903610CD
+Dordives Est,Dordives Est,OFFICIAL,48.1714467,2.7670847,closed,data.gouv.fr-2025,77A907705CD
+Dordives Ouest,Dordives Ouest,OFFICIAL,48.1734706,2.7652559,closed,data.gouv.fr-2025,77A907705CD
+Dormans,Dormans,OFFICIAL,49.1536444,3.7169270,closed,data.gouv.fr-2025,02A900410CD
+Dourdan Nord,Dourdan Nord,OFFICIAL,48.5703180,1.9905147,closed,data.gouv.fr-2025,78A901005CD
+Dourdan Sud,Dourdan Sud,OFFICIAL,48.5689759,1.9901307,closed,data.gouv.fr-2025,78A901005CD
+Dozule Echangeur,Dozule Echangeur,OFFICIAL,49.2303129,-0.0841475,closed,data.gouv.fr-2025,14A901315CD
+Dozule Nord,Dozule Nord,OFFICIAL,49.2307113,-0.0712384,mainline,data.gouv.fr-2025,A0013
+Dozule Sud,Dozule Sud,OFFICIAL,49.2294199,-0.0765460,mainline,data.gouv.fr-2025,A0013
+Durtal,Durtal,OFFICIAL,47.6678232,-0.2597859,closed,data.gouv.fr-2025,49A901105CD
+Dury,Dury,OFFICIAL,49.8533055,2.2489973,mainline,data.gouv.fr-2025,A0029
+Ecommoy,Ecommoy,OFFICIAL,47.8204839,0.3020183,closed,data.gouv.fr-2025,72A902810CD
+Egletons,Egletons,OFFICIAL,45.4077687,2.0212699,closed,data.gouv.fr-2025,19A908940CD
+Eloise,Eloise,OFFICIAL,46.0651371,5.8638663,closed,data.gouv.fr-2025,74A904065CD
+Epretot,Epretot,OFFICIAL,49.5516937,0.3352886,mainline,data.gouv.fr-2025,A0029
+Escrennes,Escrennes,OFFICIAL,48.1163965,2.1911443,closed,data.gouv.fr-2025,45A901930CD
+Essertaux,Essertaux,OFFICIAL,49.7394259,2.2291730,closed,data.gouv.fr-2025,80A901605CD
+Esvres,Esvres,OFFICIAL,47.3072314,0.7958166,closed,data.gouv.fr-2025,37A908530CD
+Eurocentre,Eurocentre,OFFICIAL,43.7648687,1.3803392,closed,data.gouv.fr-2025,31A906205CD
+Farebersviller,Farebersviller,OFFICIAL,49.1087928,6.8548270,closed,data.gouv.fr-2025,57A900445CD
+Fecamp,Fecamp,OFFICIAL,49.6324676,0.6399999,closed,data.gouv.fr-2025,76A902925CD
+Feillens,Feillens,OFFICIAL,46.3288224,4.8824170,closed,data.gouv.fr-2025,01A904055CD
+Feurs,Feurs,OFFICIAL,45.7377087,4.1863756,closed,data.gouv.fr-2025,42A907265CD
+Fleury-En-Biere,Fleury-En-Biere,OFFICIAL,48.4285335,2.5392307,mainline,data.gouv.fr-2025,A0006
+Flixecourt,Flixecourt,OFFICIAL,50.0298321,2.0696758,closed,data.gouv.fr-2025,80A901635CD
+Fontaine Notre-Dame,Fontaine Notre-Dame,OFFICIAL,50.1756716,3.1921790,closed,data.gouv.fr-2025,59A900210CD
+Fontaine-Lariviere,Fontaine-Lariviere,OFFICIAL,47.6770843,6.9856217,mainline,data.gouv.fr-2025,A0036
+Fontainebleau,Fontainebleau,OFFICIAL,48.2896586,2.6833321,closed,data.gouv.fr-2025,77A900615CD
+Fontenay Centre,Fontenay Centre,OFFICIAL,46.4357825,-0.8211062,closed,data.gouv.fr-2025,85A908335CD
+Fontenay Ouest,Fontenay Ouest,OFFICIAL,46.4647294,-0.8767388,closed,data.gouv.fr-2025,85A908330CD
+Fontenay sur Loing,Fontenay sur Loing,OFFICIAL,48.0641951,2.7670324,closed,data.gouv.fr-2025,45A901915CD
+Foret De Troncais,Foret De Troncais,OFFICIAL,46.5064596,2.6303091,closed,data.gouv.fr-2025,03A907105CD
+Forges,Forges,OFFICIAL,48.4212911,2.9433432,closed,data.gouv.fr-2025,77A900520CD
+Fresnes,Fresnes,OFFICIAL,50.3248423,2.9115710,mainline,data.gouv.fr-2025,A0001
+Fresnes en Woevre,Fresnes en Woevre,OFFICIAL,49.1291231,5.6212581,closed,data.gouv.fr-2025,55A900420CD
+Fréjus Est,Fréjus Est,OFFICIAL,43.4722685,6.7431327,closed,data.gouv.fr-2025,83A900840CD
+Fréjus Ouest,Fréjus Ouest,OFFICIAL,43.4687357,6.7293537,closed,data.gouv.fr-2025,83A900835CD
+Futuroscope,Futuroscope,OFFICIAL,46.6698418,0.3600255,closed,data.gouv.fr-2025,86A901015CD
+Gace 1,Gace 1,OFFICIAL,48.7711008,0.3102423,closed,data.gouv.fr-2025,61A902815CD
+Gace 2,Gace 2,OFFICIAL,48.7769721,0.3034052,closed,data.gouv.fr-2025,61A902815CD
+Gallargues,Gallargues,OFFICIAL,43.7232786,4.1810146,closed,data.gouv.fr-2025,30A900925CD
+Gannat,Gannat,OFFICIAL,46.0980768,3.1357343,mainline,data.gouv.fr-2025,A0719
+Gare de peage Aire sur l'Adour Nord,Gare de peage Aire sur l'Adour Nord,OFFICIAL,43.7191670,-0.2739169,closed,data.gouv.fr-2025,A0065
+Gare de peage Aire sur l'Adour Sud,Gare de peage Aire sur l'Adour Sud,OFFICIAL,43.6682065,-0.2851206,closed,data.gouv.fr-2025,A0065
+Gare de peage Bazas,Gare de peage Bazas,OFFICIAL,44.4460578,-0.2469111,closed,data.gouv.fr-2025,A0065
+Gare de peage Captieux,Gare de peage Captieux,OFFICIAL,44.2840230,-0.2318216,closed,data.gouv.fr-2025,A0065
+Gare de peage Garlin,Gare de peage Garlin,OFFICIAL,43.5635654,-0.2964832,closed,data.gouv.fr-2025,A0065
+Gare de peage Le Caloy,Gare de peage Le Caloy,OFFICIAL,43.9510972,-0.3900854,closed,data.gouv.fr-2025,A0065
+Gare de peage Roquefort,Gare de peage Roquefort,OFFICIAL,44.0463832,-0.3366692,closed,data.gouv.fr-2025,A0065
+Gare de peage Theze,Gare de peage Theze,OFFICIAL,43.4675215,-0.3178465,closed,data.gouv.fr-2025,A0065
+Gares de peage de saint germain,Gares de peage de saint germain,OFFICIAL,44.1340818,3.0255935,mainline,data.gouv.fr-2025,A0075
+Garons,Garons,OFFICIAL,43.7612503,4.4274938,closed,data.gouv.fr-2025,30A905415CD
+Gauchy,Gauchy,OFFICIAL,49.8117322,3.2959704,closed,data.gouv.fr-2025,02A902615CD
+Genay,Genay,OFFICIAL,45.9003677,4.8193302,closed,data.gouv.fr-2025,69A904615CD
+Gendrey,Gendrey,OFFICIAL,47.1833418,5.7088292,closed,data.gouv.fr-2025,39A903605CD
+Gerzat-Ville,Gerzat-Ville,OFFICIAL,45.8419659,3.1608082,closed,data.gouv.fr-2025,63A907115CD
+Gignac,Gignac,OFFICIAL,44.9937891,1.5275064,mainline,data.gouv.fr-2025,A0020
+Gondreville la Franche,Gondreville la Franche,OFFICIAL,48.0608428,2.6676028,closed,data.gouv.fr-2025,45A901920CD
+Grans,Grans,OFFICIAL,43.6229649,5.0835533,closed,data.gouv.fr-2025,13A905415CD
+Groissiat,Groissiat,OFFICIAL,46.2271149,5.6175183,mainline,data.gouv.fr-2025,A0404
+Guiche,Guiche,OFFICIAL,43.5124983,-1.2229466,closed,data.gouv.fr-2025,64A906430CD
+Gye,Gye,OFFICIAL,48.6294479,5.8834024,mainline,data.gouv.fr-2025,A0031
+Hardivillers,Hardivillers,OFFICIAL,49.6081144,2.2020385,closed,data.gouv.fr-2025,60A901625CD
+Haudricourt,Haudricourt,OFFICIAL,49.7592322,1.7022370,mainline,data.gouv.fr-2025,A0029
+Hermillon,Hermillon,OFFICIAL,45.2989264,6.3552856,closed,data.gouv.fr-2025,73A904360CD
+Herquelingue,Herquelingue,OFFICIAL,50.6889744,1.6418988,mainline,data.gouv.fr-2025,A0016
+Heudebouville,Heudebouville,OFFICIAL,49.1912869,1.2326316,mainline,data.gouv.fr-2025,A0013
+Heudebouville Echangeur,Heudebouville Echangeur,OFFICIAL,49.1914772,1.2324462,closed,data.gouv.fr-2025,27A901315CD
+Hochfelden,Hochfelden,OFFICIAL,48.7704399,7.6009052,closed,data.gouv.fr-2025,67A900415CD
+Hochfelden Ouest,Hochfelden Ouest,OFFICIAL,48.7687943,7.6021584,closed,data.gouv.fr-2025,67A900415CD
+Hordain,Hordain,OFFICIAL,50.2294523,3.2722206,mainline,data.gouv.fr-2025,A0002
+Incarville,Incarville,OFFICIAL,49.2463003,1.1836769,mainline,data.gouv.fr-2025,A0154
+Isques,Isques,OFFICIAL,50.6739380,1.6599126,closed,data.gouv.fr-2025,62A901612CD
+Jarny,Jarny,OFFICIAL,49.1999447,5.9012239,closed,data.gouv.fr-2025,54A900405CD
+Joigny,Joigny,OFFICIAL,47.9382860,3.2441185,closed,data.gouv.fr-2025,89A900615CD
+Joue En Charnie,Joue En Charnie,OFFICIAL,48.0043242,-0.2175938,closed,data.gouv.fr-2025,72A908105CD
+Jules Verne,Jules Verne,OFFICIAL,49.8592184,2.3944238,mainline,data.gouv.fr-2025,A0029
+L'Arrageois,L'Arrageois,OFFICIAL,50.2686467,2.8691705,closed,data.gouv.fr-2025,62A900104CD
+L'Isle d'Abeau Centre,L'Isle d'Abeau Centre,OFFICIAL,45.6050051,5.2342806,closed,data.gouv.fr-2025,38A904320CD
+L'Isle-S/Le-Doubs,L'Isle-S/Le-Doubs,OFFICIAL,47.4124405,6.5856230,closed,data.gouv.fr-2025,25A903630CD
+L'Union vers Toulouse,L'Union vers Toulouse,OFFICIAL,43.6453416,1.4977158,closed,data.gouv.fr-2025,31A906801CD
+L'Union vers l'Union,L'Union vers l'Union,OFFICIAL,43.6450409,1.4978906,closed,data.gouv.fr-2025,31A906801CD
+La Bachellerie,La Bachellerie,OFFICIAL,45.1480579,1.1747645,closed,data.gouv.fr-2025,24A908935CD
+La Barque,La Barque,OFFICIAL,43.4831206,5.5397617,mainline,data.gouv.fr-2025,A0008
+La Baume d'Hostun,La Baume d'Hostun,OFFICIAL,45.0664498,5.2035226,closed,data.gouv.fr-2025,26A904905CD
+La Boisse,La Boisse,OFFICIAL,45.8290801,5.0322133,mainline,data.gouv.fr-2025,01A904220CD
+La Boisse,La Boisse,OFFICIAL,45.8287355,5.0311070,mainline,data.gouv.fr-2025,A0432
+La Boisse - Montluel,La Boisse - Montluel,OFFICIAL,45.8407621,5.0470114,closed,data.gouv.fr-2025,01A904225CD
+La Brillanne,La Brillanne,OFFICIAL,43.9239375,5.8938338,closed,data.gouv.fr-2025,04A905110CD
+La Ciotat,La Ciotat,OFFICIAL,43.2051152,5.5906781,mainline,data.gouv.fr-2025,A0050
+La Ciotat Ech.,La Ciotat Ech.,OFFICIAL,43.2018916,5.5943432,closed,data.gouv.fr-2025,13A905030CD
+La Cotiere,La Cotiere,OFFICIAL,45.8343995,5.0309486,mainline,data.gouv.fr-2025,01A904220CD
+La Croix-Chalon,La Croix-Chalon,OFFICIAL,46.1776709,5.5589905,closed,data.gouv.fr-2025,01A940405CD
+La Ferte Bernard,La Ferte Bernard,OFFICIAL,48.1500841,0.6877054,closed,data.gouv.fr-2025,72A901105CD
+La Gravelle,La Gravelle,OFFICIAL,48.0829153,-1.0375817,mainline,data.gouv.fr-2025,A0081
+La Negresse vers Bordeaux,La Negresse vers Bordeaux,OFFICIAL,43.4483635,-1.5533607,mainline,data.gouv.fr-2025,A0063
+La Negresse vers Espagne,La Negresse vers Espagne,OFFICIAL,43.4488080,-1.5533128,mainline,data.gouv.fr-2025,A0063
+La Neuvillette,La Neuvillette,OFFICIAL,49.2976779,3.9980855,closed,data.gouv.fr-2025,51A902605CD
+La Reole,La Reole,OFFICIAL,44.5113388,-0.0493964,closed,data.gouv.fr-2025,33A906220CD
+La Roche Sur Yon,La Roche Sur Yon,OFFICIAL,46.6726231,-1.3457790,mainline,data.gouv.fr-2025,A0087
+La Saulce,La Saulce,OFFICIAL,44.4340559,6.0242603,mainline,data.gouv.fr-2025,A0051
+La Thibaudiere,La Thibaudiere,OFFICIAL,47.3304551,0.6879208,closed,data.gouv.fr-2025,37A901045CD
+La Tour du Pin,La Tour du Pin,OFFICIAL,45.5618560,5.4289698,closed,data.gouv.fr-2025,38A904335CD
+La Tour du Pin Est,La Tour du Pin Est,OFFICIAL,45.5571687,5.4625386,closed,data.gouv.fr-2025,38A904340CD
+La Turbie,La Turbie,OFFICIAL,43.7439264,7.3786068,mainline,data.gouv.fr-2025,A0008
+La Turbie Echangeur,La Turbie Echangeur,OFFICIAL,43.7437983,7.3781849,closed,data.gouv.fr-2025,06A900851CD
+La Verrie,La Verrie,OFFICIAL,46.9447774,-0.9766955,closed,data.gouv.fr-2025,85A908705CD
+La Veuve,La Veuve,OFFICIAL,49.0422244,4.3209820,closed,data.gouv.fr-2025,51A900430CD
+Labastide Murat,Labastide Murat,OFFICIAL,44.6981428,1.5805748,closed,data.gouv.fr-2025,46A902015CD
+Laghet Tunnel,Laghet Tunnel,OFFICIAL,43.7454412,7.3785179,closed,data.gouv.fr-2025,06A950005CD
+Lamotte-Beuvron,Lamotte-Beuvron,OFFICIAL,47.5818442,1.9906176,closed,data.gouv.fr-2025,41A907105CD
+Lancon,Lancon,OFFICIAL,43.5936789,5.1748394,mainline,data.gouv.fr-2025,A0007
+Langon,Langon,OFFICIAL,44.5443635,-0.2620079,closed,data.gouv.fr-2025,33A906210CD
+Langres Nord,Langres Nord,OFFICIAL,47.9352684,5.2868775,closed,data.gouv.fr-2025,52A903110CD
+Langres Sud,Langres Sud,OFFICIAL,47.7924134,5.2262958,closed,data.gouv.fr-2025,52A903105CD
+Lannemezan,Lannemezan,OFFICIAL,43.0977294,0.3903067,closed,data.gouv.fr-2025,65A906425CD
+Laon Chambry,Laon Chambry,OFFICIAL,49.6077321,3.6609350,closed,data.gouv.fr-2025,02A902625CD
+Laval-Est,Laval-Est,OFFICIAL,48.1076170,-0.7384283,closed,data.gouv.fr-2025,53A908110CD
+Laval-Ouest,Laval-Ouest,OFFICIAL,48.1045656,-0.8343555,closed,data.gouv.fr-2025,53A908115CD
+Le Bethunois,Le Bethunois,OFFICIAL,50.5141082,2.6177795,closed,data.gouv.fr-2025,62A902625CD
+Le Boulou,Le Boulou,OFFICIAL,42.5235231,2.8176124,closed,data.gouv.fr-2025,66A900915CD
+Le Canet De Meyreuil,Le Canet De Meyreuil,OFFICIAL,43.4945665,5.5250984,closed,data.gouv.fr-2025,13A900820CD
+Le Cannet Des Maures,Le Cannet Des Maures,OFFICIAL,43.3934964,6.3521527,closed,data.gouv.fr-2025,83A905770CD
+Le Crozet,Le Crozet,OFFICIAL,45.0454833,5.6787926,mainline,data.gouv.fr-2025,A0051N
+Le Lievinois,Le Lievinois,OFFICIAL,50.4378146,2.7071655,closed,data.gouv.fr-2025,62A902635CD
+Le Mans Nord,Le Mans Nord,OFFICIAL,48.0503479,0.1739048,closed,data.gouv.fr-2025,72A901115CD
+Le Mans Ouest,Le Mans Ouest,OFFICIAL,47.9736045,0.0575882,closed,data.gouv.fr-2025,72A901130CD
+Le Mans Ouest,Le Mans Ouest,OFFICIAL,47.9819474,0.0543508,closed,data.gouv.fr-2025,A0011
+Le Mans Sud,Le Mans Sud,OFFICIAL,47.9738377,0.0574648,closed,data.gouv.fr-2025,72A901130CD
+Le Miroir,Le Miroir,OFFICIAL,46.5474533,5.3266742,closed,data.gouv.fr-2025,71A903905CD
+Le Muy,Le Muy,OFFICIAL,43.4606554,6.5510560,closed,data.gouv.fr-2025,83A900825CD
+Le Perthus,Le Perthus,OFFICIAL,42.5277079,2.8215581,mainline,data.gouv.fr-2025,A0009
+Le Tourneau,Le Tourneau,OFFICIAL,47.9930011,2.6776032,closed,data.gouv.fr-2025,45A907710CD
+Le Touvet,Le Touvet,OFFICIAL,45.3472699,5.9635400,closed,data.gouv.fr-2025,38A904140CD
+Les Abrets,Les Abrets,OFFICIAL,45.5714667,5.6042483,closed,data.gouv.fr-2025,38A904345CD
+Les Adrets Nord,Les Adrets Nord,OFFICIAL,43.5447724,6.8118698,closed,data.gouv.fr-2025,83A900845CD
+Les Adrets Sud,Les Adrets Sud,OFFICIAL,43.5441530,6.8111536,closed,data.gouv.fr-2025,83A900845CD
+Les Eprunes,Les Eprunes,OFFICIAL,48.5894021,2.6556973,mainline,data.gouv.fr-2025,A0005
+Les Essarts,Les Essarts,OFFICIAL,46.7904941,-1.1946351,closed,data.gouv.fr-2025,85A908315CD
+Les Herbiers,Les Herbiers,OFFICIAL,46.9020110,-1.0466926,closed,data.gouv.fr-2025,85A908710CD
+Les Martres D'Artiere,Les Martres D'Artiere,OFFICIAL,45.8279191,3.2414715,mainline,data.gouv.fr-2025,A0089
+Lescar,Lescar,OFFICIAL,43.3451923,-0.4186717,closed,data.gouv.fr-2025,64A906455CD
+Lestelle,Lestelle,OFFICIAL,43.1182365,0.9004568,mainline,data.gouv.fr-2025,A0064
+Lestelle St Martory E,Lestelle St Martory E,OFFICIAL,43.1176043,0.8928179,closed,data.gouv.fr-2025,31A906409CD
+Lestelle St Martory S,Lestelle St Martory S,OFFICIAL,43.1176906,0.8927151,closed,data.gouv.fr-2025,31A906409CD
+Leucate,Leucate,OFFICIAL,42.9389942,2.9730355,closed,data.gouv.fr-2025,11A900925CD
+Lezignan,Lezignan,OFFICIAL,43.1719423,2.7410954,closed,data.gouv.fr-2025,11A906125CD
+Lezoux,Lezoux,OFFICIAL,45.8485521,3.3838427,closed,data.gouv.fr-2025,63A908930CD
+Libourne Nord,Libourne Nord,OFFICIAL,44.9572703,-0.2452800,closed,data.gouv.fr-2025,33A908905CD
+Lillers,Lillers,OFFICIAL,50.5527906,2.4629706,closed,data.gouv.fr-2025,62A902620CD
+Longue,Longue,OFFICIAL,47.4045145,-0.1161107,closed,data.gouv.fr-2025,49A908515CD
+Loriol,Loriol,OFFICIAL,44.7569052,4.7913411,closed,data.gouv.fr-2025,26A900720CD
+Loupershouse,Loupershouse,OFFICIAL,49.0753486,6.8968408,mainline,data.gouv.fr-2025,A0004
+Luigny,Luigny,OFFICIAL,48.2343239,1.0332237,closed,data.gouv.fr-2025,28A901115CD
+Lunel,Lunel,OFFICIAL,43.7027500,4.1198150,closed,data.gouv.fr-2025,34A900905CD
+Lusse,Lusse,OFFICIAL,48.2921613,7.0845707,closed,data.gouv.fr-2025,N0159
+Macon Centre,Macon Centre,OFFICIAL,46.3400787,4.8472728,closed,data.gouv.fr-2025,71A904005CD
+Macon Nord,Macon Nord,OFFICIAL,46.3660417,4.8392194,closed,data.gouv.fr-2025,71A900620CD
+Macon Sud,Macon Sud,OFFICIAL,46.2830405,4.7928066,closed,data.gouv.fr-2025,71A900625CD
+Magnant,Magnant,OFFICIAL,48.1791524,4.4405530,closed,data.gouv.fr-2025,10A900520CD
+Manosque,Manosque,OFFICIAL,43.8075695,5.8132918,closed,data.gouv.fr-2025,04A905105CD
+Manzat,Manzat,OFFICIAL,45.9540941,2.9829151,closed,data.gouv.fr-2025,63A908915CD
+Maresche,Maresche,OFFICIAL,48.1964626,0.1688376,closed,data.gouv.fr-2025,72A902825CD
+Marmande,Marmande,OFFICIAL,44.4347352,0.1328900,closed,data.gouv.fr-2025,47A906205CD
+Marolles-Sur-Seine,Marolles-Sur-Seine,OFFICIAL,48.3800484,3.0204332,closed,data.gouv.fr-2025,77A900525CD
+Marquion,Marquion,OFFICIAL,50.2021167,3.1069658,closed,data.gouv.fr-2025,62A902650CD
+Martel,Martel,OFFICIAL,44.9933667,1.5315745,closed,data.gouv.fr-2025,46A902005CD
+Masnieres,Masnieres,OFFICIAL,50.0686414,3.1727211,closed,data.gouv.fr-2025,59A902605CD
+Maurepas,Maurepas,OFFICIAL,49.9656449,2.8632860,closed,data.gouv.fr-2025,80A900120CD
+Mazeres Saverdun,Mazeres Saverdun,OFFICIAL,43.2344472,1.6360292,closed,data.gouv.fr-2025,09A906605CD
+Mer,Mer,OFFICIAL,47.7288817,1.5082879,closed,data.gouv.fr-2025,41A901005CD
+Meru,Meru,OFFICIAL,49.2105363,2.1504959,closed,data.gouv.fr-2025,60A901610CD
+Meung Sur Loire,Meung Sur Loire,OFFICIAL,47.8327652,1.6689681,closed,data.gouv.fr-2025,45A901020CD
+Meyrargues,Meyrargues,OFFICIAL,43.6613054,5.5035341,mainline,data.gouv.fr-2025,A0051
+Mionnay,Mionnay,OFFICIAL,45.8830218,4.8990161,closed,data.gouv.fr-2025,01A904605CD
+Mirambeau,Mirambeau,OFFICIAL,45.3777674,-0.5796149,closed,data.gouv.fr-2025,17A901020CD
+Moirans Nord,Moirans Nord,OFFICIAL,45.3233557,5.6031091,closed,data.gouv.fr-2025,38A904815CD
+Moirans Sud,Moirans Sud,OFFICIAL,45.3195732,5.6081642,closed,data.gouv.fr-2025,38A904815CD
+Monaco Tunnel,Monaco Tunnel,OFFICIAL,43.7449878,7.3731346,closed,data.gouv.fr-2025,A0500
+Monnaie,Monnaie,OFFICIAL,47.4915286,0.8245508,mainline,data.gouv.fr-2025,A0010
+Mont-Choisy,Mont-Choisy,OFFICIAL,48.9097702,4.2879130,closed,data.gouv.fr-2025,51A902625CD
+Montabon,Montabon,OFFICIAL,47.6863391,0.3709603,closed,data.gouv.fr-2025,72A902805CD
+Montaigu,Montaigu,OFFICIAL,46.9594953,-1.3530169,closed,data.gouv.fr-2025,85A908305CD
+Montauban Nord,Montauban Nord,OFFICIAL,44.0525433,1.4102956,mainline,data.gouv.fr-2025,A0020
+Montauban Sud,Montauban Sud,OFFICIAL,43.9287351,1.3136987,closed,data.gouv.fr-2025,82A906215CD
+Montbrison,Montbrison,OFFICIAL,45.6372455,4.1962616,closed,data.gouv.fr-2025,42A907270CD
+Montelimar Nord,Montelimar Nord,OFFICIAL,44.6689462,4.7949899,closed,data.gouv.fr-2025,26A900725CD
+Montelimar Sud,Montelimar Sud,OFFICIAL,44.4813253,4.7634725,closed,data.gouv.fr-2025,26A900730CD
+Montesson,Montesson,OFFICIAL,48.9134797,2.1603989,mainline,data.gouv.fr-2025,A0014
+Montgiscard,Montgiscard,OFFICIAL,43.4608289,1.5884657,closed,data.gouv.fr-2025,31A906140CD
+Montigny-Le-Roi,Montigny-Le-Roi,OFFICIAL,47.9973954,5.5118972,closed,data.gouv.fr-2025,52A903115CD
+Montlucon,Montlucon,OFFICIAL,46.3967466,2.7148420,mainline,data.gouv.fr-2025,A0071
+Montmarault,Montmarault,OFFICIAL,46.3277241,2.9663678,closed,data.gouv.fr-2025,03A907115CD
+Montmelian,Montmelian,OFFICIAL,45.4948585,6.0571471,closed,data.gouv.fr-2025,73A904330CD
+Montpellier Saint Jean De Vedas,Montpellier Saint Jean De Vedas,OFFICIAL,43.5617532,3.8301586,mainline,data.gouv.fr-2025,A0709
+Montpon,Montpon,OFFICIAL,44.9855524,0.1548700,closed,data.gouv.fr-2025,24A908905CD
+Montrejeau,Montrejeau,OFFICIAL,43.1022106,0.5948549,closed,data.gouv.fr-2025,31A906403CD
+Montreuil,Montreuil,OFFICIAL,49.0109902,3.1480548,mainline,data.gouv.fr-2025,A0004
+Montreuil bretelle vers Paris,Montreuil bretelle vers Paris,OFFICIAL,49.0132455,3.1551759,closed,data.gouv.fr-2025,77A900460CD
+Montreuil bretelles vers Reims,Montreuil bretelles vers Reims,OFFICIAL,49.0132468,3.1552254,closed,data.gouv.fr-2025,77A900460CD
+Monts - Sorigny,Monts - Sorigny,OFFICIAL,47.2547016,0.6710304,closed,data.gouv.fr-2025,37A901055CD
+Mourmelon,Mourmelon,OFFICIAL,49.0447325,4.3227302,closed,data.gouv.fr-2025,51A900430CD
+Muret depuis Toulouse,Muret depuis Toulouse,OFFICIAL,43.5055827,1.3517759,mainline,data.gouv.fr-2025,A0064
+Muret vers Toulouse,Muret vers Toulouse,OFFICIAL,43.5052386,1.3521073,mainline,data.gouv.fr-2025,A0064
+Mussidan Barriere,Mussidan Barriere,OFFICIAL,45.0653930,0.4298157,mainline,data.gouv.fr-2025,A0089
+Mussidan Est,Mussidan Est,OFFICIAL,45.0654857,0.4298649,closed,data.gouv.fr-2025,24A908915CD
+Mussidan Sud,Mussidan Sud,OFFICIAL,45.0105076,0.3773381,closed,data.gouv.fr-2025,24A908910CD
+Myennes,Myennes,OFFICIAL,47.4374974,2.9407170,mainline,data.gouv.fr-2025,A0077
+Nailloux,Nailloux,OFFICIAL,43.3823985,1.6168003,closed,data.gouv.fr-2025,31A906605CD
+Nangy,Nangy,OFFICIAL,46.1529751,6.2951925,mainline,data.gouv.fr-2025,A0040
+Narbonne Est,Narbonne Est,OFFICIAL,43.1790601,3.0347822,closed,data.gouv.fr-2025,11A900905CD
+Narbonne Sud,Narbonne Sud,OFFICIAL,43.1644834,2.9902007,closed,data.gouv.fr-2025,11A900910CD
+Necy Est,Necy Est,OFFICIAL,48.8233232,-0.1350357,closed,data.gouv.fr-2025,A0088
+Necy Ouest,Necy Ouest,OFFICIAL,48.8232774,-0.1351444,closed,data.gouv.fr-2025,A0088
+Nemours,Nemours,OFFICIAL,48.2695442,2.7133747,closed,data.gouv.fr-2025,77A900620CD
+Neufchatel-Hardelot,Neufchatel-Hardelot,OFFICIAL,50.6103944,1.6569513,closed,data.gouv.fr-2025,62A901609CD
+Neuille Pont Pierre,Neuille Pont Pierre,OFFICIAL,47.5552287,0.5959577,closed,data.gouv.fr-2025,37A902805CD
+Nimes Ouest,Nimes Ouest,OFFICIAL,43.8139402,4.3426717,closed,data.gouv.fr-2025,30A905405CD
+Niort Est,Niort Est,OFFICIAL,46.3553793,-0.3312599,closed,data.gouv.fr-2025,79A908310CD
+Niort Nord,Niort Nord,OFFICIAL,46.4196834,-0.3969242,closed,data.gouv.fr-2025,79A908305CD
+Niort Ouest,Niort Ouest,OFFICIAL,46.3879056,-0.6477709,closed,data.gouv.fr-2025,85A908340CD
+Niort Sud,Niort Sud,OFFICIAL,46.2440700,-0.4606319,closed,data.gouv.fr-2025,79A901020CD
+Nitry,Nitry,OFFICIAL,47.6591096,3.8795220,closed,data.gouv.fr-2025,89A900630CD
+Noeux-les-Mines,Noeux-les-Mines,OFFICIAL,50.4869532,2.6840244,closed,data.gouv.fr-2025,62A902630CD
+Noiretable,Noiretable,OFFICIAL,45.8500185,3.7936531,closed,data.gouv.fr-2025,42A908905CD
+Nord S1 (SAUGNACQ ET MURET),Nord S1 (SAUGNACQ ET MURET),OFFICIAL,44.3471812,-0.8605220,mainline,data.gouv.fr-2025,A0063
+Nord S2 (SAUGNACQ ET MURET),Nord S2 (SAUGNACQ ET MURET),OFFICIAL,44.3470209,-0.8600016,mainline,data.gouv.fr-2025,A0063
+Nuits-St-Georges,Nuits-St-Georges,OFFICIAL,47.1309365,4.9673173,closed,data.gouv.fr-2025,21A903105CD
+Nîmes Centre,Nîmes Centre,OFFICIAL,43.8074745,4.3744751,closed,data.gouv.fr-2025,30A905410CD
+Nîmes Est,Nîmes Est,OFFICIAL,43.8560699,4.4206259,closed,data.gouv.fr-2025,30A900915CD
+Olivet,Olivet,OFFICIAL,47.8408363,1.8694217,closed,data.gouv.fr-2025,45A907110CD
+Ondres E,Ondres E,OFFICIAL,43.5413750,-1.4349009,closed,data.gouv.fr-2025,40A906365CD
+Ondres S,Ondres S,OFFICIAL,43.5415074,-1.4351057,closed,data.gouv.fr-2025,40A906365CD
+Orange Centre,Orange Centre,OFFICIAL,44.1353141,4.7955839,closed,data.gouv.fr-2025,84A900715CD
+Orange Nord,Orange Nord,OFFICIAL,44.1734814,4.7584459,closed,data.gouv.fr-2025,84A900710CD
+Orange Sud,Orange Sud,OFFICIAL,44.1109655,4.8453553,closed,data.gouv.fr-2025,84A900720CD
+Orbec 1,Orbec 1,OFFICIAL,49.0317148,0.4448532,closed,data.gouv.fr-2025,27A902805CD
+Orbec 2,Orbec 2,OFFICIAL,49.0370849,0.4415047,closed,data.gouv.fr-2025,27A902805CD
+Orleans-Centre,Orleans-Centre,OFFICIAL,47.8980399,1.8527927,closed,data.gouv.fr-2025,45A907105CD
+Orleans-Nord,Orleans-Nord,OFFICIAL,47.9495843,1.8547302,closed,data.gouv.fr-2025,45A901010CD
+Ormes,Ormes,OFFICIAL,49.0539034,4.2860719,mainline,data.gouv.fr-2025,A0026
+Orthez,Orthez,OFFICIAL,43.4677778,-0.7482503,closed,data.gouv.fr-2025,64A906440CD
+PEAGE PONT NORMANDIE,PEAGE PONT NORMANDIE,OFFICIAL,49.4498611,0.2715790,mainline,data.gouv.fr-2025,N1029
+PEAGE PONT TANCARVILLE,PEAGE PONT TANCARVILLE,OFFICIAL,49.4637591,0.4738566,mainline,data.gouv.fr-2025,N0182
+POISSY / ORGEVAL N°7 à MANTES-SUD N°12,Buchelay (groupe tarifaire A13),SAPN,48.9836349,1.6811606,mainline,SAPN-2026-alias,A13
+Pamiers,Pamiers,OFFICIAL,43.1541603,1.6159074,mainline,data.gouv.fr-2025,A0066
+Parigne L'Eveque,Parigne L'Eveque,OFFICIAL,47.9556488,0.3201096,closed,data.gouv.fr-2025,72A902815CD
+Pas De Trets,Pas De Trets,OFFICIAL,43.3867351,5.6008626,closed,data.gouv.fr-2025,13A905205CD
+Pau Centre,Pau Centre,OFFICIAL,43.3305171,-0.3507887,closed,data.gouv.fr-2025,64A906460CD
+Perouges,Perouges,OFFICIAL,45.8608135,5.1812532,closed,data.gouv.fr-2025,01A904235CD
+Perpignan Nord,Perpignan Nord,OFFICIAL,42.7817386,2.8973133,closed,data.gouv.fr-2025,66A900905CD
+Perpignan Sud,Perpignan Sud,OFFICIAL,42.6667798,2.8590306,closed,data.gouv.fr-2025,66A900910CD
+Pertuis Nord,Pertuis Nord,OFFICIAL,43.6621539,5.4978175,closed,data.gouv.fr-2025,13A905125CD
+Pertuis Sud,Pertuis Sud,OFFICIAL,43.6612482,5.5028404,closed,data.gouv.fr-2025,13A905125CD
+Peyrehorade,Peyrehorade,OFFICIAL,43.5159642,-1.1042199,closed,data.gouv.fr-2025,40A906405CD
+Peyruis,Peyruis,OFFICIAL,44.0388619,5.9632467,closed,data.gouv.fr-2025,04A905115CD
+Phalsbourg,Phalsbourg,OFFICIAL,48.7720926,7.2405891,closed,data.gouv.fr-2025,57A900460CD
+Plateau,Plateau,OFFICIAL,50.6756439,1.6625629,closed,data.gouv.fr-2025,62A901612CD
+Podensac,Podensac,OFFICIAL,44.6074387,-0.3668707,closed,data.gouv.fr-2025,33A906205CD
+Poitiers-Nord,Poitiers-Nord,OFFICIAL,46.6215415,0.3440337,closed,data.gouv.fr-2025,86A901020CD
+Poitiers-Sud,Poitiers-Sud,OFFICIAL,46.5489675,0.2893087,closed,data.gouv.fr-2025,86A901025CD
+Poix-de-Picardie,Poix-de-Picardie,OFFICIAL,49.8085433,1.9687666,closed,data.gouv.fr-2025,80A902905CD
+Pons,Pons,OFFICIAL,45.5744187,-0.5956025,closed,data.gouv.fr-2025,17A901015CD
+Pont D'Ain,Pont D'Ain,OFFICIAL,46.0478959,5.3277660,closed,data.gouv.fr-2025,01A904245CD
+Pont de L'Etoile,Pont de L'Etoile,OFFICIAL,43.3242296,5.5982967,mainline,data.gouv.fr-2025,A0052
+Pont-Colbert,Pont-Colbert,OFFICIAL,48.7822626,2.1586418,mainline,data.gouv.fr-2025,A0086
+Pontcharrat,Pontcharrat,OFFICIAL,45.4258191,5.9951957,closed,data.gouv.fr-2025,38A904145CD
+Portes du Vignoble,Portes du Vignoble,OFFICIAL,49.2051742,4.0065168,closed,data.gouv.fr-2025,51A900415CD
+Pouilly-En-Auxois,Pouilly-En-Auxois,OFFICIAL,47.3241550,4.4876645,mainline,data.gouv.fr-2025,A0006
+Pourrières,Pourrières,OFFICIAL,43.4785885,5.7564751,closed,data.gouv.fr-2025,83A900805CD
+Puget Ville,Puget Ville,OFFICIAL,43.2577993,6.1227411,mainline,data.gouv.fr-2025,A0057
+Puget-sur-Argens,Puget-sur-Argens,OFFICIAL,43.4568467,6.6895960,closed,data.gouv.fr-2025,83A900830CD
+Puttelange,Puttelange,OFFICIAL,49.0690693,6.9185752,closed,data.gouv.fr-2025,57A900450CD
+Puymorens A-PO,Puymorens A-PO,OFFICIAL,42.5396052,1.8239643,mainline,data.gouv.fr-2025,N0523
+Quetteville,Quetteville,OFFICIAL,49.3219208,0.3084285,mainline,data.gouv.fr-2025,A0029
+Quincieux Barriere,Quincieux Barriere,OFFICIAL,45.9252193,4.7604416,mainline,data.gouv.fr-2025,A0046
+Remoulins,Remoulins,OFFICIAL,43.9371715,4.5984594,closed,data.gouv.fr-2025,30A900910CD
+Replonges,Replonges,OFFICIAL,46.3012462,4.8959431,closed,data.gouv.fr-2025,01A904050CD
+Ressons,Ressons,OFFICIAL,49.5217929,2.7151963,closed,data.gouv.fr-2025,60A900130CD
+Restigne,Restigne,OFFICIAL,47.2704233,0.2542226,mainline,data.gouv.fr-2025,A0085
+Riom,Riom,OFFICIAL,45.8955334,3.1481243,closed,data.gouv.fr-2025,63A907110CD
+Rives,Rives,OFFICIAL,45.3838889,5.4732517,closed,data.gouv.fr-2025,38A904805CD
+Robecourt,Robecourt,OFFICIAL,48.1458719,5.6874260,closed,data.gouv.fr-2025,88A903105CD
+Ronai,Ronai,OFFICIAL,48.8162085,-0.1292180,mainline,data.gouv.fr-2025,A0088
+Roquemaure,Roquemaure,OFFICIAL,44.0258601,4.7353568,closed,data.gouv.fr-2025,30A900905CD
+Rouesse Fontaine,Rouesse Fontaine,OFFICIAL,48.3114732,0.1334410,closed,data.gouv.fr-2025,72A902830CD
+Roumois,Roumois,OFFICIAL,49.3513687,0.8351421,mainline,data.gouv.fr-2025,A0028
+Roye,Roye,OFFICIAL,49.7053447,2.7692020,closed,data.gouv.fr-2025,80A900105CD
+Rueil-Malmaison,Rueil-Malmaison,OFFICIAL,48.8713961,2.1568282,mainline,data.gouv.fr-2025,A0086
+Rumilly,Rumilly,OFFICIAL,45.8158623,6.0069739,closed,data.gouv.fr-2025,74A904105CD
+Sable La Fleche,Sable La Fleche,OFFICIAL,47.7754971,-0.2086087,closed,data.gouv.fr-2025,72A901135CD
+Saint Aubin,Saint Aubin,OFFICIAL,45.2543683,-0.5474076,closed,data.gouv.fr-2025,33A901005CD
+Saint Christophe,Saint Christophe,OFFICIAL,47.6316564,0.5059204,mainline,data.gouv.fr-2025,A0028
+Saint Exupery,Saint Exupery,OFFICIAL,45.6870513,5.0581595,mainline,data.gouv.fr-2025,A0432
+Saint Gaudens,Saint Gaudens,OFFICIAL,43.1156170,0.7566125,closed,data.gouv.fr-2025,31A906406CD
+Saint Genis,Saint Genis,OFFICIAL,46.2722047,5.0159380,closed,data.gouv.fr-2025,01A904040CD
+Saint Genix sur Guiers,Saint Genix sur Guiers,OFFICIAL,45.5727405,5.6589447,closed,data.gouv.fr-2025,73A904305CD
+Saint Germain,Saint Germain,OFFICIAL,47.4316350,-0.8165669,closed,data.gouv.fr-2025,49A901150CD
+Saint Germain Laval,Saint Germain Laval,OFFICIAL,45.8611148,4.0417612,closed,data.gouv.fr-2025,42A908910CD
+Saint Germain Les Vergnes,Saint Germain Les Vergnes,OFFICIAL,45.2837953,1.6170718,mainline,data.gouv.fr-2025,A0089
+Saint Gibrien,Saint Gibrien,OFFICIAL,48.9733897,4.2884437,closed,data.gouv.fr-2025,51A902620CD
+Saint Hilaire les Andresis,Saint Hilaire les Andresis,OFFICIAL,48.0370099,3.0228886,closed,data.gouv.fr-2025,45A901910CD
+Saint Isidore Ech Est,Saint Isidore Ech Est,OFFICIAL,43.7051757,7.1904016,closed,data.gouv.fr-2025,06A900839CD
+Saint Isidore Ech Ouest,Saint Isidore Ech Ouest,OFFICIAL,43.7020198,7.1890951,closed,data.gouv.fr-2025,06A900839CD
+Saint Isidore Nord,Saint Isidore Nord,OFFICIAL,43.7015871,7.1884438,mainline,data.gouv.fr-2025,A0008
+Saint Isidore Sud,Saint Isidore Sud,OFFICIAL,43.7077379,7.1912250,mainline,data.gouv.fr-2025,A0008
+Saint Jean D'Angely,Saint Jean D'Angely,OFFICIAL,45.9628749,-0.5459064,closed,data.gouv.fr-2025,17A901005CD
+Saint Jean De Linieres,Saint Jean De Linieres,OFFICIAL,47.4664880,-0.6861419,closed,data.gouv.fr-2025,49A901145CD
+Saint Jean De Luz Sud E,Saint Jean De Luz Sud E,OFFICIAL,43.3719196,-1.6749843,closed,data.gouv.fr-2025,64A906330CD
+Saint Jean De Luz Sud S,Saint Jean De Luz Sud S,OFFICIAL,43.3719650,-1.6774647,closed,data.gouv.fr-2025,64A906330CD
+Saint Jean les Deux Jumeaux,Saint Jean les Deux Jumeaux,OFFICIAL,48.9499224,3.0392717,closed,data.gouv.fr-2025,77A900455CD
+Saint Jory,Saint Jory,OFFICIAL,43.7181917,1.3981805,closed,data.gouv.fr-2025,31A906210CD
+Saint Julien Sancy,Saint Julien Sancy,OFFICIAL,45.6664079,2.6823465,closed,data.gouv.fr-2025,63A908905CD
+Saint Marcellin,Saint Marcellin,OFFICIAL,45.1382664,5.3261307,closed,data.gouv.fr-2025,38A904915CD
+Saint Martin De Crau,Saint Martin De Crau,OFFICIAL,43.6379267,4.8577971,mainline,data.gouv.fr-2025,A0054
+Saint Martin de Bellevue A410,Saint Martin de Bellevue A410,OFFICIAL,45.9914071,6.1274002,mainline,data.gouv.fr-2025,A0410
+Saint Maurice,Saint Maurice,OFFICIAL,47.4262495,6.6690540,mainline,data.gouv.fr-2025,A0036
+Saint Maximin,Saint Maximin,OFFICIAL,43.4497017,5.8775934,closed,data.gouv.fr-2025,83A900810CD
+Saint Paul Lez Durance,Saint Paul Lez Durance,OFFICIAL,43.7025057,5.7347442,closed,data.gouv.fr-2025,13A905130CD
+Saint Pierre d'Albigny,Saint Pierre d'Albigny,OFFICIAL,45.5490791,6.1605652,closed,data.gouv.fr-2025,73A904335CD
+Saint Quentin Fallavier Barriere,Saint Quentin Fallavier Barriere,OFFICIAL,45.6545711,5.0946733,mainline,data.gouv.fr-2025,A0043
+Saint Quentin Fallavier Bretelle,Saint Quentin Fallavier Bretelle,OFFICIAL,45.6485053,5.1203626,closed,data.gouv.fr-2025,38A904310CD
+Saint Quentin La Vallee,Saint Quentin La Vallee,OFFICIAL,49.8618520,3.2397090,closed,data.gouv.fr-2025,02A902605CD
+Saint Romain De Popey,Saint Romain De Popey,OFFICIAL,45.8719495,4.5088239,mainline,data.gouv.fr-2025,A0089
+Saint Romain Sur Cher,Saint Romain Sur Cher,OFFICIAL,47.3066052,1.3532578,closed,data.gouv.fr-2025,41A908505CD
+Saint Romain de Colbosc (ferme),Saint Romain de Colbosc (ferme),OFFICIAL,49.5511960,0.3372154,closed,data.gouv.fr-2025,76A902915CD
+Saint Romain de Colbosc (ouvert),Saint Romain de Colbosc (ouvert),OFFICIAL,49.5511758,0.3384508,closed,data.gouv.fr-2025,76A902915CD
+Saint Selve,Saint Selve,OFFICIAL,44.6591968,-0.4540167,mainline,data.gouv.fr-2025,A0062
+Saint Thibault,Saint Thibault,OFFICIAL,48.2236000,4.1298033,closed,data.gouv.fr-2025,10A900510CD
+Saint Witz,Saint Witz,OFFICIAL,49.0848207,2.5509795,closed,data.gouv.fr-2025,95A900115CD
+Saint etienne au Temple,Saint etienne au Temple,OFFICIAL,49.0334402,4.4358577,closed,data.gouv.fr-2025,51A900435CD
+Saint-Arnoult,Saint-Arnoult,OFFICIAL,48.5463731,1.9111833,mainline,data.gouv.fr-2025,A0010
+Saint-Avold A,Saint-Avold A,OFFICIAL,49.1360368,6.7016678,mainline,data.gouv.fr-2025,A0004
+Saint-Avold B,Saint-Avold B,OFFICIAL,49.1360552,6.7129827,closed,data.gouv.fr-2025,57A900435CD
+Sainte Helene Barriere,Sainte Helene Barriere,OFFICIAL,45.6200506,6.3121812,mainline,data.gouv.fr-2025,A0430
+Sainte Hermine,Sainte Hermine,OFFICIAL,46.5334466,-1.0790446,closed,data.gouv.fr-2025,85A908325CD
+Sainte Marie,Sainte Marie,OFFICIAL,49.1939524,5.9896239,closed,data.gouv.fr-2025,57A900405CD
+Sainte Maure,Sainte Maure,OFFICIAL,47.1072044,0.5876897,closed,data.gouv.fr-2025,37A901060CD
+Sainte Menehould,Sainte Menehould,OFFICIAL,49.0763715,4.8837125,closed,data.gouv.fr-2025,51A900440CD
+Saintes,Saintes,OFFICIAL,45.7523213,-0.6639315,closed,data.gouv.fr-2025,17A901010CD
+Salbris,Salbris,OFFICIAL,47.4184801,2.0253429,closed,data.gouv.fr-2025,41A907110CD
+Salies,Salies,OFFICIAL,43.5098527,-0.9218249,closed,data.gouv.fr-2025,64A906435CD
+Salon Nord (),Salon Nord (),OFFICIAL,43.6743557,5.0991814,closed,data.gouv.fr-2025,13A900715CD
+Salon Ouest,Salon Ouest,OFFICIAL,43.6363269,5.0228440,closed,data.gouv.fr-2025,13A905410CD
+Salon Sud,Salon Sud,OFFICIAL,43.6268845,5.1064859,closed,data.gouv.fr-2025,13A905420CD
+Salouel,Salouel,OFFICIAL,49.8597874,2.2139356,closed,data.gouv.fr-2025,80A901615CD
+Sames,Sames,OFFICIAL,43.5296875,-1.1868915,mainline,data.gouv.fr-2025,A0064
+Santerre,Santerre,OFFICIAL,49.8555234,2.8307423,closed,data.gouv.fr-2025,80A902940CD
+Sarre-Union,Sarre-Union,OFFICIAL,48.9138592,7.1245166,closed,data.gouv.fr-2025,67A900405CD
+Sarreguemines,Sarreguemines,OFFICIAL,49.0448164,7.0287956,closed,data.gouv.fr-2025,57A900455CD
+Saverne,Saverne,OFFICIAL,48.7618078,7.3901232,closed,data.gouv.fr-2025,67A900410CD
+Savigny sur Clairis,Savigny sur Clairis,OFFICIAL,48.0560560,3.0882059,closed,data.gouv.fr-2025,45A901905CD
+Schwindratzheim,Schwindratzheim,OFFICIAL,48.7697039,7.6023483,mainline,data.gouv.fr-2025,A0004
+Scionzier,Scionzier,OFFICIAL,46.0682670,6.5541056,closed,data.gouv.fr-2025,74A904020CD
+Sees Argentan 1,Sees Argentan 1,OFFICIAL,48.6328197,0.1909286,closed,data.gouv.fr-2025,61A902810CD
+Sees Est,Sees Est,OFFICIAL,48.6401021,0.1789378,closed,data.gouv.fr-2025,A0088
+Sees Ouest,Sees Ouest,OFFICIAL,48.6400268,0.1788631,closed,data.gouv.fr-2025,A0088
+Seiches sur le Loir,Seiches sur le Loir,OFFICIAL,47.5664933,-0.3279442,closed,data.gouv.fr-2025,49A901110CD
+Senas,Senas,OFFICIAL,43.7420995,5.0897955,closed,data.gouv.fr-2025,13A900710CD
+Senlis-Bonsecours,Senlis-Bonsecours,OFFICIAL,49.2069784,2.6094551,closed,data.gouv.fr-2025,60A900110CD
+Senlis-Chamant,Senlis-Chamant,OFFICIAL,49.2156450,2.6269079,closed,data.gouv.fr-2025,60A900115CD
+Sete,Sete,OFFICIAL,43.4778479,3.6849399,closed,data.gouv.fr-2025,34A900910CD
+Setques,Setques,OFFICIAL,50.7189025,2.1729963,mainline,data.gouv.fr-2025,A0026
+Seurre,Seurre,OFFICIAL,47.0293528,5.1702780,closed,data.gouv.fr-2025,21A903610CD
+Seynod Sud,Seynod Sud,OFFICIAL,45.8459746,6.0578407,closed,data.gouv.fr-2025,74A904110CD
+Sigean,Sigean,OFFICIAL,43.0331825,2.9563173,closed,data.gouv.fr-2025,11A900920CD
+Sisteron Nord,Sisteron Nord,OFFICIAL,44.2233057,5.9159940,closed,data.gouv.fr-2025,04A905130CD
+Sisteron Sud,Sisteron Sud,OFFICIAL,44.1716278,5.9554312,closed,data.gouv.fr-2025,04A905125CD
+Soirans,Soirans,OFFICIAL,47.2053518,5.3050026,closed,data.gouv.fr-2025,21A903920CD
+Sommesous,Sommesous,OFFICIAL,48.7298293,4.2292373,closed,data.gouv.fr-2025,51A902635CD
+Sophia,Sophia,OFFICIAL,43.6045185,7.0878454,closed,data.gouv.fr-2025,06A900815CD
+Sorigny,Sorigny,OFFICIAL,47.2129240,0.6563424,mainline,data.gouv.fr-2025,A0010
+Soudan,Soudan,OFFICIAL,46.4255598,-0.0821670,closed,data.gouv.fr-2025,79A901005CD
+Souillac,Souillac,OFFICIAL,44.9005163,1.5043993,closed,data.gouv.fr-2025,46A902010CD
+Soumoulou,Soumoulou,OFFICIAL,43.2720527,-0.2006069,closed,data.gouv.fr-2025,64A906465CD
+St Amand-Montrond,St Amand-Montrond,OFFICIAL,46.7212095,2.4577310,closed,data.gouv.fr-2025,18A907120CD
+St Julien Mont Denis,St Julien Mont Denis,OFFICIAL,45.2522302,6.3967079,closed,data.gouv.fr-2025,73A904365CD
+St Martin-Du-Fresne,St Martin-Du-Fresne,OFFICIAL,46.1325169,5.5415865,closed,data.gouv.fr-2025,01A904015CD
+St Michel Barriere,St Michel Barriere,OFFICIAL,45.2188143,6.4590526,mainline,data.gouv.fr-2025,A0043
+St Michel Echangeur,St Michel Echangeur,OFFICIAL,45.2188066,6.4590557,closed,data.gouv.fr-2025,73A904370CD
+St Michel amont,St Michel amont,OFFICIAL,45.2165249,6.4659100,closed,data.gouv.fr-2025,73A904370CD
+St Pierre de Belleville,St Pierre de Belleville,OFFICIAL,45.4698638,6.2871713,closed,data.gouv.fr-2025,73A904350CD
+St-Denis-Les-Sens,St-Denis-Les-Sens,OFFICIAL,48.2370163,3.2622504,closed,data.gouv.fr-2025,89A901905CD
+St-Germain-Laxis,St-Germain-Laxis,OFFICIAL,48.5879939,2.7246867,closed,data.gouv.fr-2025,77A900510CD
+Ste Marie de Cuines,Ste Marie de Cuines,OFFICIAL,45.3460017,6.3055183,closed,data.gouv.fr-2025,73A904355CD
+Sud S1 (CASTETS),Sud S1 (CASTETS),OFFICIAL,43.8352692,-1.1805824,mainline,data.gouv.fr-2025,A0063
+Sud S2 (CASTETS),Sud S2 (CASTETS),OFFICIAL,43.8350825,-1.1800555,mainline,data.gouv.fr-2025,A0063
+Sylans,Sylans,OFFICIAL,46.1586260,5.6483844,closed,data.gouv.fr-2025,01A904010CD
+Tain,Tain,OFFICIAL,45.0684144,4.8684109,closed,data.gouv.fr-2025,26A900705CD
+Taissy,Taissy,OFFICIAL,49.2117334,4.0783092,mainline,data.gouv.fr-2025,A0034
+Tarare Est Ferme,Tarare Est Ferme,OFFICIAL,45.8718704,4.5085670,closed,data.gouv.fr-2025,69A908910CD
+Tarare Est ouvert E,Tarare Est ouvert E,OFFICIAL,45.8762585,4.5219910,closed,data.gouv.fr-2025,69A908910CD
+Tarare Est ouvert S,Tarare Est ouvert S,OFFICIAL,45.8763822,4.5221034,closed,data.gouv.fr-2025,69A908910CD
+Tarare Ouest,Tarare Ouest,OFFICIAL,45.8916374,4.4030278,closed,data.gouv.fr-2025,69A908905CD
+Tarbes Est,Tarbes Est,OFFICIAL,43.2135913,0.1083987,closed,data.gouv.fr-2025,65A906410CD
+Tarbes Ouest,Tarbes Ouest,OFFICIAL,43.2207440,0.0236798,closed,data.gouv.fr-2025,65A906405CD
+Terrasson E,Terrasson E,OFFICIAL,45.1524830,1.3779171,closed,data.gouv.fr-2025,19A908905CD
+Terrasson S,Terrasson S,OFFICIAL,45.1526021,1.3779592,closed,data.gouv.fr-2025,19A908905CD
+Thelus,Thelus,OFFICIAL,50.3451277,2.7875995,closed,data.gouv.fr-2025,62A902640CD
+Thennelieres,Thennelieres,OFFICIAL,48.2893218,4.1629442,closed,data.gouv.fr-2025,10A902615CD
+Thenon Est E,Thenon Est E,OFFICIAL,45.1515706,1.1668292,closed,data.gouv.fr-2025,24A908935CD
+Thenon Est S,Thenon Est S,OFFICIAL,45.1516582,1.1674133,closed,data.gouv.fr-2025,24A908935CD
+Thenon vers Brives,Thenon vers Brives,OFFICIAL,45.1513277,1.1672380,mainline,data.gouv.fr-2025,A0089
+Thenon vers Perigueux,Thenon vers Perigueux,OFFICIAL,45.1515803,1.1675576,mainline,data.gouv.fr-2025,A0089
+Therouanne,Therouanne,OFFICIAL,50.6686013,2.2558036,closed,data.gouv.fr-2025,62A902615CD
+Thiers Est,Thiers Est,OFFICIAL,45.8787751,3.6248907,closed,data.gouv.fr-2025,63A908940CD
+Thiers Ouest,Thiers Ouest,OFFICIAL,45.8599490,3.5038781,closed,data.gouv.fr-2025,63A908935CD
+Thillois,Thillois,OFFICIAL,49.2502487,3.9585779,mainline,data.gouv.fr-2025,A0344
+Thivars Nord,Thivars Nord,OFFICIAL,48.3653375,1.4423042,closed,data.gouv.fr-2025,28A901110CD
+Thivars Sud,Thivars Sud,OFFICIAL,48.3616497,1.4464376,closed,data.gouv.fr-2025,28A901110CD
+Thouarce E,Thouarce E,OFFICIAL,47.3295487,-0.5962657,closed,data.gouv.fr-2025,49A908715CD
+Thouarce S,Thouarce S,OFFICIAL,47.3295198,-0.5964459,closed,data.gouv.fr-2025,49A908715CD
+Tilchatel,Tilchatel,OFFICIAL,47.5389033,5.1947736,closed,data.gouv.fr-2025,21A903120CD
+Tonnay-Charente E,Tonnay-Charente E,OFFICIAL,45.9550765,-0.8809695,closed,data.gouv.fr-2025,17A983715CD
+Tonnay-Charente S,Tonnay-Charente S,OFFICIAL,45.9548507,-0.8812196,closed,data.gouv.fr-2025,17A983715CD
+Torvilliers,Torvilliers,OFFICIAL,48.2841244,3.9655392,closed,data.gouv.fr-2025,10A900505CD
+Toulouse Est vers Albi,Toulouse Est vers Albi,OFFICIAL,43.6471541,1.5076926,mainline,data.gouv.fr-2025,A0068
+Toulouse Est vers Toulouse,Toulouse Est vers Toulouse,OFFICIAL,43.6475283,1.5075693,mainline,data.gouv.fr-2025,A0068
+Toulouse Nord Ouest,Toulouse Nord Ouest,OFFICIAL,43.6586842,1.4269971,mainline,data.gouv.fr-2025,A0062
+Toulouse Sud Est,Toulouse Sud Est,OFFICIAL,43.5459584,1.4997522,mainline,data.gouv.fr-2025,A0061
+Tournay,Tournay,OFFICIAL,43.1774352,0.2400122,closed,data.gouv.fr-2025,65A906415CD
+Tournus,Tournus,OFFICIAL,46.5790990,4.9011739,closed,data.gouv.fr-2025,71A900615CD
+Tours Nord,Tours Nord,OFFICIAL,47.4521963,0.7397841,closed,data.gouv.fr-2025,37A901015CD
+Toutainville,Toutainville,OFFICIAL,49.3640848,0.4674581,closed,data.gouv.fr-2025,27A901347CD
+Troarn,Troarn,OFFICIAL,49.1782520,-0.2021663,closed,data.gouv.fr-2025,14A901320CD
+Tulle Est,Tulle Est,OFFICIAL,45.3179383,1.8504009,closed,data.gouv.fr-2025,19A908935CD
+Tulle Nord,Tulle Nord,OFFICIAL,45.3290236,1.7639231,closed,data.gouv.fr-2025,19A908930CD
+Tullins,Tullins,OFFICIAL,45.2867183,5.5219252,closed,data.gouv.fr-2025,38A904905CD
+Ury,Ury,OFFICIAL,48.3386468,2.5954078,closed,data.gouv.fr-2025,77A900610CD
+Ussel Est,Ussel Est,OFFICIAL,45.5889351,2.4145129,closed,data.gouv.fr-2025,19A908950CD
+Ussel Ouest,Ussel Ouest,OFFICIAL,45.5123527,2.2585169,closed,data.gouv.fr-2025,19A908945CD
+Vaiges,Vaiges,OFFICIAL,48.0555240,-0.4871785,closed,data.gouv.fr-2025,53A908105CD
+Val De Loing-Souppes,Val De Loing-Souppes,OFFICIAL,48.1763353,2.7667925,closed,data.gouv.fr-2025,77A907705CD
+Val De Saone,Val De Saone,OFFICIAL,46.2748823,4.8155078,mainline,data.gouv.fr-2025,A0406
+Valence D'Agen,Valence D'Agen,OFFICIAL,44.0641318,0.8665167,closed,data.gouv.fr-2025,82A906205CD
+Valence Nord,Valence Nord,OFFICIAL,44.9702319,4.8875758,closed,data.gouv.fr-2025,26A900710CD
+Valence Sud,Valence Sud,OFFICIAL,44.9049377,4.8801003,closed,data.gouv.fr-2025,26A900715CD
+Vallee de l'Aisne,Vallee de l'Aisne,OFFICIAL,49.4269562,3.9280557,closed,data.gouv.fr-2025,02A902630CD
+Vallee de l'Aube,Vallee de l'Aube,OFFICIAL,48.5254534,4.1853303,closed,data.gouv.fr-2025,10A902605CD
+Vallee de la Hem,Vallee de la Hem,OFFICIAL,50.8202138,2.0629143,closed,data.gouv.fr-2025,62A902605CD
+Vallee de la Somme,Vallee de la Somme,OFFICIAL,49.8769621,2.8398291,closed,data.gouv.fr-2025,80A900115CD
+Vatry,Vatry,OFFICIAL,48.7675910,4.2400179,closed,data.gouv.fr-2025,51A902630CD
+Vaucresson Le Chesnay,Vaucresson Le Chesnay,OFFICIAL,48.8311535,2.1479463,mainline,data.gouv.fr-2025,A0086
+Veauchette,Veauchette,OFFICIAL,45.5608271,4.2417202,mainline,data.gouv.fr-2025,A0072
+Veigne,Veigne,OFFICIAL,47.3116062,0.7320286,mainline,data.gouv.fr-2025,A0085
+Verdun,Verdun,OFFICIAL,49.1096633,5.4134216,closed,data.gouv.fr-2025,55A900415CD
+Vichy,Vichy,OFFICIAL,46.1030786,3.2325737,mainline,data.gouv.fr-2025,A0719
+Vieilleville Nord,Vieilleville Nord,OFFICIAL,47.2881518,-1.4791701,closed,data.gouv.fr-2025,44A901110CD
+Vieilleville Sud,Vieilleville Sud,OFFICIAL,47.2893122,-1.4788951,closed,data.gouv.fr-2025,44A901110CD
+Vienne,Vienne,OFFICIAL,45.4758406,4.8331833,mainline,data.gouv.fr-2025,A0007
+Vierzon Est,Vierzon Est,OFFICIAL,47.2116710,2.1185951,closed,data.gouv.fr-2025,18A907110CD
+Vierzon Nord,Vierzon Nord,OFFICIAL,47.2447344,2.0618192,closed,data.gouv.fr-2025,18A907105CD
+Ville Sous Laferte,Ville Sous Laferte,OFFICIAL,48.1149342,4.7855237,closed,data.gouv.fr-2025,10A900525CD
+Villefontaine,Villefontaine,OFFICIAL,45.6285058,5.1644569,closed,data.gouv.fr-2025,38A904315CD
+Villefranche Nord,Villefranche Nord,OFFICIAL,46.0224238,4.7220904,closed,data.gouv.fr-2025,69A900610CD
+Villefranche Sur Cher,Villefranche Sur Cher,OFFICIAL,47.3242919,1.7659843,closed,data.gouv.fr-2025,41A908515CD
+Villefranche de Lauraguais,Villefranche de Lauraguais,OFFICIAL,43.3986133,1.6962498,closed,data.gouv.fr-2025,31A906150CD
+Villefranche-Limas,Villefranche-Limas,OFFICIAL,45.9750379,4.7337575,mainline,data.gouv.fr-2025,A0006
+Villefranche-Ville,Villefranche-Ville,OFFICIAL,45.9767522,4.7350176,closed,data.gouv.fr-2025,69A900615CD
+Villeneuve-Dondagre,Villeneuve-Dondagre,OFFICIAL,48.1496720,3.1714309,closed,data.gouv.fr-2025,89A901910CD
+Villers Bretonneux,Villers Bretonneux,OFFICIAL,49.8546868,2.5223763,closed,data.gouv.fr-2025,80A902935CD
+Vinay,Vinay,OFFICIAL,45.1994455,5.4194781,closed,data.gouv.fr-2025,38A904910CD
+Viriat,Viriat,OFFICIAL,46.2357659,5.2734293,closed,data.gouv.fr-2025,01A904030CD
+Virsac,Virsac,OFFICIAL,45.0235655,-0.4355374,mainline,data.gouv.fr-2025,A0010
+Viry,Viry,OFFICIAL,46.1200506,6.0102492,mainline,data.gouv.fr-2025,A0040
+Vivy,Vivy,OFFICIAL,47.3105583,-0.0316372,closed,data.gouv.fr-2025,49A908520CD
+Voie Sacree,Voie Sacree,OFFICIAL,49.0938027,5.2784536,closed,data.gouv.fr-2025,55A900410CD
+Voiron (Champfeuillet),Voiron (Champfeuillet),OFFICIAL,45.3475904,5.5665051,closed,data.gouv.fr-2025,38A904810CD
+Voreppe Barriere,Voreppe Barriere,OFFICIAL,45.2851617,5.6210211,mainline,data.gouv.fr-2025,A0048
+Vouille,Vouille,OFFICIAL,46.3075015,-0.3664581,closed,data.gouv.fr-2025,79A901015CD
+Vulaines,Vulaines,OFFICIAL,48.2377125,3.6013823,closed,data.gouv.fr-2025,89A900510CD
+Vulcania Bromont,Vulcania Bromont,OFFICIAL,45.8338229,2.8225403,closed,data.gouv.fr-2025,63A908910CD
+Yerville,Yerville,OFFICIAL,49.6476656,0.8427101,closed,data.gouv.fr-2025,76A902930CD
+Yvetot,Yvetot,OFFICIAL,49.6274105,0.8062168,closed,data.gouv.fr-2025,76A915010CD
+etaples-Le Touquet,etaples-Le Touquet,OFFICIAL,50.5068257,1.6798429,closed,data.gouv.fr-2025,62A901606CD

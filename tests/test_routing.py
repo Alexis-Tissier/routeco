@@ -1,0 +1,261 @@
+from __future__ import annotations
+
+import asyncio
+
+from app.models import Coordinate
+from app.services.routing import GraphHopperClient, GraphHopperRequestError
+
+
+class RetryClient(GraphHopperClient):
+    def __init__(self, failures: int) -> None:
+        super().__init__("http://graphhopper.test")
+        self.failures = failures
+        self.bodies: list[dict] = []
+
+    async def _post_route(self, body: dict) -> dict:
+        self.bodies.append(body)
+        if len(self.bodies) <= self.failures:
+            raise GraphHopperRequestError(400, "maximum nodes exceeded")
+        return {
+            "paths": [
+                {
+                    "distance": 10_000,
+                    "time": 600_000,
+                    "points": {"coordinates": [[2.0, 48.0], [2.1, 48.1]]},
+                    "details": {"road_class": [], "toll": []},
+                }
+            ]
+        }
+
+
+def test_graphhopper_profile_retries_with_less_aggressive_model() -> None:
+    client = RetryClient(failures=1)
+    result = asyncio.run(
+        client._request_profile(
+            Coordinate(lat=48.0, lon=2.0),
+            Coordinate(lat=45.0, lon=4.0),
+            "free",
+            0.30,
+            0.05,
+            4,
+        )
+    )
+
+    assert result.retried is True
+    assert result.attempts == 2
+    assert len(result.candidates) == 1
+    first = client.bodies[0]["custom_model"]
+    second = client.bodies[1]["custom_model"]
+    assert second["distance_influence"] > first["distance_influence"]
+    assert second["priority"][0]["multiply_by"] > first["priority"][0]["multiply_by"]
+    assert second["priority"][1]["multiply_by"] > first["priority"][1]["multiply_by"]
+
+
+def test_graphhopper_profile_reports_permanent_failure() -> None:
+    client = RetryClient(failures=10)
+    result = asyncio.run(
+        client._request_profile(
+            Coordinate(lat=48.0, lon=2.0),
+            Coordinate(lat=45.0, lon=4.0),
+            "economy",
+            0.48,
+            0.12,
+            3,
+        )
+    )
+
+    assert result.failed is True
+    assert result.attempts == 3
+    assert "maximum nodes exceeded" in result.last_error
+
+class NativeAlternativeClient(GraphHopperClient):
+    def __init__(self) -> None:
+        super().__init__("http://graphhopper.test")
+        self.body: dict = {}
+
+    async def _post_route(self, body: dict) -> dict:
+        self.body = body
+        return {
+            "paths": [
+                {
+                    "distance": 100_000,
+                    "time": 3_600_000,
+                    "points": {"coordinates": [[2.0, 48.0], [3.0, 47.0]]},
+                    "details": {"road_class": [], "toll": []},
+                },
+                {
+                    "distance": 112_000,
+                    "time": 4_000_000,
+                    "points": {"coordinates": [[2.0, 48.0], [2.4, 47.4], [3.0, 47.0]]},
+                    "details": {"road_class": [], "toll": []},
+                },
+            ]
+        }
+
+
+def test_native_alternative_route_request_is_bounded() -> None:
+    client = NativeAlternativeClient()
+    routes = asyncio.run(
+        client._request_native_alternatives(
+            Coordinate(lat=48.0, lon=2.0),
+            Coordinate(lat=47.0, lon=3.0),
+        )
+    )
+
+    assert len(routes) == 2
+    assert client.body["algorithm"] == "alternative_route"
+    assert client.body["alternative_route.max_paths"] == 4
+    assert client.body["alternative_route.max_weight_factor"] == 1.65
+    assert client.body["alternative_route.max_share_factor"] == 0.82
+    assert "custom_model" not in client.body
+
+
+def test_failed_profile_is_reported_as_retried() -> None:
+    client = RetryClient(failures=10)
+    result = asyncio.run(
+        client._request_profile(
+            Coordinate(lat=48.0, lon=2.0),
+            Coordinate(lat=45.0, lon=4.0),
+            "free",
+            0.30,
+            0.05,
+            4,
+        )
+    )
+
+    assert result.failed is True
+    assert result.retried is True
+
+
+def test_native_alternatives_survive_failed_economy_profiles() -> None:
+    from app.services.routing import ProfileResult
+
+    class MergeClient(GraphHopperClient):
+        async def available(self) -> bool:
+            return True
+
+        async def _request_profile(
+            self, start, end, name, motorway_priority, toll_priority, rank
+        ) -> ProfileResult:
+            if name == "fastest":
+                return ProfileResult(
+                    name,
+                    [
+                        {
+                            "id": "fastest",
+                            "profile": name,
+                            "profile_rank": rank,
+                            "distance_km": 100.0,
+                            "duration_minutes": 60,
+                            "motorway_km": 90.0,
+                            "road_km": 10.0,
+                            "tolled_km": 80.0,
+                            "toll_ranges": [],
+                            "geometry": [[2.0, 48.0], [3.0, 47.0]],
+                            "source": "graphhopper",
+                        }
+                    ],
+                    1,
+                )
+            return ProfileResult(name, [], 3, "maximum nodes exceeded")
+
+        async def _request_segmented_profile(self, *args, **kwargs) -> list[dict]:
+            return []
+
+        async def _request_native_alternatives(self, start, end) -> list[dict]:
+            return [
+                {
+                    "id": "native-1",
+                    "profile": "native",
+                    "profile_rank": 1,
+                    "distance_km": 112.0,
+                    "duration_minutes": 70,
+                    "motorway_km": 55.0,
+                    "road_km": 57.0,
+                    "tolled_km": 30.0,
+                    "toll_ranges": [],
+                    "geometry": [[2.0, 48.0], [2.5, 47.4], [3.0, 47.0]],
+                    "source": "graphhopper",
+                },
+                {
+                    "id": "native-2",
+                    "profile": "native",
+                    "profile_rank": 2,
+                    "distance_km": 120.0,
+                    "duration_minutes": 78,
+                    "motorway_km": 20.0,
+                    "road_km": 100.0,
+                    "tolled_km": 0.0,
+                    "toll_ranges": [],
+                    "geometry": [[2.0, 48.0], [2.2, 47.2], [3.0, 47.0]],
+                    "source": "graphhopper",
+                },
+            ]
+
+    client = MergeClient("http://graphhopper.test")
+    result = asyncio.run(
+        client.candidates(
+            Coordinate(lat=48.0, lon=2.0),
+            Coordinate(lat=47.0, lon=3.0),
+        )
+    )
+
+    assert len(result.candidates) == 3
+    assert {item["id"] for item in result.candidates} == {
+        "fastest",
+        "native-1",
+        "native-2",
+    }
+    assert result.failed_profiles == ["light", "balanced", "economy", "free"]
+    assert result.retried_profiles == ["light", "balanced", "economy", "free"]
+
+
+class SegmentedFallbackClient(GraphHopperClient):
+    def __init__(self) -> None:
+        super().__init__("http://graphhopper.test")
+        self.bodies: list[dict] = []
+
+    async def _post_route(self, body: dict) -> dict:
+        self.bodies.append(body)
+        if len(self.bodies) == 1:
+            raise GraphHopperRequestError(400, "maximum nodes exceeded")
+        return {
+            "paths": [
+                {
+                    "distance": 900_000,
+                    "time": 36_000_000,
+                    "points": {
+                        "coordinates": [
+                            body["points"][0],
+                            *body["points"][1:-1],
+                            body["points"][-1],
+                        ]
+                    },
+                    "details": {"road_class": [], "toll": []},
+                }
+            ]
+        }
+
+
+def test_segmented_profile_uses_distance_sampled_via_points() -> None:
+    client = SegmentedFallbackClient()
+    baseline = [[2.0, 50.0], [3.0, 48.0], [5.0, 45.0]]
+
+    routes = asyncio.run(
+        client._request_segmented_profile(
+            Coordinate(lat=50.0, lon=2.0),
+            Coordinate(lat=45.0, lon=5.0),
+            "free",
+            0.30,
+            0.05,
+            4,
+            baseline,
+        )
+    )
+
+    assert len(client.bodies) == 2
+    assert len(client.bodies[0]["points"]) == 3
+    assert len(client.bodies[1]["points"]) == 4
+    assert client.bodies[1]["pass_through"] is True
+    assert routes
+    assert routes[0]["profile"] == "free-seg2"

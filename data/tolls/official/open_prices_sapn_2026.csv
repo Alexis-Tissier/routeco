@@ -1,0 +1,8 @@
+operator,name,distance,price1,price2,price3,price4,price5,source
+SAPN,PEAGE DE MONTESSON,,10.80,,,,,official-2026-base
+SAPN,PEAGE DE CHAMBOURCY,,2.60,,,,,official-2026
+SAPN,BUCHELAY,,3.00,,,,,official-2026-flux-libre
+SAPN,HEUDEBOUVILLE,,4.50,,,,,official-2026-flux-libre
+SAPN,BEUZEVILLE,,6.30,,,,,official-2026-flux-libre
+SAPN,DOZULE,,4.20,,,,,official-2026-flux-libre
+SAPN,PLATEAU N°2 (A29),,0.50,,,,,official-2026

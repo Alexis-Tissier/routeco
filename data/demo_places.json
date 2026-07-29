@@ -1,0 +1,15 @@
+[
+  {"label":"Paris, 75001","city":"Paris","postcode":"75001","lat":48.8566,"lon":2.3522},
+  {"label":"Lyon, 69001","city":"Lyon","postcode":"69001","lat":45.7640,"lon":4.8357},
+  {"label":"Bordeaux, 33000","city":"Bordeaux","postcode":"33000","lat":44.8378,"lon":-0.5792},
+  {"label":"Marseille, 13001","city":"Marseille","postcode":"13001","lat":43.2965,"lon":5.3698},
+  {"label":"Toulouse, 31000","city":"Toulouse","postcode":"31000","lat":43.6047,"lon":1.4442},
+  {"label":"Nantes, 44000","city":"Nantes","postcode":"44000","lat":47.2184,"lon":-1.5536},
+  {"label":"Lille, 59000","city":"Lille","postcode":"59000","lat":50.6292,"lon":3.0573},
+  {"label":"Strasbourg, 67000","city":"Strasbourg","postcode":"67000","lat":48.5734,"lon":7.7521},
+  {"label":"Nice, 06000","city":"Nice","postcode":"06000","lat":43.7102,"lon":7.2620},
+  {"label":"Rennes, 35000","city":"Rennes","postcode":"35000","lat":48.1173,"lon":-1.6778},
+  {"label":"Grasse, 06130","city":"Grasse","postcode":"06130","lat":43.6584,"lon":6.9220},
+  {"label":"Le Chesnay-Rocquencourt, 78150","city":"Le Chesnay-Rocquencourt","postcode":"78150","lat":48.8222,"lon":2.1307},
+  {"label":"Prunay-le-Temple, 78910","city":"Prunay-le-Temple","postcode":"78910","lat":48.8618,"lon":1.6735}
+]

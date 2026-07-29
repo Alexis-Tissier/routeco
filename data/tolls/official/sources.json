@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-07-29",
+  "sources": [
+    {
+      "name": "Ministère - gares de péage",
+      "url": "https://www.data.gouv.fr/api/1/datasets/r/1fe9691f-dfd6-4ffb-89f2-5fbf42d47530",
+      "date": "2025-07-28"
+    },
+    {
+      "name": "Sanef tarifs classe 1",
+      "url": "https://www.autoroutes.sanef.com/sites/default/files/2026-01/2026_02-Grille-Sanef.pdf",
+      "valid_from": "2026-02-01"
+    },
+    {
+      "name": "SAPN tarifs classe 1",
+      "url": "https://www.autoroutes.sanef.com/sites/default/files/2026-01/2026_02-Grille-SAPN.pdf",
+      "valid_from": "2026-02-01"
+    }
+  ],
+  "notes": [
+    "Sanef: matrices A16/A29 and A1/A2/A26/A29.",
+    "SAPN: A29 North, A13/A29 South and A14 base open tolls.",
+    "SAPN flux libre 2026: portiques principaux Buchelay, Heudebouville, Beuzeville et Dozulé."
+  ]
+}

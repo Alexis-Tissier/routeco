@@ -1,0 +1,160 @@
+[
+  {
+    "id": "paris-lyon-aprr",
+    "name": "Paris → Lyon (APRR)",
+    "start": {
+      "lat": 48.8566,
+      "lon": 2.3522
+    },
+    "end": {
+      "lat": 45.764,
+      "lon": 4.8357
+    },
+    "min_routes": 2,
+    "expected_fastest_confidence": [
+      "exact"
+    ],
+    "expected_fastest_toll_eur": {
+      "min": 40.0,
+      "max": 43.0
+    }
+  },
+  {
+    "id": "paris-bordeaux",
+    "name": "Paris → Bordeaux (Cofiroute / ASF)",
+    "start": {
+      "lat": 48.8566,
+      "lon": 2.3522
+    },
+    "end": {
+      "lat": 44.8378,
+      "lon": -0.5792
+    },
+    "min_routes": 2
+  },
+  {
+    "id": "paris-lille",
+    "name": "Paris → Lille (Sanef)",
+    "start": {
+      "lat": 48.8566,
+      "lon": 2.3522
+    },
+    "end": {
+      "lat": 50.6292,
+      "lon": 3.0573
+    },
+    "min_routes": 2,
+    "expected_fastest_confidence": [
+      "exact"
+    ],
+    "expected_fastest_toll_eur": {
+      "min": 18.0,
+      "max": 20.5
+    }
+  },
+  {
+    "id": "lyon-marseille",
+    "name": "Lyon → Marseille",
+    "start": {
+      "lat": 45.764,
+      "lon": 4.8357
+    },
+    "end": {
+      "lat": 43.2965,
+      "lon": 5.3698
+    },
+    "min_routes": 2
+  },
+  {
+    "id": "nantes-paris",
+    "name": "Nantes → Paris (Cofiroute)",
+    "start": {
+      "lat": 47.2184,
+      "lon": -1.5536
+    },
+    "end": {
+      "lat": 48.8566,
+      "lon": 2.3522
+    },
+    "min_routes": 2
+  },
+  {
+    "id": "toulouse-montpellier",
+    "name": "Toulouse → Montpellier (ASF)",
+    "start": {
+      "lat": 43.6047,
+      "lon": 1.4442
+    },
+    "end": {
+      "lat": 43.6108,
+      "lon": 3.8767
+    },
+    "min_routes": 2
+  },
+  {
+    "id": "clermont-montpellier",
+    "name": "Clermont-Ferrand → Montpellier",
+    "start": {
+      "lat": 45.7772,
+      "lon": 3.087
+    },
+    "end": {
+      "lat": 43.6108,
+      "lon": 3.8767
+    },
+    "min_routes": 2
+  },
+  {
+    "id": "paris-rouen",
+    "name": "Paris → Rouen (SAPN flux libre)",
+    "start": {
+      "lat": 48.8566,
+      "lon": 2.3522
+    },
+    "end": {
+      "lat": 49.4432,
+      "lon": 1.0993
+    },
+    "min_routes": 2,
+    "expected_fastest_confidence": [
+      "exact"
+    ],
+    "expected_fastest_toll_eur": {
+      "min": 6.0,
+      "max": 9.0
+    }
+  },
+  {
+    "id": "bordeaux-toulouse",
+    "name": "Bordeaux → Toulouse (ASF)",
+    "start": {
+      "lat": 44.8378,
+      "lon": -0.5792
+    },
+    "end": {
+      "lat": 43.6047,
+      "lon": 1.4442
+    },
+    "min_routes": 2
+  },
+  {
+    "id": "reims-calais",
+    "name": "Reims → Calais (Sanef)",
+    "start": {
+      "lat": 49.2583,
+      "lon": 4.0317
+    },
+    "end": {
+      "lat": 50.9513,
+      "lon": 1.8587
+    },
+    "min_routes": 2,
+    "expected_fastest_confidence": [
+      "exact"
+    ],
+    "expected_fastest_toll_eur": {
+      "min": 25.0,
+      "max": 28.5
+    }
+  }
+]
