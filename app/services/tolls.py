@@ -376,7 +376,12 @@ class TollPricingService:
         demo_toll: float | None = None,
     ) -> TollQuote:
         if demo_toll is not None:
-            return TollQuote(round(demo_toll, 2), "exact", [], "Tarif de démonstration.")
+            return TollQuote(
+                round(demo_toll, 2),
+                "estimated",
+                [],
+                "Tarif de démonstration synthétique, non issu de données tarifaires.",
+            )
         if tolled_km <= 0.05:
             return TollQuote(0.0, "none", [], "Aucun tronçon payant détecté.")
 
@@ -449,6 +454,19 @@ class TollPricingService:
                 )
             ]
 
+        # A micro-range may cross both priced and unpriced physical events.
+        # Presence of any unpriced event prevents an exact quote.
+        has_unpriced_event = any(
+            self._unpriced_billing_events_in_range(
+                projections,
+                toll_range,
+                road_class_link_details,
+                [],
+                set(),
+            )
+            for toll_range in ranges
+        )
+
         used: list[tuple[StationProjection, float]] = []
         names: list[str] = []
         segments: list[TollSegmentQuote] = []
@@ -479,9 +497,18 @@ class TollPricingService:
                         route_end_km=round(projection.route_km, 1),
                     )
                 )
+        names = self._dedupe_names(names)
+        if has_unpriced_event:
+            return TollQuote(
+                round(total, 2),
+                "estimated",
+                names,
+                "Péage ouvert partiellement apparié : au moins un événement "
+                "physique traversé ne possède pas de tarif officiel local.",
+                segments=segments,
+            )
         if not segments:
             return None
-        names = self._dedupe_names(names)
         return TollQuote(
             round(total, 2),
             "exact",
@@ -1813,12 +1840,32 @@ class TollPricingService:
                 continue
             station = projection.station
             if station.system_type == "open":
-                if (
-                    projection.lateral_km <= 0.12
-                    and self._lookup_open(station) is not None
-                ):
-                    return True
-                continue
+                ramp_station = self._is_open_ramp_station(station)
+                lateral_limit = (
+                    0.05
+                    if ramp_station
+                    else 0.12
+                    if station.is_mainline_barrier
+                    else 0.06
+                )
+                if projection.lateral_km > lateral_limit:
+                    continue
+                if ramp_station:
+                    boundary_gap = min(
+                        abs(projection.route_km - toll_range.start_km),
+                        abs(projection.route_km - toll_range.end_km),
+                    )
+                    if boundary_gap > 4.0:
+                        continue
+                    is_link = self._road_class_link_at_projection(
+                        projection,
+                        road_class_link_details,
+                    )
+                    if is_link is False:
+                        continue
+                # Physical traversal is evidence even when the local tariff
+                # is missing. It must never be discarded as OSM noise.
+                return True
             if station.is_mainline_barrier and projection.lateral_km <= 0.12:
                 return True
         return False
