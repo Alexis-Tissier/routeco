@@ -168,6 +168,36 @@ class ClosedMatch:
         return max(0.0, self.span_end_km - self.span_start_km)
 
 
+# ROUTECO_V034_TOLL_PLAN_PROOF
+@dataclass(slots=True)
+class TollPlan:
+    # Facturation candidate avant décision finale de confiance.
+    exact_cost: float
+    station_names: list[str]
+    segments: list[TollSegmentQuote]
+    ranges: list[TollRange]
+    unresolved_indexes: list[int]
+    unresolved_km_by_range: dict[int, float]
+    unresolved_event_ranges: set[int]
+    ignored_noise_indexes: set[int]
+
+    @property
+    def unresolved_km(self) -> float:
+        return sum(max(0.0, value) for value in self.unresolved_km_by_range.values())
+
+    @property
+    def has_unresolved_events(self) -> bool:
+        return bool(
+            self.unresolved_event_ranges.intersection(self.unresolved_indexes)
+        )
+
+    @property
+    def is_complete(self) -> bool:
+        distance_complete = (
+            not self.unresolved_indexes
+            or self.unresolved_km <= 0.05
+        )
+        return distance_complete and not self.has_unresolved_events
 class TollPricingService:
     """Price French tolls from local OpenTollData matrices.
 
@@ -181,6 +211,9 @@ class TollPricingService:
     MINOR_RESIDUAL_KM = 5.0
     MINOR_RESIDUAL_EUR = 1.0
     USER_VISIBLE_RESIDUAL_KM = 6.0
+    # Budget transitoire : le routage ne prouve pas encore positivement qu'un
+    # intervalle entre une sortie fermée et l'entrée suivante est gratuit.
+    MAX_UNVERIFIED_CLOSED_CONNECTOR_KM = 5.0
 
     # ROUTECO_V034_GLOBAL_TOLL_PLAN
     # Isolated OSM toll tags below this size are non-billable unless a real
@@ -454,8 +487,6 @@ class TollPricingService:
                 )
             ]
 
-        # A micro-range may cross both priced and unpriced physical events.
-        # Presence of any unpriced event prevents an exact quote.
         has_unpriced_event = any(
             self._unpriced_billing_events_in_range(
                 projections,
@@ -480,7 +511,11 @@ class TollPricingService:
                 price = self._lookup_open(projection.station)
                 if price is None:
                     continue
-                if self._same_open_charge_already_used(projection, price, used):
+                if self._same_open_charge_already_used(
+                    projection,
+                    price,
+                    used,
+                ):
                     continue
                 used.append((projection, price))
                 total += price
@@ -497,26 +532,29 @@ class TollPricingService:
                         route_end_km=round(projection.route_km, 1),
                     )
                 )
-        names = self._dedupe_names(names)
-        if has_unpriced_event:
-            return TollQuote(
-                round(total, 2),
-                "estimated",
-                names,
-                "Péage ouvert partiellement apparié : au moins un événement "
-                "physique traversé ne possède pas de tarif officiel local.",
-                segments=segments,
-            )
-        if not segments:
-            return None
-        return TollQuote(
-            round(total, 2),
-            "exact",
-            names,
-            f"Tarif exact classe 1 (péage ouvert) : {' + '.join(names)}.",
-            segments=segments,
-        )
 
+        if not segments and not has_unpriced_event:
+            return None
+
+        unresolved_indexes = (
+            list(range(len(ranges)))
+            if has_unpriced_event
+            else []
+        )
+        plan = TollPlan(
+            exact_cost=total,
+            station_names=names,
+            segments=segments,
+            ranges=ranges,
+            unresolved_indexes=unresolved_indexes,
+            unresolved_km_by_range={
+                index: 0.0
+                for index in unresolved_indexes
+            },
+            unresolved_event_ranges=set(unresolved_indexes),
+            ignored_noise_indexes=set(),
+        )
+        return self._finalize_toll_plan(plan)
 
     def _closed_match_from_pair(
         self,
@@ -1160,120 +1198,297 @@ class TollPricingService:
                 ignored_noise_indexes.add(range_index)
                 resolved_ranges.add(range_index)
 
-        segments.sort(
-            key=lambda item: (
-                float("inf") if item.route_start_km is None else item.route_start_km,
-                float("inf") if item.route_end_km is None else item.route_end_km,
-            )
-        )
-        station_names = self._dedupe_names(station_names)
+        # Une chaîne de plusieurs voyages fermés se prouve par ses événements :
+        # chaque matrice possède une entrée et une sortie. La portion comprise
+        # entre une sortie et l'entrée suivante est donc hors facturation, même
+        # si GraphHopper l'a incluse dans une grande plage toll=yes.
+        accepted_by_range: dict[int, list[ClosedMatch]] = {}
+        for match in accepted:
+            accepted_by_range.setdefault(
+                match.range_index,
+                [],
+            ).append(match)
+
+        for range_index, matches in accepted_by_range.items():
+            if range_index in unresolved_event_ranges:
+                continue
+            if self._closed_chain_has_complete_event_topology(matches):
+                resolved_ranges.add(range_index)
+
         unresolved_indexes = [
-            index for index in range(len(ranges)) if index not in resolved_ranges
+            index
+            for index in range(len(ranges))
+            if index not in resolved_ranges
         ]
         unresolved_km_by_range = {
             index: max(
                 0.0,
-                ranges[index].distance_km - range_covered_km.get(index, 0.0),
+                ranges[index].distance_km
+                - range_covered_km.get(index, 0.0),
             )
             for index in unresolved_indexes
         }
-        unresolved_km = sum(unresolved_km_by_range.values())
+        plan = TollPlan(
+            exact_cost=total,
+            station_names=station_names,
+            segments=segments,
+            ranges=ranges,
+            unresolved_indexes=unresolved_indexes,
+            unresolved_km_by_range=unresolved_km_by_range,
+            unresolved_event_ranges=unresolved_event_ranges,
+            ignored_noise_indexes=ignored_noise_indexes,
+        )
 
-        if not unresolved_indexes or unresolved_km <= 0.05:
+        if plan.is_complete:
+            return self._finalize_toll_plan(plan)
+
+        if plan.unresolved_indexes and not plan.has_unresolved_events:
+            combined = self._combined_range_if_contiguous(
+                ranges,
+                tolled_km,
+            )
+            if combined is not None:
+                route_wide = self._route_wide_pair(
+                    projections,
+                    combined,
+                    tolled_km,
+                )
+                route_match = self._closed_match_from_pair(
+                    -1,
+                    combined,
+                    route_wide,
+                )
+                if (
+                    route_match is not None
+                    and self._route_wide_match_confirms_same_closed_journey(
+                        route_match,
+                        plan,
+                    )
+                ):
+                    return self._closed_quote(
+                        route_match.record,
+                        route_match.entry,
+                        route_match.exit,
+                    )
+
+        return self._finalize_toll_plan(plan)
+
+    # ROUTECO_V034_TOLL_PLAN_PROOF
+    def _finalize_toll_plan(self, plan: TollPlan) -> TollQuote | None:
+        # Seule cette méthode produit un TollQuote de niveau route exact.
+        segments = sorted(
+            list(plan.segments),
+            key=lambda item: (
+                float("inf")
+                if item.route_start_km is None
+                else item.route_start_km,
+                float("inf")
+                if item.route_end_km is None
+                else item.route_end_km,
+            ),
+        )
+        station_names = self._dedupe_names(plan.station_names)
+
+        if plan.is_complete:
             if segments and self._segments_are_integral(segments):
                 details = " → ".join(station_names)
                 message = "Tarif exact classe 1 issu des matrices locales."
                 if details:
                     message = f"Tarif exact classe 1 : {details}."
-                if ignored_noise_indexes:
+                if plan.ignored_noise_indexes:
                     message = (
                         message.rstrip(".")
                         + " (fragments OSM sans événement tarifaire ignorés)."
                     )
                 return TollQuote(
-                    round(total, 2), "exact", station_names, message, segments=segments
+                    round(plan.exact_cost, 2),
+                    "exact",
+                    station_names,
+                    message,
+                    segments=segments,
                 )
-            if ignored_noise_indexes and not segments:
+
+            if plan.ignored_noise_indexes and not segments:
                 return TollQuote(
                     0.0,
                     "none",
                     [],
-                    "Fragments OSM isolés ignorés : aucun événement de paiement traversé.",
+                    "Fragments OSM isolés ignorés : "
+                    "aucun événement de paiement traversé.",
                 )
             return None
 
-        # OSM can split one continuous closed corridor into several nearby toll
-        # ranges. A single route-wide matrix is allowed to replace the partial
-        # result only when all ranges are contiguous enough and the resulting
-        # pair is itself geometrically credible.
-        # ROUTECO_V034_ROUTEWIDE_EVENT_GUARD_FIX
-        # A route-wide closed matrix cannot override a physical billing event
-        # already identified as crossed but lacking an official local tariff.
-        # Otherwise the final fallback would turn an honest estimated result
-        # into a false exact fare.
+        estimated_part = round(
+            plan.unresolved_km * self.FALLBACK_EUR_PER_KM,
+            2,
+        )
+
         if (
-            unresolved_indexes
-            and not unresolved_event_ranges.intersection(unresolved_indexes)
+            plan.exact_cost <= 0
+            and not plan.ignored_noise_indexes
+            and not plan.has_unresolved_events
+            and estimated_part <= 0
         ):
-            combined = self._combined_range_if_contiguous(ranges, tolled_km)
-            if combined is not None:
-                route_wide = self._route_wide_pair(projections, combined, tolled_km)
-                if route_wide is not None:
-                    record, entry, exit_ = route_wide
-                    route_quote = self._closed_quote(record, entry, exit_)
-                    if route_quote.cost + 0.01 >= total:
-                        return route_quote
+            return None
 
-        if total > 0 or ignored_noise_indexes:
-            estimated_part = round(unresolved_km * self.FALLBACK_EUR_PER_KM, 2)
-            # A few kilometres of residual OSM toll tagging around a known plaza
-            # must not downgrade an otherwise complete official tariff. These
-            # fragments are explicitly ignored only below both distance and cost
-            # thresholds; significant gaps remain honestly estimated.
-            if (
-                unresolved_km <= self.USER_VISIBLE_RESIDUAL_KM
-                and estimated_part < self.MINOR_RESIDUAL_EUR
-                and not unresolved_event_ranges.intersection(
-                    unresolved_indexes
+        if estimated_part > 0:
+            segments.append(
+                TollSegmentQuote(
+                    entry=None,
+                    exit=None,
+                    operator="",
+                    cost=estimated_part,
+                    distance_km=round(plan.unresolved_km, 1),
+                    confidence="estimated",
                 )
-                and segments
-                and self._segments_are_integral(segments)
-            ):
-                details = " → ".join(station_names)
-                message = "Tarif exact classe 1"
-                if details:
-                    message += f" : {details}"
-                message += " (micro-fragment OSM ignoré)."
-                return TollQuote(
-                    round(total, 2), "exact", station_names, message, segments=segments
-                )
-            if estimated_part > 0:
-                segments.append(
-                    TollSegmentQuote(
-                        entry=None,
-                        exit=None,
-                        operator="",
-                        cost=estimated_part,
-                        distance_km=round(unresolved_km, 1),
-                        confidence="estimated",
-                    )
-                )
-            message = (
-                "Tarif partiellement apparié ; le solde réel reste sans tarif officiel."
-                if total > 0
-                else "Tronçon payant réel détecté, mais aucun tarif officiel fiable n'est associé."
-            )
-            if ignored_noise_indexes:
-                message += " Les fragments OSM sans événement tarifaire ont été exclus."
-            return TollQuote(
-                round(total + estimated_part, 2),
-                "estimated",
-                station_names,
-                message,
-                segments=segments,
             )
 
-        return None
+        message = (
+            "Tarif partiellement apparié ; "
+            "le solde réel reste sans tarif officiel."
+            if plan.exact_cost > 0
+            else "Tronçon payant réel détecté, mais aucun tarif officiel "
+            "fiable n'est associé."
+        )
+        if plan.ignored_noise_indexes:
+            message += (
+                " Les fragments OSM sans événement tarifaire ont été exclus."
+            )
+
+        return TollQuote(
+            round(plan.exact_cost + estimated_part, 2),
+            "estimated",
+            station_names,
+            message,
+            segments=segments,
+        )
+
+    def _closed_chain_has_complete_event_topology(
+        self,
+        matches: list[ClosedMatch],
+    ) -> bool:
+        # Deux voyages fermés ou plus peuvent former un plan complet lorsque
+        # chaque trajet possède une entrée et une sortie officielles, dans le
+        # bon ordre et sans chevauchement.
+        #
+        # Le routage actuel ne fournit toutefois pas encore une preuve positive
+        # du statut gratuit de chaque intervalle sortie -> entrée suivante.
+        # On conserve donc un budget transitoire, nommé explicitement et séparé
+        # des résidus OSM et des marges de recherche de 25 km. Au-delà de ce
+        # budget, le connecteur reste non prouvé et le plan doit être estimé.
+        if len(matches) < 2:
+            return False
+
+        ordered = sorted(matches, key=lambda item: item.span_start_km)
+        previous_end: float | None = None
+        used_stations: set[tuple[str, int]] = set()
+
+        for match in ordered:
+            if match.span_end_km <= match.span_start_km + 0.05:
+                return False
+
+            entry_label = physical_label_key(
+                match.entry.station.display_name
+            )
+            exit_label = physical_label_key(
+                match.exit.station.display_name
+            )
+            if not entry_label or not exit_label:
+                return False
+
+            entry_key = (
+                entry_label,
+                round(match.span_start_km * 10),
+            )
+            exit_key = (
+                exit_label,
+                round(match.span_end_km * 10),
+            )
+            if entry_key in used_stations or exit_key in used_stations:
+                return False
+            used_stations.update((entry_key, exit_key))
+
+            if previous_end is not None:
+                connector_km = match.span_start_km - previous_end
+                if connector_km < -1.0:
+                    return False
+                if (
+                    connector_km
+                    > self.MAX_UNVERIFIED_CLOSED_CONNECTOR_KM
+                ):
+                    return False
+
+            previous_end = (
+                match.span_end_km
+                if previous_end is None
+                else max(previous_end, match.span_end_km)
+            )
+
+        return True
+
+    @staticmethod
+    def _route_wide_match_confirms_same_closed_journey(
+        match: ClosedMatch,
+        plan: TollPlan,
+    ) -> bool:
+        # Une matrice globale ne remplace un plan partiel que lorsqu'elle
+        # confirme exactement le même voyage fermé déjà identifié. La distance
+        # OSM et le montant ne constituent jamais la preuve.
+        if plan.has_unresolved_events:
+            return False
+
+        exact_segments = [
+            segment
+            for segment in plan.segments
+            if segment.confidence == "exact"
+        ]
+        if len(exact_segments) != len(plan.segments):
+            return False
+        if len(exact_segments) != 1:
+            # Une matrice unique ne doit pas absorber plusieurs voyages fermés.
+            return False
+
+        segment = exact_segments[0]
+        if segment.exit is None:
+            # Un portique ouvert ne peut pas être absorbé par une matrice
+            # fermée entrée-sortie.
+            return False
+        if (
+            segment.route_start_km is None
+            or segment.route_end_km is None
+        ):
+            return False
+
+        entry_label = physical_label_key(segment.entry or "")
+        exit_label = physical_label_key(segment.exit or "")
+        match_entry_label = physical_label_key(
+            match.entry.station.display_name
+        )
+        match_exit_label = physical_label_key(
+            match.exit.station.display_name
+        )
+        if not entry_label or entry_label != match_entry_label:
+            return False
+        if not exit_label or exit_label != match_exit_label:
+            return False
+
+        if abs(segment.route_start_km - match.span_start_km) > 1.0:
+            return False
+        if abs(segment.route_end_km - match.span_end_km) > 1.0:
+            return False
+
+        segment_operator = (segment.operator or "").upper()
+        matrix_operator = (match.record.operator or "").upper()
+        if (
+            segment_operator
+            and matrix_operator
+            and segment_operator != "UNKNOWN"
+            and matrix_operator != "UNKNOWN"
+            and segment_operator != matrix_operator
+        ):
+            return False
+
+        return True
 
     def _best_closed_chain(
         self,
@@ -1429,25 +1644,37 @@ class TollPricingService:
         entry: StationProjection,
         exit_: StationProjection,
     ) -> TollQuote:
-        names = [entry.station.display_name, exit_.station.display_name]
-        return TollQuote(
-            round(record.price, 2),
-            "exact",
-            names,
-            f"Tarif exact classe 1 : {names[0]} → {names[1]}.",
-            segments=[
-                TollSegmentQuote(
-                    entry=names[0],
-                    exit=names[1],
-                    operator=record.operator,
-                    cost=round(record.price, 2),
-                    distance_km=record.distance_km,
-                    confidence="exact",
-                    route_start_km=round(entry.route_km, 1),
-                    route_end_km=round(exit_.route_km, 1),
-                )
-            ],
+        names = [
+            entry.station.display_name,
+            exit_.station.display_name,
+        ]
+        segment = TollSegmentQuote(
+            entry=names[0],
+            exit=names[1],
+            operator=record.operator,
+            cost=round(record.price, 2),
+            distance_km=record.distance_km,
+            confidence="exact",
+            route_start_km=round(entry.route_km, 1),
+            route_end_km=round(exit_.route_km, 1),
         )
+        quote = self._finalize_toll_plan(
+            TollPlan(
+                exact_cost=record.price,
+                station_names=names,
+                segments=[segment],
+                ranges=[],
+                unresolved_indexes=[],
+                unresolved_km_by_range={},
+                unresolved_event_ranges=set(),
+                ignored_noise_indexes=set(),
+            )
+        )
+        if quote is None:
+            raise RuntimeError(
+                "Une matrice fermée valide n'a pas produit de TollQuote."
+            )
+        return quote
 
     # ROUTECO_V034_MATRIX_SELECTION_HOTFIX
     def _select_closed_matches(
