@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,9 @@ class ScenarioResult:
     issues: list[ValidationIssue]
     retried_profiles: list[str] = field(default_factory=list)
     failed_profiles: list[str] = field(default_factory=list)
+    routing_seconds: float = 0.0
+    toll_pricing_seconds: float = 0.0
+    native_alternatives_skipped: bool = False
 
     @property
     def errors(self) -> int:
@@ -87,6 +91,7 @@ async def validate_scenario(
     engine_result = await routing.candidates(start, end)
     issues: list[ValidationIssue] = []
     routes: list[ValidatedRoute] = []
+    toll_pricing_started = time.perf_counter()
 
     if engine_result.engine != "graphhopper":
         issues.append(ValidationIssue("error", "GraphHopper indisponible : scénario calculé en démo."))
@@ -372,6 +377,14 @@ async def validate_scenario(
         issues=issues,
         retried_profiles=list(engine_result.retried_profiles),
         failed_profiles=list(engine_result.failed_profiles),
+        routing_seconds=engine_result.routing_seconds,
+        toll_pricing_seconds=round(
+            time.perf_counter() - toll_pricing_started,
+            3,
+        ),
+        native_alternatives_skipped=(
+            engine_result.native_alternatives_skipped
+        ),
     )
 
 
@@ -403,6 +416,40 @@ def report_payload(results: list[ScenarioResult], *, strict: bool) -> dict[str, 
             ),
             "routing_retries": sum(len(result.retried_profiles) for result in results),
             "routing_failures": sum(len(result.failed_profiles) for result in results),
+            "routing_seconds": round(
+                sum(result.routing_seconds for result in results),
+                3,
+            ),
+            "routing_average_seconds": round(
+                (
+                    sum(result.routing_seconds for result in results)
+                    / len(results)
+                )
+                if results
+                else 0.0,
+                3,
+            ),
+            "routing_max_seconds": round(
+                max(
+                    (
+                        result.routing_seconds
+                        for result in results
+                    ),
+                    default=0.0,
+                ),
+                3,
+            ),
+            "toll_pricing_seconds": round(
+                sum(
+                    result.toll_pricing_seconds
+                    for result in results
+                ),
+                3,
+            ),
+            "native_alternatives_skipped": sum(
+                result.native_alternatives_skipped
+                for result in results
+            ),
         },
         "results": [
             {
@@ -413,6 +460,11 @@ def report_payload(results: list[ScenarioResult], *, strict: bool) -> dict[str, 
                 "issues": [asdict(issue) for issue in result.issues],
                 "retried_profiles": result.retried_profiles,
                 "failed_profiles": result.failed_profiles,
+                "routing_seconds": result.routing_seconds,
+                "toll_pricing_seconds": result.toll_pricing_seconds,
+                "native_alternatives_skipped": (
+                    result.native_alternatives_skipped
+                ),
                 "routes": [asdict(route) for route in result.routes],
             }
             for result in results
@@ -437,13 +489,23 @@ def render_markdown(payload: dict[str, Any]) -> str:
         f"- Sans péage : **{summary['none']}**",
         f"- Profils GraphHopper relancés : **{summary.get('routing_retries', 0)}**",
         f"- Profils GraphHopper perdus : **{summary.get('routing_failures', 0)}**",
+        (
+            f"- Temps de routage cumulé : **{summary.get('routing_seconds', 0.0):.1f} s** "
+            f"(moyenne {summary.get('routing_average_seconds', 0.0):.1f} s, "
+            f"maximum {summary.get('routing_max_seconds', 0.0):.1f} s)"
+        ),
+        f"- Temps de calcul des péages : **{summary.get('toll_pricing_seconds', 0.0):.2f} s**",
+        (
+            "- Variantes natives annulées car déjà redondantes : "
+            f"**{summary.get('native_alternatives_skipped', 0)}**"
+        ),
         f"- Erreurs : **{summary['errors']}**",
         f"- Avertissements : **{summary['warnings']}**",
         "",
         "## Vue d'ensemble",
         "",
-        "| Scénario | Routes | Plus rapide | Péage rapide | Exact / estimé / aucun | État |",
-        "|---|---:|---:|---:|---:|---|",
+        "| Scénario | Routes | Routage | Plus rapide | Péage rapide | Exact / estimé / aucun | État |",
+        "|---|---:|---:|---:|---:|---:|---|",
     ]
 
     for result in payload["results"]:
@@ -459,8 +521,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
         state = "OK" if not errors and not warnings else (f"ERREUR ×{errors}" if errors else f"À vérifier ×{warnings}")
         fastest_duration = f"{fastest['duration_minutes']} min" if fastest else "—"
         fastest_toll = f"{fastest['toll_cost']:.2f} €" if fastest else "—"
+        routing_seconds = float(result.get("routing_seconds") or 0.0)
         lines.append(
-            f"| {result['name']} | {len(routes)} | {fastest_duration} | {fastest_toll} | "
+            f"| {result['name']} | {len(routes)} | {routing_seconds:.1f} s | "
+            f"{fastest_duration} | {fastest_toll} | "
             f"{counts['exact']} / {counts['estimated']} / {counts['none']} | {state} |"
         )
 

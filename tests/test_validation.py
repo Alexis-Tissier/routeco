@@ -14,6 +14,9 @@ def test_validation_report_contains_summary_and_toll_segments() -> None:
         engine="graphhopper",
         engine_message="1 route",
         issues=[ValidationIssue("warning", "À vérifier")],
+        routing_seconds=3.25,
+        toll_pricing_seconds=0.125,
+        native_alternatives_skipped=True,
         routes=[
             ValidatedRoute(
                 id="route-1",
@@ -46,8 +49,12 @@ def test_validation_report_contains_summary_and_toll_segments() -> None:
 
     assert payload["summary"]["routes"] == 1
     assert payload["summary"]["exact"] == 1
+    assert payload["summary"]["routing_seconds"] == 3.25
+    assert payload["summary"]["toll_pricing_seconds"] == 0.125
+    assert payload["summary"]["native_alternatives_skipped"] == 1
     assert "Entrée → Sortie" in markdown
     assert "8.50 €" in markdown
+    assert "3.2 s" in markdown
 
 
 def test_report_payload_counts_exact_routes_without_changing_totals() -> None:

@@ -11,8 +11,8 @@ from app.services.tolls import (
     StationProjection,
     TollPricingService,
     TollRange,
-    TollStation,
     TollStateInterval,
+    TollStation,
 )
 
 
@@ -265,6 +265,157 @@ def test_official_closed_boundary_absorbs_event_free_osm_overhang(
     )
 
     assert resolved == [(0.0, 4.0)]
+
+
+def test_short_osm_fragment_is_absorbed_when_its_event_was_priced(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path,
+        [
+            {
+                "name": "PRICED BARRIER",
+                "osm_name": "Priced Barrier",
+                "operator": "NET",
+                "lat": "45.0",
+                "lon": "0.0",
+                "type": "open",
+            }
+        ],
+        [],
+        [
+            {
+                "operator": "NET",
+                "name": "PRICED BARRIER",
+                "distance": "",
+                "price1": "2.90",
+            }
+        ],
+    )
+    station = next(
+        item
+        for item in service.stations
+        if item.name == "PRICED BARRIER"
+    )
+    projection = StationProjection(
+        station,
+        19.0,
+        0.0,
+        1,
+    )
+
+    resolved = service._is_non_billable_osm_fragment(
+        [projection],
+        TollRange(0, 2, 20.0, 25.0, 5.0),
+        [],
+        [19.0],
+        [],
+        set(service._station_identity_keys(station)),
+    )
+
+    assert resolved is True
+
+
+def test_short_osm_fragment_keeps_a_distinct_unselected_event(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path,
+        [
+            {
+                "name": "USED BARRIER",
+                "osm_name": "Used Barrier",
+                "operator": "NET",
+                "lat": "45.0",
+                "lon": "0.0",
+                "type": "open",
+            },
+            {
+                "name": "SECOND BARRIER",
+                "osm_name": "Second Barrier",
+                "operator": "NET",
+                "lat": "45.0",
+                "lon": "0.1",
+                "type": "open",
+            },
+        ],
+        [],
+        [
+            {
+                "operator": "NET",
+                "name": "USED BARRIER",
+                "distance": "",
+                "price1": "2.90",
+            },
+            {
+                "operator": "NET",
+                "name": "SECOND BARRIER",
+                "distance": "",
+                "price1": "1.50",
+            },
+        ],
+    )
+    stations = {
+        item.name: item
+        for item in service.stations
+    }
+    used = StationProjection(
+        stations["USED BARRIER"],
+        19.0,
+        0.0,
+        1,
+    )
+    second = StationProjection(
+        stations["SECOND BARRIER"],
+        23.0,
+        0.0,
+        1,
+    )
+
+    resolved = service._is_non_billable_osm_fragment(
+        [used, second],
+        TollRange(0, 2, 20.0, 25.0, 5.0),
+        [],
+        [19.0],
+        [],
+        set(
+            service._station_identity_keys(
+                stations["USED BARRIER"]
+            )
+        ),
+    )
+
+    assert resolved is False
+
+
+def test_short_adjacent_fragment_accepts_used_closed_boundary(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, [], [], [])
+    boundary = TollStation(
+        "BOUNDARY",
+        "NET",
+        45.0,
+        0.0,
+        "mainline",
+    )
+    projection = StationProjection(
+        boundary,
+        10.0,
+        0.0,
+        1,
+    )
+
+    resolved = service._is_non_billable_osm_fragment(
+        [projection],
+        TollRange(0, 2, 8.6, 10.0, 1.4),
+        [],
+        [10.0],
+        [],
+        set(service._station_identity_keys(boundary)),
+    )
+
+    assert resolved is True
 
 
 def test_open_event_resolves_detailed_residual_component(tmp_path: Path) -> None:

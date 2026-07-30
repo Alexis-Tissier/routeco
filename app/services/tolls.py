@@ -1136,11 +1136,86 @@ class TollPricingService:
             ):
                 return True
 
+            # The national inventory and the concessionaire catalogue can
+            # project the same closed mainline barrier a few hundred metres
+            # apart. Once an official matrix already ends at that boundary,
+            # the cross-source twin is not a second chargeable event.
+            #
+            # Keep this deliberately stricter than ordinary geographic
+            # deduplication: one record must come from the neutral OFFICIAL
+            # inventory, the other from a concessionaire, and both labels must
+            # share a meaningful place token. This prevents a genuinely
+            # distinct downstream gantry from being swallowed just because it
+            # is nearby.
+            if self._duplicates_used_closed_boundary_event(
+                projection,
+                match.entry,
+            ):
+                return True
+            if self._duplicates_used_closed_boundary_event(
+                projection,
+                match.exit,
+            ):
+                return True
+
             # 100 m couvrent seulement le bruit de projection géométrique.
             if start_km - 0.10 <= route_km <= end_km + 0.10:
                 return True
 
         return False
+
+    @classmethod
+    def _duplicates_used_closed_boundary_event(
+        cls,
+        projection: StationProjection,
+        boundary: StationProjection,
+    ) -> bool:
+        operators = {
+            (projection.station.operator or "").upper(),
+            (boundary.station.operator or "").upper(),
+        }
+        if "OFFICIAL" not in operators or len(operators) != 2:
+            return False
+        if not cls._same_physical_closed_projection(
+            projection,
+            boundary,
+        ):
+            return False
+
+        ignored_tokens = {
+            "annexe",
+            "barriere",
+            "direction",
+            "dir",
+            "entree",
+            "est",
+            "gare",
+            "nord",
+            "ouest",
+            "peage",
+            "principale",
+            "sens",
+            "sortie",
+            "sud",
+            "vers",
+        }
+
+        def meaningful_tokens(item: StationProjection) -> set[str]:
+            aliases = (
+                name_aliases(item.station.name)
+                | name_aliases(item.station.osm_name)
+            )
+            return {
+                token
+                for alias in aliases
+                for token in alias.split()
+                if len(token) >= 4 and token not in ignored_tokens
+            }
+
+        return bool(
+            meaningful_tokens(projection)
+            & meaningful_tokens(boundary)
+        )
 
     def _open_components_priced_by_events(
         self,
@@ -1213,6 +1288,8 @@ class TollPricingService:
         road_class_link_details: list[list],
         closed_matches: list[ClosedMatch],
         used_station_keys: set[str],
+        *,
+        include_priced_unselected: bool = False,
     ) -> list[StationProjection]:
         # Return physical billing events crossed without a local exact tariff.
         unresolved: list[StationProjection] = []
@@ -1271,7 +1348,12 @@ class TollPricingService:
             elif station.is_mainline_barrier and projection.lateral_km <= 0.12:
                 is_event = True
 
-            if not is_event or self._lookup_open(station) is not None:
+            if not is_event:
+                continue
+            if (
+                not include_priced_unselected
+                and self._lookup_open(station) is not None
+            ):
                 continue
 
             identity = sorted(keys)[0] if keys else (
@@ -1819,6 +1901,8 @@ class TollPricingService:
                 toll_range,
                 road_class_link_details,
                 exact_boundaries,
+                accepted,
+                used_station_keys,
             ):
                 ignored_noise_indexes.add(range_index)
                 resolved_ranges.add(range_index)
@@ -2665,18 +2749,46 @@ class TollPricingService:
                 <= interval_end_km + boundary_window_km
             ]
         )
-        starts = [
+        boundary_starts = [
             item
             for item in nearby
             if abs(item.route_km - interval_start_km)
             <= boundary_window_km
         ]
-        ends = [
+        boundary_ends = [
             item
             for item in nearby
             if abs(item.route_km - interval_end_km)
             <= boundary_window_km
         ]
+        internal_mainline = [
+            item
+            for item in nearby
+            if (
+                interval_start_km + 0.5
+                < item.route_km
+                < interval_end_km - 0.5
+                and item.station.is_mainline_barrier
+            )
+        ]
+        # A tolled OSM component can continue past an internal mainline barrier
+        # even though the official closed-system journey ends there. Make those
+        # physical boundaries discoverable; the stricter source, coverage and
+        # remainder checks below decide whether they are admissible.
+        starts = self._dedupe_closed_topology_projections(
+            boundary_starts + internal_mainline
+        )
+        ends = self._dedupe_closed_topology_projections(
+            boundary_ends + internal_mainline
+        )
+        boundary_start_ids = {
+            id(item)
+            for item in boundary_starts
+        }
+        boundary_end_ids = {
+            id(item)
+            for item in boundary_ends
+        }
 
         candidates: list[ClosedMatch] = []
         for entry in starts:
@@ -2695,6 +2807,15 @@ class TollPricingService:
                 )
                 if record is None:
                     continue
+                discovered_from_internal_boundary = (
+                    id(entry) not in boundary_start_ids
+                    or id(exit_) not in boundary_end_ids
+                )
+                if (
+                    discovered_from_internal_boundary
+                    and record.source_id is None
+                ):
+                    continue
 
                 interval_overlap_km = max(
                     0.0,
@@ -2706,7 +2827,59 @@ class TollPricingService:
                     abs(entry.route_km - interval_start_km) <= 0.5
                     or abs(exit_.route_km - interval_end_km) <= 0.5
                 )
-                if coverage_ratio < 0.60 or not touches_boundary:
+                starts_at_component_boundary = (
+                    abs(
+                        entry.route_km
+                        - interval_start_km
+                    )
+                    <= 0.5
+                )
+                ends_at_component_boundary = (
+                    abs(
+                        exit_.route_km
+                        - interval_end_km
+                    )
+                    <= 0.5
+                )
+                internal_mainline_remainder_km = min(
+                    (
+                        max(
+                            0.0,
+                            interval_end_km
+                            - exit_.route_km,
+                        )
+                        if (
+                            starts_at_component_boundary
+                            and exit_.station.is_mainline_barrier
+                        )
+                        else float("inf")
+                    ),
+                    (
+                        max(
+                            0.0,
+                            entry.route_km
+                            - interval_start_km,
+                        )
+                        if (
+                            ends_at_component_boundary
+                            and entry.station.is_mainline_barrier
+                        )
+                        else float("inf")
+                    ),
+                )
+                official_internal_mainline_boundary = (
+                    record.source_id is not None
+                    and coverage_ratio >= 0.35
+                    and internal_mainline_remainder_km
+                    <= self.OSM_BOUNDARY_EVENT_GAP_KM
+                )
+                if (
+                    (
+                        coverage_ratio < 0.60
+                        and not official_internal_mainline_boundary
+                    )
+                    or not touches_boundary
+                ):
                     continue
 
                 candidate = ClosedMatch(
@@ -4352,16 +4525,22 @@ class TollPricingService:
         toll_range: TollRange,
         road_class_link_details: list[list],
         exact_boundaries: list[float],
+        accepted_closed: list[ClosedMatch],
+        used_station_keys: set[str],
     ) -> bool:
-        if self._range_has_physical_billing_event(
-            projections,
-            toll_range,
-            road_class_link_details,
-        ):
-            return False
+        unresolved_events = (
+            self._unpriced_billing_events_in_range(
+                projections,
+                toll_range,
+                road_class_link_details,
+                accepted_closed,
+                used_station_keys,
+                include_priced_unselected=True,
+            )
+        )
 
         if toll_range.distance_km <= self.OSM_NOISE_RANGE_KM:
-            return True
+            return not unresolved_events
 
         if (
             toll_range.distance_km <= self.OSM_BOUNDARY_FRAGMENT_KM
@@ -4371,7 +4550,11 @@ class TollPricingService:
                 min(abs(toll_range.start_km - boundary) for boundary in exact_boundaries),
                 min(abs(toll_range.end_km - boundary) for boundary in exact_boundaries),
             )
-            return boundary_gap <= self.OSM_BOUNDARY_EVENT_GAP_KM
+            return (
+                boundary_gap
+                <= self.OSM_BOUNDARY_EVENT_GAP_KM
+                and not unresolved_events
+            )
 
         return False
 

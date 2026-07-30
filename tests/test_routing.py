@@ -210,6 +210,79 @@ def test_native_alternatives_survive_failed_economy_profiles() -> None:
     assert result.retried_profiles == ["light", "balanced", "economy", "free"]
 
 
+def test_redundant_pending_native_request_is_cancelled() -> None:
+    from app.services.routing import ProfileResult
+
+    class CompleteCustomClient(GraphHopperClient):
+        def __init__(self) -> None:
+            super().__init__("http://graphhopper.test")
+            self.native_cancelled = False
+
+        async def available(self) -> bool:
+            return True
+
+        async def _request_profile(
+            self,
+            start,
+            end,
+            name,
+            motorway_priority,
+            toll_priority,
+            rank,
+        ) -> ProfileResult:
+            return ProfileResult(
+                name,
+                [
+                    {
+                        "id": f"custom-{name}",
+                        "profile": name,
+                        "profile_rank": rank,
+                        "distance_km": 100.0 + rank * 8.0,
+                        "duration_minutes": 60 + rank * 5,
+                        "motorway_km": 90.0 - rank * 12.0,
+                        "road_km": 10.0 + rank * 20.0,
+                        "tolled_km": 80.0 - rank * 10.0,
+                        "toll_ranges": [],
+                        "geometry": [
+                            [2.0, 48.0],
+                            [2.2 + rank * 0.1, 47.5],
+                            [3.0, 47.0],
+                        ],
+                        "source": "graphhopper",
+                    }
+                ],
+                1,
+            )
+
+        async def _request_native_alternatives(
+            self,
+            start,
+            end,
+        ) -> list[dict]:
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                self.native_cancelled = True
+                raise
+            return []
+
+    client = CompleteCustomClient()
+    result = asyncio.run(
+        asyncio.wait_for(
+            client.candidates(
+                Coordinate(lat=48.0, lon=2.0),
+                Coordinate(lat=47.0, lon=3.0),
+            ),
+            timeout=1.0,
+        )
+    )
+
+    assert len(result.candidates) == 5
+    assert client.native_cancelled is True
+    assert result.native_alternatives_skipped is True
+    assert "annulée" in result.message
+
+
 class SegmentedFallbackClient(GraphHopperClient):
     def __init__(self) -> None:
         super().__init__("http://graphhopper.test")

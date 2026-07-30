@@ -325,6 +325,106 @@ def test_non_equivalent_residual_matrices_are_not_selected(
     assert selected is None
 
 
+def test_official_matrix_may_end_at_internal_mainline_boundary(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path,
+        [
+            {
+                "operator": "TEST",
+                "name_from": "ENTRY",
+                "name_to": "INTERNAL BARRIER",
+                "distance": "21.3",
+                "price1": "1.70",
+            }
+        ],
+    )
+    for key, record in list(service.closed_prices.items()):
+        service.closed_prices[key] = ClosedPrice(
+            price=record.price,
+            distance_km=record.distance_km,
+            operator=record.operator,
+            source_id="official-2026",
+        )
+
+    toll_range = TollRange(0, 3, 0.0, 38.1, 38.1)
+    entry = _projection(
+        "ENTRY",
+        "TEST",
+        0.0,
+        lon=0.0,
+    )
+    internal = _projection(
+        "INTERNAL BARRIER",
+        "TEST",
+        21.3,
+        lon=0.213,
+        system_type="mainline",
+    )
+
+    selected = service._select_unique_residual_closed_match(
+        range_index=0,
+        toll_range=toll_range,
+        interval_start_km=0.0,
+        interval_end_km=38.1,
+        projections=[entry, internal],
+        existing_closed=[],
+        used_open=[],
+        road_class_link_details=[],
+        used_station_keys=set(),
+    )
+
+    assert selected is not None
+    assert selected.record.price == 1.70
+    assert selected.exit.station.is_mainline_barrier
+
+
+def test_unsourced_matrix_cannot_use_internal_mainline_relaxation(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path,
+        [
+            {
+                "operator": "TEST",
+                "name_from": "ENTRY",
+                "name_to": "INTERNAL BARRIER",
+                "distance": "21.3",
+                "price1": "1.70",
+            }
+        ],
+    )
+    toll_range = TollRange(0, 3, 0.0, 38.1, 38.1)
+    entry = _projection(
+        "ENTRY",
+        "TEST",
+        0.0,
+        lon=0.0,
+    )
+    internal = _projection(
+        "INTERNAL BARRIER",
+        "TEST",
+        21.3,
+        lon=0.213,
+        system_type="mainline",
+    )
+
+    selected = service._select_unique_residual_closed_match(
+        range_index=0,
+        toll_range=toll_range,
+        interval_start_km=0.0,
+        interval_end_km=38.1,
+        projections=[entry, internal],
+        existing_closed=[],
+        used_open=[],
+        road_class_link_details=[],
+        used_station_keys=set(),
+    )
+
+    assert selected is None
+
+
 def test_boundary_overhang_is_limited_to_half_kilometre(
     tmp_path: Path,
 ) -> None:
@@ -370,6 +470,73 @@ def test_boundary_overhang_is_limited_to_half_kilometre(
 
     assert (0.0, 0.3) in spans
     assert all(end - start <= 0.5 for start, end in spans)
+
+
+def test_cross_source_closed_boundary_twin_is_not_a_second_event(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, [])
+    toll_range = TollRange(0, 3, 62.4, 209.5, 147.1)
+    entry = _projection(
+        "BERSAILLIN",
+        "APRR",
+        66.3,
+        lon=3.15,
+    )
+    official_exit = _projection(
+        "BEYNOST",
+        "OFFICIAL",
+        209.2,
+        lon=4.9967,
+        system_type="mainline",
+    )
+    accepted = _match(
+        toll_range,
+        entry,
+        official_exit,
+        operator="APRR",
+        price=15.4,
+    )
+    duplicate = _projection(
+        "PEAGE DE BEYNOST - BEYNOST",
+        "APRR",
+        209.5,
+        lon=4.9940,
+        system_type="mainline",
+    )
+    distinct_gantry = _projection(
+        "PORTIQUE SUIVANT",
+        "APRR",
+        209.5,
+        lon=4.9940,
+        system_type="mainline",
+    )
+    fragment = TollRange(
+        2,
+        3,
+        209.2,
+        209.5,
+        0.3,
+    )
+    used = (
+        service._station_identity_keys(entry.station)
+        | service._station_identity_keys(official_exit.station)
+    )
+
+    assert service._unpriced_billing_events_in_range(
+        [entry, official_exit, duplicate],
+        fragment,
+        [],
+        [accepted],
+        used,
+    ) == []
+    assert service._unpriced_billing_events_in_range(
+        [entry, official_exit, distinct_gantry],
+        fragment,
+        [],
+        [accepted],
+        used,
+    ) == [distinct_gantry]
 
 
 def test_exact_chain_allows_exit_then_same_entry() -> None:

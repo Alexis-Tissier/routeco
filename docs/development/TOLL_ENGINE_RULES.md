@@ -223,6 +223,18 @@ non sourcée. Il peut atteindre 5 km pour une cellule officielle datée : cette
 extension ne s'applique qu'au fragment contigu à la borne, jamais à un corridor
 isolé.
 
+Une cellule officielle peut aussi s'arrêter sur une barrière principale située
+à l'intérieur du composant OSM lorsque :
+
+- l'autre borne touche le début ou la fin du composant à 500 m près ;
+- la cellule couvre au moins 35 % du composant ;
+- le reliquat après la barrière ne dépasse pas 25 km ;
+- aucun autre événement de paiement ne subsiste.
+
+Cette exception décrit une preuve physique : la cellule se termine à une
+barrière traversée, puis le balisage OSM continue. Elle est interdite aux
+matrices historiques sans source.
+
 ## Péages ouverts adjacents et alias physiques
 
 Un tarif ouvert daté peut déclarer qu'il s'ajoute au système fermé adjacent.
@@ -236,6 +248,27 @@ barrière ouverte : point tarifé, points directionnels et gare physique. Un
 alias sans tarif ne bloque plus un événement ouvert déjà sélectionné lorsque
 les deux points sont à moins de 250 m, à moins de 500 m sur le tracé et
 partagent un mot géographique significatif. La proximité seule ne suffit pas.
+
+Une petite plage OSM adjacente à un événement déjà facturé peut être classée
+comme fragment de borne, même si elle se trouve dans une autre plage
+GraphHopper. Elle doit mesurer au plus 10 km, rester proche d'une borne exacte
+et ne contenir aucun événement non sélectionné. La présence d'un second
+portique tarifé dans le catalogue bloque donc toujours cette absorption tant
+qu'il n'a pas été facturé.
+
+## Latence et variante native GraphHopper
+
+Les cinq profils Routeco restent calculés en parallèle. La variante native est
+un filet de sécurité supplémentaire :
+
+- si elle est déjà terminée, ses routes sont conservées ;
+- si moins de quatre routes distinctes existent, Routeco l'attend ;
+- si quatre routes distinctes existent déjà et que la variante native est
+  encore en cours, elle est annulée.
+
+Les rapports enregistrent le temps de routage, le temps de calcul des péages et
+le nombre d'annulations de variantes natives. Une requête locale GraphHopper
+ignore les proxies définis dans l'environnement.
 
 ## Réseaux officiels 2026 intégrés
 

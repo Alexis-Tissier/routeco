@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,6 +24,8 @@ class EngineResult:
     candidates: list[dict]
     retried_profiles: list[str] = field(default_factory=list)
     failed_profiles: list[str] = field(default_factory=list)
+    routing_seconds: float = 0.0
+    native_alternatives_skipped: bool = False
 
 
 @dataclass(slots=True)
@@ -69,18 +72,25 @@ class GraphHopperClient:
 
     async def available(self) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=2.5) as client:
+            # GraphHopper is a local Routeco dependency. Environment proxies
+            # must not intercept localhost health checks or route requests.
+            async with httpx.AsyncClient(
+                timeout=2.5,
+                trust_env=False,
+            ) as client:
                 response = await client.get(f"{self.base_url}/info")
                 return response.is_success
         except httpx.HTTPError:
             return False
 
     async def candidates(self, start: Coordinate, end: Coordinate) -> EngineResult:
+        routing_started = time.perf_counter()
         if not await self.available():
             return EngineResult(
                 "demo",
                 "GraphHopper local n'est pas démarré : résultats de démonstration.",
                 demo_candidates(start, end),
+                routing_seconds=round(time.perf_counter() - routing_started, 3),
             )
 
         profiles = [
@@ -91,20 +101,35 @@ class GraphHopperClient:
             ("free", 0.30, 0.05, 4),
         ]
         profile_tasks = [
-            self._request_profile(start, end, name, motorway, toll, rank)
+            asyncio.create_task(
+                self._request_profile(start, end, name, motorway, toll, rank)
+            )
             for name, motorway, toll, rank in profiles
         ]
         # GraphHopper has a native alternative-route algorithm that is far less
         # prone to the maximum-nodes failures triggered by very aggressive custom
         # models. It provides a robust baseline of genuinely different routes,
         # while the five custom profiles still search for economical variants.
-        native_task = self._request_native_alternatives(start, end)
-        responses = await asyncio.gather(*profile_tasks, native_task, return_exceptions=True)
+        native_task = asyncio.create_task(
+            self._request_native_alternatives(start, end)
+        )
+        try:
+            responses = await asyncio.gather(
+                *profile_tasks,
+                return_exceptions=True,
+            )
+        except BaseException:
+            native_task.cancel()
+            await asyncio.gather(
+                native_task,
+                return_exceptions=True,
+            )
+            raise
 
         candidates: list[dict] = []
         retried_profiles: list[str] = []
         failed_profile_results: list[ProfileResult] = []
-        for result in responses[:-1]:
+        for result in responses:
             if isinstance(result, Exception):
                 logger.warning("Unexpected GraphHopper profile failure: %s", result)
                 continue
@@ -120,10 +145,34 @@ class GraphHopperClient:
                     result.last_error,
                 )
 
+        # Native alternatives are supplemental. When the five custom profiles
+        # already produced at least four genuinely distinct routes, waiting for
+        # the native request to hit its 25-second ceiling only adds latency. Keep
+        # it whenever it has already completed, or whenever custom coverage is
+        # sparse enough that it can still improve resilience.
+        native_alternatives_skipped = False
+        distinct_custom = self._deduplicate(candidates)
+        if (
+            not native_task.done()
+            and len(distinct_custom) >= 4
+        ):
+            native_task.cancel()
+            try:
+                await native_task
+            except asyncio.CancelledError:
+                pass
+            native_result: list[dict] | Exception = []
+            native_alternatives_skipped = True
+        else:
+            native_response = await asyncio.gather(
+                native_task,
+                return_exceptions=True,
+            )
+            native_result = native_response[0]
+
         # Native alternatives are usable even when every custom profile fails.
         # Add them before choosing a fallback geometry so a bounded native path can
         # seed segmented recovery instead of silently losing all economic profiles.
-        native_result = responses[-1]
         if isinstance(native_result, Exception):
             # A native alternative-route failure is expected on some very long
             # searches. Do not print it as a warning when custom profiles already
@@ -213,6 +262,13 @@ class GraphHopperClient:
                 demo_candidates(start, end),
                 retried_profiles=retried_profiles,
                 failed_profiles=failed_profiles,
+                routing_seconds=round(
+                    time.perf_counter() - routing_started,
+                    3,
+                ),
+                native_alternatives_skipped=(
+                    native_alternatives_skipped
+                ),
             )
 
         message = f"{len(candidates)} itinéraires candidats calculés localement."
@@ -222,12 +278,21 @@ class GraphHopperClient:
             message += f" {len(recovered_names)} profil(s) récupéré(s) par segmentation."
         if failed_profiles:
             message += f" {len(failed_profiles)} profil(s) indisponible(s)."
+        if native_alternatives_skipped:
+            message += " Variante native devenue inutile, annulée."
         return EngineResult(
             "graphhopper",
             message,
             candidates,
             retried_profiles=retried_profiles,
             failed_profiles=failed_profiles,
+            routing_seconds=round(
+                time.perf_counter() - routing_started,
+                3,
+            ),
+            native_alternatives_skipped=(
+                native_alternatives_skipped
+            ),
         )
 
     async def _request_native_alternatives(
@@ -548,7 +613,10 @@ class GraphHopperClient:
         return output
 
     async def _post_route(self, body: dict[str, Any]) -> dict[str, Any]:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout,
+            trust_env=False,
+        ) as client:
             response = await client.post(f"{self.base_url}/route", json=body)
         if not response.is_success:
             detail = response.text

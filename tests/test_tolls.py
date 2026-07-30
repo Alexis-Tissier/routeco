@@ -576,6 +576,33 @@ def test_official_sanef_aliases_are_loaded():
     assert record.price == 18.9
 
 
+def test_official_sanef_aumale_mainline_alias_is_loaded():
+    from app.services.tolls import TollStation
+
+    service = TollPricingService(Path("data/tolls"))
+    entry = TollStation(
+        "Poix-de-Picardie",
+        "OFFICIAL",
+        49.8085433,
+        1.9687666,
+        "closed",
+    )
+    exit_ = TollStation(
+        "Haudricourt",
+        "OFFICIAL",
+        49.7592322,
+        1.7022370,
+        "mainline",
+    )
+
+    record = service._lookup_closed(entry, exit_)
+
+    assert record is not None
+    assert record.operator == "SANEF"
+    assert record.price == 1.7
+    assert record.source_id == "sanef-class1-2026"
+
+
 def test_official_sapn_group_price_is_loaded():
     from app.services.tolls import TollStation
 

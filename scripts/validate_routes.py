@@ -10,11 +10,11 @@ from pathlib import Path
 
 from app.config import settings
 from app.services.routing import GraphHopperClient
-from app.services.tolls import TollPricingService
 from app.services.toll_manifest import (
     build_missing_toll_manifest,
     render_missing_toll_manifest,
 )
+from app.services.tolls import TollPricingService
 from app.services.validation import (
     load_scenarios,
     render_markdown,
@@ -83,7 +83,9 @@ async def run(args: argparse.Namespace) -> int:
         results.append(result)
         print(
             f"  {len(result.routes)} routes · {result.errors} erreur(s) · "
-            f"{result.warnings} avertissement(s)"
+            f"{result.warnings} avertissement(s) · "
+            f"routage {result.routing_seconds:.1f} s · "
+            f"péages {result.toll_pricing_seconds:.2f} s"
         )
 
     payload = report_payload(results, strict=args.strict)
@@ -120,6 +122,12 @@ async def run(args: argparse.Namespace) -> int:
     print(
         f"Résumé : {summary['errors']} erreur(s), {summary['warnings']} avertissement(s), "
         f"{summary['exact']} exact(s), {summary['estimated']} estimé(s)."
+    )
+    print(
+        "Durées : "
+        f"{summary['routing_seconds']:.1f} s de routage "
+        f"(moyenne {summary['routing_average_seconds']:.1f} s), "
+        f"{summary['toll_pricing_seconds']:.2f} s de calcul des péages."
     )
     return 1 if summary["errors"] else 0
 
