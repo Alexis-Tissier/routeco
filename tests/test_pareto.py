@@ -3,6 +3,7 @@ from app.services.pareto import (
     decorate_routes,
     pareto_front,
     select_economically_distinct_routes,
+    select_useful_routes,
 )
 
 
@@ -124,3 +125,87 @@ def test_trusted_cost_step_survives_a_cheaper_estimated_route():
     )
 
     assert [item.id for item in selected] == ["fast", "estimated", "trusted"]
+
+
+def test_useful_routes_keep_motorway_and_short_distance_roles() -> None:
+    motorway = route("motorway", 317, 128.57)
+    motorway.distance_km = 570
+    motorway.motorway_km = 520
+    motorway.road_km = 50
+    motorway.profile = "motorway"
+
+    direct = route("direct", 326, 63.57)
+    direct.distance_km = 400
+    direct.motorway_km = 114
+    direct.road_km = 286
+
+    balanced = route("balanced", 345, 54.0)
+    balanced.distance_km = 410
+    balanced.motorway_km = 70
+    balanced.road_km = 340
+
+    free = route("free", 360, 44.74)
+    free.distance_km = 406
+    free.motorway_km = 21
+    free.road_km = 385
+
+    selected = select_useful_routes(
+        [motorway, direct, balanced, free],
+        minimum_savings=5,
+        max_routes=5,
+    )
+    decorated = decorate_routes(selected, 45)
+
+    assert [item.id for item in decorated] == [
+        "motorway",
+        "free",
+        "balanced",
+        "direct",
+    ]
+    assert "Plus rapide" in motorway.tags
+    assert "Autoroute" in motorway.tags
+    assert "Moins de km" in direct.tags
+
+
+def test_motorway_role_survives_when_local_model_times_it_slightly_slower() -> None:
+    direct = route("direct", 330, 63.57)
+    direct.distance_km = 400
+    direct.motorway_km = 114
+    direct.road_km = 286
+
+    motorway = route("motorway", 340, 128.57)
+    motorway.distance_km = 570
+    motorway.motorway_km = 520
+    motorway.road_km = 50
+    motorway.profile = "motorway"
+
+    free = route("free", 373, 44.74)
+    free.distance_km = 406
+    free.motorway_km = 21
+    free.road_km = 385
+
+    selected = select_useful_routes(
+        [direct, motorway, free],
+        minimum_savings=5,
+        max_routes=5,
+    )
+
+    assert {item.id for item in selected} == {"direct", "motorway", "free"}
+
+
+def test_useful_routes_still_group_penny_apart_no_toll_variants() -> None:
+    routes = [
+        route("fast", 510, 143.74),
+        route("balanced", 667, 71.51),
+        route("free-fast", 759, 45.90),
+        route("free-middle", 770, 45.79),
+        route("free-slow", 785, 45.60),
+    ]
+
+    selected = select_useful_routes(
+        routes,
+        minimum_savings=5,
+        max_routes=5,
+    )
+
+    assert [item.id for item in selected] == ["fast", "balanced", "free-fast"]

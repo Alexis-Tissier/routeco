@@ -75,6 +75,7 @@ class RouteResult(BaseModel):
     tags: list[str] = Field(default_factory=list)
     geometry: list[list[float]] = Field(default_factory=list, description="[lon, lat]")
     source: Literal["graphhopper", "demo"]
+    profile: str = ""
 
 
 class RouteResponse(BaseModel):

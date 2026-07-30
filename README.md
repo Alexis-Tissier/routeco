@@ -1,4 +1,4 @@
-# Détour / Routeco 0.3.8
+# Détour / Routeco 0.3.9
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -25,7 +25,9 @@ Fonctionnel :
 - toutes les communes françaises dans un index SQLite local ;
 - adresses détaillées avec la Base Adresse Nationale SQLite lorsqu'elle est installée ;
 - plusieurs itinéraires et compromis temps / coût ;
-- une référence optimisée uniquement sur le temps, puis des alternatives économiques ;
+- une référence optimisée uniquement sur le temps ;
+- une option autoroutière, un trajet court et des alternatives économiques
+  lorsqu'ils sont réellement distincts ;
 - calcul séparé carburant / péages ;
 - matrices de péages locales ;
 - sections payantes multiples ;
@@ -79,6 +81,7 @@ Commandes utiles :
 ./scripts/routeco.sh restart-app
 ./scripts/routeco.sh restart
 ./scripts/routeco.sh verify-geocoding
+./scripts/routeco.sh verify-diversity
 ./scripts/routeco.sh stop
 ```
 
@@ -123,7 +126,7 @@ Les petites matrices normalisées de `data/tolls/*.csv` sont versionnées afin q
 ./.venv/bin/python -m pytest -q
 ```
 
-La version 0.3.8 contient **160 tests automatiques**.
+La version 0.3.9 contient **167 tests automatiques**.
 
 Une GitHub Action exécute également les tests à chaque push et pull request.
 

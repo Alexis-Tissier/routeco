@@ -346,6 +346,10 @@ case "${1:-status}" in
     ensure_python
     exec .venv/bin/python -m scripts.verify_geocoding
     ;;
+  verify-diversity)
+    ensure_python
+    exec .venv/bin/python -m scripts.verify_route_diversity
+    ;;
   update-communes)
     ensure_python
     exec .venv/bin/python scripts/update_communes.py --output "$COMMUNES_DB"
@@ -367,6 +371,7 @@ Usage : ./scripts/routeco.sh COMMANDE
   validate-gold  vérifie séparément les trajets de référence chiffrés
   verify-fastest vérifie la vraie référence rapide sur un trajet long
   verify-geocoding vérifie la couverture nationale et les homonymes
+  verify-diversity vérifie les choix autoroutier et direct sur un trajet régional
   update-communes actualise l'index local de toutes les communes françaises
 EOF
     exit 2

@@ -14,13 +14,12 @@ from app.services.geocoder import (
 )
 from app.services.pareto import (
     decorate_routes,
-    select_economically_distinct_routes,
-    select_representative_routes,
+    select_useful_routes,
 )
 from app.services.routing import GraphHopperClient
 from app.services.tolls import TollPricingService
 
-app = FastAPI(title="Routeco", version="0.3.8")
+app = FastAPI(title="Routeco", version="0.3.9")
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
 geocoder = LocalGeocoder(
@@ -145,33 +144,33 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
                 ],
                 geometry=candidate["geometry"],
                 source=candidate["source"],
+                profile=str(candidate.get("profile", "")),
             )
         )
 
     if not results:
         raise HTTPException(status_code=502, detail="Aucun itinéraire exploitable n'a été calculé.")
 
-    # Preserve the pure fastest route, then keep alternatives that create a
-    # meaningful new saving step. This prevents several penny-apart no-toll
-    # routes from crowding out genuinely different compromises.
+    # The time limit is a user criterion, while route roles are a diversity
+    # criterion. Keep them separate: a motorway-rich or materially shorter
+    # route can be informative even when it does not create another saving
+    # step. The selector still rejects penny-apart versions of the same trade-off.
     decorated = decorate_routes(results, request.max_extra_minutes)
     if not request.show_all:
         fastest = min(decorated, key=lambda route: route.duration_minutes)
-        visible = [
+        decorated = [
             route
             for route in decorated
-            if route.within_limit
-            and (route.id == fastest.id or route.savings >= request.min_savings)
+            if route.within_limit or route.id == fastest.id
         ]
-        decorated = visible
 
     eligible_count = len(decorated)
-    decorated = select_economically_distinct_routes(
+    decorated = select_useful_routes(
         decorated,
-        request.min_savings,
+        minimum_savings=request.min_savings,
+        max_routes=5,
     )
     distinct_count = len(decorated)
-    decorated = select_representative_routes(decorated, max_routes=7)
     decorated = decorate_routes(decorated, request.max_extra_minutes)
     fastest_minutes = min(route.duration_minutes for route in results)
     return RouteResponse(

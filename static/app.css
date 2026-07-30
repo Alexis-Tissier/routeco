@@ -123,6 +123,8 @@ h2 { margin:6px 0 0; font-size:24px; letter-spacing:-.03em; }
 .tag { display:inline-flex; align-items:center; min-height:24px; font-size:8px; text-transform:uppercase; letter-spacing:.06em; font-weight:800; padding:5px 8px; border-radius:8px; background:var(--soft); color:var(--muted); white-space:nowrap; }
 .tag.recommended { background:rgba(232,91,53,.10); color:var(--accent-dark); }
 .tag.estimated { background:#fff4df; color:#9a5b00; }
+.tag.motorway { background:#eaf1ff; color:#315b9c; }
+.tag.distance { background:#e8f5ed; color:#26724a; }
 .main-metrics { display:flex; align-items:baseline; gap:9px; margin:18px 0 13px; }
 .main-metrics strong { font-size:27px; letter-spacing:-.04em; }
 .main-metrics span { color:var(--muted); font-size:11px; }

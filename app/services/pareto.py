@@ -2,6 +2,53 @@ from __future__ import annotations
 
 from app.models import RouteResult
 
+TRUSTED_TOLL_CONFIDENCES = {"exact", "none", "missing"}
+
+
+def _motorway_anchor(routes: list[RouteResult]) -> RouteResult | None:
+    """Return a genuinely different motorway-rich option when one exists."""
+    if not routes:
+        return None
+    fastest = min(routes, key=lambda route: route.duration_minutes)
+    anchor = max(
+        routes,
+        key=lambda route: (
+            route.motorway_km,
+            route.motorway_km / max(1.0, route.distance_km),
+            -route.duration_minutes,
+        ),
+    )
+    if anchor.id == fastest.id:
+        motorway_ratio = anchor.motorway_km / max(1.0, anchor.distance_km)
+        if anchor.profile == "motorway" or (
+            anchor.motorway_km >= 30.0 and motorway_ratio >= 0.65
+        ):
+            return anchor
+        return None
+    motorway_gain = anchor.motorway_km - fastest.motorway_km
+    ratio_gain = (
+        anchor.motorway_km / max(1.0, anchor.distance_km)
+        - fastest.motorway_km / max(1.0, fastest.distance_km)
+    )
+    if motorway_gain >= max(20.0, fastest.distance_km * 0.08) and ratio_gain >= 0.10:
+        return anchor
+    return None
+
+
+def _shortest_anchor(routes: list[RouteResult]) -> RouteResult | None:
+    """Return a materially shorter route, not a rounding-level difference."""
+    if not routes:
+        return None
+    fastest = min(routes, key=lambda route: route.duration_minutes)
+    shortest = min(
+        routes,
+        key=lambda route: (route.distance_km, route.duration_minutes),
+    )
+    saved_km = fastest.distance_km - shortest.distance_km
+    if shortest.id == fastest.id or saved_km >= max(8.0, fastest.distance_km * 0.03):
+        return shortest
+    return None
+
 
 def pareto_front(routes: list[RouteResult]) -> list[RouteResult]:
     """Keep routes that are not both slower and more expensive than another route."""
@@ -28,10 +75,16 @@ def decorate_routes(routes: list[RouteResult], max_extra_minutes: int | None) ->
 
     fastest = min(routes, key=lambda route: route.duration_minutes)
     cheapest = min(routes, key=lambda route: route.total_cost)
+    motorway = _motorway_anchor(routes)
+    shortest = _shortest_anchor(routes)
     limit = None if max_extra_minutes is None else fastest.duration_minutes + max_extra_minutes
 
     eligible = [route for route in routes if limit is None or route.duration_minutes <= limit]
-    trusted = [route for route in eligible if route.toll_confidence in {"exact", "none", "missing"}]
+    trusted = [
+        route
+        for route in eligible
+        if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES
+    ]
     recommended = min(trusted, key=lambda route: route.total_cost) if trusted else None
     untrusted_best = min(eligible, key=lambda route: route.total_cost) if eligible else fastest
 
@@ -53,6 +106,10 @@ def decorate_routes(routes: list[RouteResult], max_extra_minutes: int | None) ->
             tags.append("À vérifier")
         if route.id == cheapest.id:
             tags.append("Moins cher")
+        if motorway is not None and route.id == motorway.id:
+            tags.append("Autoroute")
+        if shortest is not None and route.id == shortest.id:
+            tags.append("Moins de km")
         if route.toll_confidence == "estimated" and "À vérifier" not in tags:
             tags.append("Péage estimé")
         route.tags = tags
@@ -63,6 +120,12 @@ def decorate_routes(routes: list[RouteResult], max_extra_minutes: int | None) ->
         elif "Recommandé" in tags:
             route.label = "Le meilleur compromis"
             route.description = "Le moins cher dans la limite choisie avec un péage fiable."
+        elif "Autoroute" in tags:
+            route.label = "L'option autoroutière"
+            route.description = "Plus de kilomètres, mais un trajet largement autoroutier."
+        elif "Moins de km" in tags:
+            route.label = "Le plus direct"
+            route.description = "La distance la plus courte parmi les itinéraires proposés."
         elif "À vérifier" in tags:
             route.label = "Compromis à vérifier"
             route.description = "Potentiellement intéressant, mais une partie du péage reste estimée."
@@ -118,6 +181,46 @@ def select_economically_distinct_routes(
     return selected
 
 
+def select_useful_routes(
+    routes: list[RouteResult],
+    minimum_savings: float,
+    max_routes: int = 5,
+) -> list[RouteResult]:
+    """Keep up to five distinct route roles instead of only saving steps.
+
+    The fastest route is the time baseline. A materially more motorway-heavy
+    route and a materially shorter route are useful choices in their own right,
+    even when they are not cheaper. Cost-oriented alternatives still need to
+    meet the requested saving threshold and create a new saving step.
+    """
+    if not routes or max_routes <= 0:
+        return []
+
+    fastest = min(routes, key=lambda route: route.duration_minutes)
+
+    selected: list[RouteResult] = []
+    selected_ids: set[str] = set()
+
+    def add(route: RouteResult | None) -> None:
+        if route is None or route.id in selected_ids or len(selected) >= max_routes:
+            return
+        selected.append(route)
+        selected_ids.add(route.id)
+
+    add(fastest)
+    add(_motorway_anchor(routes))
+    add(_shortest_anchor(routes))
+
+    saving_steps = select_economically_distinct_routes(
+        routes,
+        minimum_step_savings=minimum_savings,
+    )
+    for route in saving_steps:
+        add(route)
+
+    return selected
+
+
 def select_representative_routes(
     routes: list[RouteResult], max_routes: int = 5
 ) -> list[RouteResult]:
@@ -137,7 +240,7 @@ def select_representative_routes(
     trusted = [
         route
         for route in routes
-        if route.toll_confidence in {"exact", "none", "missing"}
+        if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES
     ]
     cheapest_trusted = min(trusted, key=lambda route: route.total_cost) if trusted else None
 
@@ -182,7 +285,11 @@ def select_representative_routes(
             remaining,
             key=lambda route: (
                 min(distance(route, current) for current in selected)
-                + (0.04 if route.toll_confidence in {"exact", "none", "missing"} else 0.0),
+                + (
+                    0.04
+                    if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES
+                    else 0.0
+                ),
                 -route.duration_minutes,
             ),
         )

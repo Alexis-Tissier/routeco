@@ -17,7 +17,9 @@ const formatDuration = (minutes) => (
 const tagClass = (tag) => (
   tag === 'Recommandé'
     ? 'recommended'
-    : (tag === 'À vérifier' || tag === 'Péage estimé' ? 'estimated' : '')
+    : (tag === 'À vérifier' || tag === 'Péage estimé'
+      ? 'estimated'
+      : (tag === 'Autoroute' ? 'motorway' : (tag === 'Moins de km' ? 'distance' : '')))
 );
 
 function escapeHtml(value) {
@@ -249,10 +251,10 @@ function candidateSummary(data) {
   const parts = [`${data.candidate_count} calculé${data.candidate_count > 1 ? 's' : ''}`];
   const filtered = Math.max(0, data.hidden_count - data.merged_count);
   if (filtered) {
-    parts.push(`${filtered} hors critères`);
+    parts.push(`${filtered} hors limite de temps`);
   }
   if (data.merged_count) {
-    parts.push(`${data.merged_count} trop proche${data.merged_count > 1 ? 's' : ''} regroupé${data.merged_count > 1 ? 's' : ''}`);
+    parts.push(`${data.merged_count} moins pertinent${data.merged_count > 1 ? 's' : ''} regroupé${data.merged_count > 1 ? 's' : ''}`);
   }
   parts.push(`${data.routes.length} affiché${data.routes.length > 1 ? 's' : ''}`);
   return parts.join(' · ');

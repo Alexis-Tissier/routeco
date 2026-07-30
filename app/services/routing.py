@@ -98,12 +98,15 @@ class GraphHopperClient:
             # server-side model is versioned with distance_influence=0, so its
             # weight is travel time instead of GraphHopper's default
             # distance/time compromise. The other profiles deliberately add a
-            # request-time economic model.
+            # request-time model. "motorway" is deliberately not an economic
+            # profile: it discovers long motorway-rich options that a pure
+            # average-speed model can miss on mountainous regional journeys.
             ("fastest", 1.0, 1.0, 0),
-            ("light", 0.88, 0.72, 1),
-            ("balanced", 0.70, 0.42, 2),
-            ("economy", 0.48, 0.12, 3),
-            ("free", 0.30, 0.05, 4),
+            ("motorway", 0.62, 1.0, 1),
+            ("light", 0.88, 0.72, 2),
+            ("balanced", 0.70, 0.42, 3),
+            ("economy", 0.48, 0.12, 4),
+            ("free", 0.30, 0.05, 5),
         ]
         profile_tasks = [
             asyncio.create_task(
@@ -150,16 +153,26 @@ class GraphHopperClient:
                     result.last_error,
                 )
 
-        # Native alternatives are supplemental. When the five custom profiles
-        # already produced at least four genuinely distinct routes, waiting for
-        # the native request to hit its 25-second ceiling only adds latency. Keep
-        # it whenever it has already completed, or whenever custom coverage is
-        # sparse enough that it can still improve resilience.
+        # Native alternatives are supplemental. Candidate count alone is not a
+        # diversity proof: five cost profiles can all stay on the same corridor.
+        # Skip the pending native request only when the custom set already covers
+        # the three useful roles: time baseline, motorway-rich option and an
+        # economic option.
         native_alternatives_skipped = False
         distinct_custom = self._deduplicate(candidates)
+        custom_profiles = {
+            str(item.get("profile", ""))
+            for item in candidates
+        }
+        role_coverage_complete = (
+            "fastest" in custom_profiles
+            and "motorway" in custom_profiles
+            and bool(custom_profiles & {"balanced", "economy", "free"})
+        )
         if (
             not native_task.done()
-            and len(distinct_custom) >= 4
+            and len(distinct_custom) >= 5
+            and role_coverage_complete
         ):
             native_task.cancel()
             try:
@@ -220,7 +233,7 @@ class GraphHopperClient:
             fallback_names = []
             for result in failed_profile_results:
                 config = profile_by_name.get(result.name)
-                if config is None or result.name == "fastest":
+                if config is None or result.name in {"fastest", "motorway"}:
                     continue
                 motorway, toll, rank = config
                 fallback_names.append(result.name)
@@ -348,7 +361,11 @@ class GraphHopperClient:
         toll_priority: float,
         rank: int,
     ) -> ProfileResult:
-        attempts = self._retry_plan(motorway_priority, toll_priority)
+        attempts = (
+            self._motorway_retry_plan(motorway_priority)
+            if name == "motorway"
+            else self._retry_plan(motorway_priority, toll_priority)
+        )
         last_error = ""
         for attempt_number, (motorway, toll, distance_influence) in enumerate(
             attempts, start=1
@@ -409,6 +426,22 @@ class GraphHopperClient:
             if rounded not in output:
                 output.append(rounded)
         return output
+
+    @staticmethod
+    def _motorway_retry_plan(
+        other_road_priority: float,
+    ) -> list[tuple[float, float, float]]:
+        """Prefer motorway edges without changing the reported travel time.
+
+        Priority changes route selection only. Increasing the non-motorway
+        factor and distance influence on retries progressively bounds the search
+        if the strongest diversity request exceeds GraphHopper's node limit.
+        """
+        return [
+            (round(other_road_priority, 3), 1.0, 0.0),
+            (round(max(other_road_priority, 0.74), 3), 1.0, 20.0),
+            (round(max(other_road_priority, 0.84), 3), 1.0, 60.0),
+        ]
 
     async def _request_segmented_profile(
         self,
@@ -534,7 +567,31 @@ class GraphHopperClient:
             "points_encoded": False,
             "details": list(self.PATH_DETAILS),
         }
-        if name != "fastest":
+        if name == "motorway":
+            trunk_priority = max(motorway_priority, 0.82)
+            primary_priority = max(motorway_priority, 0.74)
+            body["custom_model"] = {
+                "priority": [
+                    {
+                        "if": "road_class == MOTORWAY",
+                        "multiply_by": 1.0,
+                    },
+                    {
+                        "else_if": "road_class == TRUNK",
+                        "multiply_by": trunk_priority,
+                    },
+                    {
+                        "else_if": "road_class == PRIMARY",
+                        "multiply_by": primary_priority,
+                    },
+                    {
+                        "else": "",
+                        "multiply_by": motorway_priority,
+                    },
+                ],
+                "distance_influence": distance_influence,
+            }
+        elif name != "fastest":
             body["custom_model"] = {
                 "priority": [
                     {

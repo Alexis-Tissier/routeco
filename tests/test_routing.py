@@ -138,6 +138,52 @@ def test_fastest_profile_uses_prepared_strict_time_car_profile() -> None:
     assert "custom_model" not in client.body
 
 
+def test_motorway_profile_prefers_motorways_without_faking_travel_time() -> None:
+    class CapturingClient(GraphHopperClient):
+        def __init__(self) -> None:
+            super().__init__("http://graphhopper.test")
+            self.body = {}
+
+        async def _post_route(self, body):
+            self.body = body
+            return {"paths": []}
+
+    client = CapturingClient()
+    asyncio.run(
+        client._request_once(
+            Coordinate(lat=43.66, lon=6.92),
+            Coordinate(lat=45.86, lon=6.62),
+            "motorway",
+            0.62,
+            1.0,
+            1,
+            0.0,
+        )
+    )
+
+    model = client.body["custom_model"]
+    assert model["distance_influence"] == 0
+    assert "speed" not in model
+    assert model["priority"][0] == {
+        "if": "road_class == MOTORWAY",
+        "multiply_by": 1.0,
+    }
+    assert model["priority"][-1] == {
+        "else": "",
+        "multiply_by": 0.62,
+    }
+
+
+def test_motorway_profile_retries_with_progressively_bounded_models() -> None:
+    plan = GraphHopperClient._motorway_retry_plan(0.62)
+
+    assert plan == [
+        (0.62, 1.0, 0.0),
+        (0.74, 1.0, 20.0),
+        (0.84, 1.0, 60.0),
+    ]
+
+
 def test_prepared_car_profile_is_a_strict_time_baseline() -> None:
     model_path = Path("infra/graphhopper/custom_models/routeco_car.json")
     model = json.loads(model_path.read_text(encoding="utf-8"))
@@ -250,8 +296,20 @@ def test_native_alternatives_survive_failed_economy_profiles() -> None:
         "native-1",
         "native-2",
     }
-    assert result.failed_profiles == ["light", "balanced", "economy", "free"]
-    assert result.retried_profiles == ["light", "balanced", "economy", "free"]
+    assert result.failed_profiles == [
+        "motorway",
+        "light",
+        "balanced",
+        "economy",
+        "free",
+    ]
+    assert result.retried_profiles == [
+        "motorway",
+        "light",
+        "balanced",
+        "economy",
+        "free",
+    ]
 
 
 def test_redundant_pending_native_request_is_cancelled() -> None:
@@ -321,10 +379,10 @@ def test_redundant_pending_native_request_is_cancelled() -> None:
         )
     )
 
-    assert len(result.candidates) == 5
+    assert len(result.candidates) == 6
     assert client.native_cancelled is True
     assert result.native_alternatives_skipped is True
-    assert result.message == "5 itinéraires trouvés."
+    assert result.message == "6 itinéraires trouvés."
     assert "annulée" not in result.message
 
 
