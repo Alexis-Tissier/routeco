@@ -27,16 +27,20 @@
           <div class="route-inputs">
             <label class="field route-field">
               <span>Départ</span>
-              <input id="start" autocomplete="off" value="Paris" placeholder="Adresse ou ville" required>
+              <input id="start" autocomplete="off" placeholder="Paris, Versailles, une adresse…" required
+                     role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="start-suggestions">
               <input id="start-coords" type="hidden">
-              <div class="suggestions" id="start-suggestions"></div>
+              <div class="suggestions" id="start-suggestions" role="listbox"></div>
             </label>
             <button class="swap" type="button" id="swap" aria-label="Inverser départ et arrivée">⇅</button>
             <label class="field route-field">
               <span>Arrivée</span>
-              <input id="end" autocomplete="off" value="Lyon" placeholder="Adresse ou ville" required>
+              <input id="end" autocomplete="off" placeholder="Lyon, Dijon, un village…" required
+                     role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="end-suggestions">
               <input id="end-coords" type="hidden">
-              <div class="suggestions" id="end-suggestions"></div>
+              <div class="suggestions" id="end-suggestions" role="listbox"></div>
             </label>
           </div>
 
@@ -46,7 +50,7 @@
             <button type="button" data-minutes="45" class="active">45 min</button>
             <button type="button" data-minutes="60">1 h</button>
             <button type="button" data-minutes="90">1 h 30</button>
-            <button type="button" data-minutes="all">Tout voir</button>
+            <button type="button" data-minutes="all">Sans limite</button>
           </div>
 
           <label class="field savings-field">
@@ -69,6 +73,7 @@
 
           <label class="field compact fuel-price"><span>Prix de l’essence</span><div class="unit-input"><input id="fuel-price" type="number" step="0.001" value="1.820"><b>€/L</b></div></label>
 
+          <div class="form-message" id="form-message" role="alert"></div>
           <button class="primary" id="calculate" type="submit"><span>Comparer les itinéraires</span><span>→</span></button>
         </form>
       </aside>
@@ -76,8 +81,12 @@
       <section class="workspace">
         <div class="map-card">
           <div class="map-toolbar">
-            <div><span class="map-kicker">Aperçu</span><strong id="map-title">Paris → Lyon</strong></div>
-            <div class="legend"><span><i class="line active-line"></i>Sélection</span><span><i class="line alt-line"></i>Alternatives</span></div>
+            <div><span class="map-kicker">Carte interactive</span><strong id="map-title">France</strong></div>
+            <div class="map-controls">
+              <div class="legend"><span><i class="line active-line"></i>Sélection</span><span><i class="line alt-line"></i>Alternatives</span></div>
+              <button type="button" id="map-fit" disabled>Recentrer</button>
+              <button type="button" id="map-expand" aria-pressed="false">Agrandir</button>
+            </div>
           </div>
           <div id="route-map" role="application" aria-label="Carte interactive des itinéraires"></div>
           <div class="map-note">Cliquer sur un tracé pour choisir l’itinéraire</div>
@@ -89,7 +98,7 @@
             <div class="result-actions">
               <span class="candidate-count" id="candidate-count"></span>
               <div class="nav-menu">
-                <button type="button" id="nav-toggle" aria-expanded="false">Ouvrir dans un GPS <span>↗</span></button>
+                <button type="button" id="nav-toggle" aria-expanded="false" disabled>Ouvrir dans un GPS <span>↗</span></button>
                 <div class="nav-options" id="nav-options">
                   <a id="google-link" target="_blank" rel="noopener">Google Maps</a>
                   <a id="waze-link" target="_blank" rel="noopener">Waze</a>
@@ -98,7 +107,7 @@
               </div>
             </div>
           </div>
-          <div id="empty-state" class="empty-state"><strong>Choisis ta tolérance de temps.</strong><span>Nous afficherons le plus rapide, le meilleur compromis et le moins cher.</span></div>
+          <div id="empty-state" class="empty-state"><strong>Indique n’importe quelle commune française.</strong><span>Le trajet le plus rapide servira de référence, puis les économies réellement utiles seront comparées.</span></div>
           <div id="results" class="results"></div>
         </section>
       </section>

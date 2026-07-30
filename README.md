@@ -1,4 +1,4 @@
-# Détour / Routeco 0.3.3
+# Détour / Routeco 0.3.8
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -14,7 +14,7 @@ Le profil initial correspond à une **Renault Twingo 2 essence** :
 
 - 6,5 L/100 km sur autoroute ;
 - 5,5 L/100 km sur les autres routes ;
-- SP95-E10 ou SP98 avec prix modifiable ;
+- prix du carburant modifiable ;
 - véhicule de classe de péage 1.
 
 ## État actuel
@@ -22,19 +22,21 @@ Le profil initial correspond à une **Renault Twingo 2 essence** :
 Fonctionnel :
 
 - routage France avec GraphHopper et OpenStreetMap en local ;
-- géocodage avec la Base Adresse Nationale SQLite ;
+- toutes les communes françaises dans un index SQLite local ;
+- adresses détaillées avec la Base Adresse Nationale SQLite lorsqu'elle est installée ;
 - plusieurs itinéraires et compromis temps / coût ;
+- une référence optimisée uniquement sur le temps, puis des alternatives économiques ;
 - calcul séparé carburant / péages ;
 - matrices de péages locales ;
 - sections payantes multiples ;
 - rapports de validation Markdown et JSON ;
+- carte OpenStreetMap interactive, sélection des tracés et export GPS ;
 - fonctionnement sans Google Maps, HERE, Mapbox ou API commerciale de péage.
 
 Encore incomplet :
 
 - certains tarifs de péage restent estimés quand les données entrée-sortie sont insuffisantes ;
 - certains profils longue distance GraphHopper peuvent atteindre la limite de nœuds ;
-- le fond cartographique reste schématique ;
 - le déploiement VPS n'est pas encore finalisé.
 
 Le fichier [`CHATGPT_CONTEXT.md`](CHATGPT_CONTEXT.md) contient l'état exact du projet pour reprendre le développement dans une nouvelle conversation.
@@ -76,6 +78,7 @@ Commandes utiles :
 ./scripts/routeco.sh logs
 ./scripts/routeco.sh restart-app
 ./scripts/routeco.sh restart
+./scripts/routeco.sh verify-geocoding
 ./scripts/routeco.sh stop
 ```
 
@@ -93,11 +96,22 @@ Exemple pour placer la BAN sur un autre disque :
 ROUTECO_BAN_DB=/chemin/vers/routeco-data/ban/ban.sqlite
 ```
 
+L'index des communes est créé automatiquement au premier démarrage à partir de
+l'API Découpage administratif officielle. Il peut être actualisé manuellement :
+
+```bash
+./scripts/routeco.sh update-communes
+```
+
+Il est indépendant de la BAN : une commune comme Versailles reste donc
+disponible même si son département n'a pas été importé dans `ban.sqlite`.
+
 Les données lourdes restent hors Git :
 
 - `data/france-latest.osm.pbf` ;
 - `data/graph-cache/` ;
 - `data/ban.sqlite` ou une BAN externe ;
+- `data/communes.sqlite` ;
 - `data/graphhopper-web-*.jar` ;
 - les logs et rapports générés.
 
@@ -109,7 +123,7 @@ Les petites matrices normalisées de `data/tolls/*.csv` sont versionnées afin q
 ./.venv/bin/python -m pytest -q
 ```
 
-La version 0.3.3 contient **49 tests automatiques**.
+La version 0.3.8 contient **160 tests automatiques**.
 
 Une GitHub Action exécute également les tests à chaque push et pull request.
 
@@ -131,10 +145,11 @@ Les rapports locaux sont créés dans `data/reports/` et ignorés par Git. Le de
 Navigateur
   ├── interface de comparaison
   ├── détail carburant / péages
-  └── adaptateur cartographique
+  └── carte OpenStreetMap interactive + liens GPS
           ↓
 FastAPI
-  ├── BAN SQLite
+  ├── index national des communes
+  ├── BAN SQLite pour les adresses détaillées
   ├── modèle de consommation
   ├── sélection multicritère
   └── appariement des péages

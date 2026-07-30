@@ -1,138 +1,120 @@
 # Contexte de reprise — Détour / Routeco
 
-Ce fichier est destiné à une nouvelle conversation ChatGPT. Lire également `README.md`, `CHANGELOG-v3.3.md` et le dernier rapport dans `docs/validation/` avant de modifier le code.
+Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
+`CHANGELOG-v3.8-national-geocoding-interface.md` et le dernier rapport dans
+`docs/validation/`.
 
 ## Objectif produit
 
-Construire une application française gratuite et auto-hébergeable qui propose plusieurs trajets et les classe selon le coût réel :
+Application française gratuite et auto-hébergeable qui compare :
 
 ```text
-coût carburant + coût des péages
+coût carburant + coût des péages de classe 1
 ```
 
-L'utilisateur choisit le temps supplémentaire maximal acceptable : 20 min, 45 min, 1 h, 1 h 30 ou tout voir.
+Règle de classement :
 
-Le profil de départ est une Twingo 2 essence :
+1. conserver un trajet de référence réellement optimisé sur le temps ;
+2. calculer les autres profils pour réduire le coût total ;
+3. appliquer le détour maximal et l'économie minimale choisis ;
+4. regrouper les variantes qui ne créent pas un nouveau palier d'économie ;
+5. afficher la référence rapide en premier, puis les alternatives par coût.
+
+Le profil initial reste une Twingo 2 essence :
 
 - autoroute : 6,5 L/100 km ;
 - autres routes : 5,5 L/100 km ;
-- carburant SP95-E10 ou SP98 ;
+- prix du carburant modifiable ;
 - classe de péage 1.
 
 ## Version de code
 
-- Version préparée : **0.3.3**.
-- Tests unitaires annoncés : **49**.
-- Le dernier rapport réel joint a été produit avec la version précédente **0.3.2** avant validation de la 0.3.3.
-- Ne pas considérer la 0.3.3 comme validée sur le graphe France tant que `validate-random 50` n'a pas été relancé après installation.
+- Version préparée : **0.3.8**.
+- Point de départ de la migration v10 :
+  `c3afe649731c83e1201df6724d0ad2d3fb966b34`.
+- Tests : **160**.
+- Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
+- Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 
-## Dernière validation réelle disponible
-
-Fichiers :
-
-- `docs/validation/validation-20260729-184656.md`
-- `docs/validation/validation-20260729-184656.json`
-
-Résumé :
-
-- 50 scénarios ;
-- 231 itinéraires ;
-- 54 tarifs de péage exacts ;
-- 63 estimations significatives ;
-- 24 estimations mineures ;
-- 90 itinéraires sans péage ;
-- 0 erreur technique ;
-- 32 scénarios avec avertissement ;
-- 10 profils GraphHopper relancés ;
-- 10 profils finalement perdus.
-
-## Architecture actuelle
+## Architecture
 
 - Frontend statique : `static/`.
 - API FastAPI : `app/main.py`.
+- Géocodage : `app/services/geocoder.py`.
+- Index national des communes : `data/communes.sqlite`.
+- Mise à jour des communes : `scripts/update_communes.py`.
+- BAN facultative pour les adresses : `data/ban.sqlite`.
 - Routage : `app/services/routing.py`.
-- Calcul carburant : `app/services/costs.py`.
+- Coût carburant : `app/services/costs.py`.
 - Péages : `app/services/tolls.py`.
-- Sélection des alternatives : `app/services/pareto.py`.
+- Sélection : `app/services/pareto.py`.
 - Validation : `app/services/validation.py` et `scripts/validate_routes.py`.
 - GraphHopper : `infra/graphhopper/config.yml`.
-- BAN SQLite configurable avec `.env`.
 
-## Ce qui fonctionne correctement
+## État fonctionnel
 
-- Paris → Lyon avec un trajet direct et un trajet mixte à deux sections payantes ;
-- plusieurs réseaux APRR, ASF, SANEF et SAPN dans de nombreux cas ;
-- calcul carburant autoroute / route ;
-- routes sans péage ;
-- alternatives GraphHopper classiques et natives ;
-- détection des micro-segments OSM parasites ;
-- contrôles de doublons, ordre et chevauchement des sections de péage ;
-- distinction `exact`, `estimated` et `none`.
+- vraie référence rapide validée sur Paris → Grasse ;
+- profils `light`, `balanced`, `economy` et `free` conservés ;
+- toutes les communes françaises disponibles indépendamment des départements BAN ;
+- saisie libre validable sans cliquer sur une suggestion ;
+- homonymes renvoyés comme choix explicites au lieu d'un choix silencieux ;
+- carte OpenStreetMap interactive, tracés cliquables, zoom, recentrage et agrandissement ;
+- liens Google Maps, Waze et Apple Plans pour le trajet sélectionné ;
+- compteur séparant routes calculées, hors critères, regroupées et affichées ;
+- messages techniques de routage masqués dans l'interface ;
+- aucun calcul automatique Paris → Lyon au chargement ;
+- paliers d'économie : une route plus lente doit économiser au moins le seuil
+  demandé par rapport au meilleur coût déjà rencontré.
 
-## Problèmes encore ouverts
+## Péages
 
-### 1. Couverture des péages
+Les règles restent inchangées :
 
-Les principales estimations significatives concernent encore :
+- aucun tarif ou correctif lié à une paire de villes ;
+- `exact` seulement si tous les événements physiques facturables sont expliqués ;
+- pas de gare réutilisée, doublon, chevauchement ou ordre impossible ;
+- estimation clairement affichée lorsque la matrice officielle manque.
 
-- Cofiroute, notamment Paris ↔ Nantes et certains axes vers Bordeaux ;
-- des liaisons entre réseaux où une portion payante n'est pas expliquée ;
-- des péages ouverts ou directionnels dont les alias géographiques sont ambigus ;
-- AREA et certaines portions du Sud-Est.
+La lacune connue Le Havre ↔ Rouen par A29/A150 reste indépendante de cette
+mise à jour d'interface et de géocodage.
 
-Le statut `exact` ne doit être utilisé que lorsque toutes les portions payantes significatives sont expliquées par des sections ordonnées et non chevauchantes.
+## Données de communes
 
-### 2. Longues distances GraphHopper
-
-Avec la configuration 0.3.2, certains profils `light`, `balanced`, `economy` et `free` échouaient sur les très longues traversées avec :
+`./scripts/routeco.sh start` vérifie que l'index contient au moins 30 000
+communes. S'il est absent ou incomplet, il est reconstruit atomiquement depuis :
 
 ```text
-No path found due to maximum nodes exceeded 3000000
+https://geo.api.gouv.fr/communes
 ```
 
-La 0.3.3 relève le plafond et ajoute une récupération par points intermédiaires. Cela doit être testé réellement.
-
-### 3. Carte
-
-Le fond est encore schématique. `static/map-adapter.js` a été isolé pour ajouter plus tard MapLibre et des tuiles locales ou PMTiles.
-
-### 4. Déploiement
-
-Le développement est local. Le projet devra ensuite être transféré sur un VPS, sans y committer les données lourdes.
-
-## Priorités recommandées
-
-1. Installer la 0.3.3 et exécuter :
+Commande manuelle :
 
 ```bash
-./scripts/routeco.sh status
-./scripts/routeco.sh validate-random 50
-./scripts/routeco.sh validate-gold
+./scripts/routeco.sh update-communes
 ```
 
-2. Comparer les métriques à la validation 0.3.2.
-3. Vérifier en priorité les itinéraires avec une estimation significative sur la route la plus rapide ou recommandée.
-4. Corriger les péages de manière générale, sans condition liée aux villes.
-5. Garantir au moins plusieurs alternatives sur les longues distances.
-6. Ajouter la vraie carte uniquement lorsque le classement économique est suffisamment fiable.
-7. Préparer ensuite le déploiement VPS.
+Le test réel du 30 juillet 2026 a indexé 34 969 communes. `Versailles`,
+`78000 Versailles` et `Prunay-le-Temple` ont été résolus ; `Saint-Aubin` produit
+correctement une réponse ambiguë avec plusieurs choix.
 
-## Contraintes de conception
+## Contraintes
 
-- 100 % gratuit autant que possible ;
+- logique générique France entière ;
 - aucune API commerciale obligatoire ;
-- données France locales ;
-- ne jamais coder un tarif uniquement pour faire réussir un scénario précis ;
-- préférer une estimation clairement affichée à un faux tarif exact ;
-- ne pas committer la BAN, le graphe GraphHopper, le PBF France, les JAR ou les logs ;
-- conserver les petits CSV normalisés de péages dans Git.
+- données lourdes hors Git ;
+- ne pas reconstruire de nouveau le graphe pour cette v10 ;
+- ne pas modifier la pondération `distance_influence: 0` du profil rapide ;
+- préférer une estimation déclarée à un faux péage exact.
 
 ## Commandes principales
 
 ```bash
 ./scripts/routeco.sh start
 ./scripts/routeco.sh status
-./scripts/routeco.sh logs
+./scripts/routeco.sh update-communes
+./scripts/routeco.sh verify-geocoding
 ./scripts/routeco.sh validate-random 50
+./scripts/routeco.sh validate-gold
+./scripts/routeco.sh verify-fastest
 ./.venv/bin/python -m pytest -q
 ```

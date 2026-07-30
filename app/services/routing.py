@@ -276,15 +276,9 @@ class GraphHopperClient:
                 ),
             )
 
-        message = f"{len(candidates)} itinéraires candidats calculés localement."
-        if retried_profiles:
-            message += f" {len(retried_profiles)} profil(s) relancé(s)."
-        if recovered_names:
-            message += f" {len(recovered_names)} profil(s) récupéré(s) par segmentation."
+        message = f"{len(candidates)} itinéraires trouvés."
         if failed_profiles:
-            message += f" {len(failed_profiles)} profil(s) indisponible(s)."
-        if native_alternatives_skipped:
-            message += " Variante native devenue inutile, annulée."
+            message += " Certaines variantes n'ont pas pu être calculées."
         return EngineResult(
             "graphhopper",
             message,

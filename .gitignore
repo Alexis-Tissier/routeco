@@ -17,6 +17,8 @@ data/*.osm
 data/*.osm.gz
 data/*.csv.gz
 data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
 data/ban/
 data/graph-cache/
 data/graphhopper*.jar

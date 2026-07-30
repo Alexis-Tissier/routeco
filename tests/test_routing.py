@@ -324,7 +324,8 @@ def test_redundant_pending_native_request_is_cancelled() -> None:
     assert len(result.candidates) == 5
     assert client.native_cancelled is True
     assert result.native_alternatives_skipped is True
-    assert "annulée" in result.message
+    assert result.message == "5 itinéraires trouvés."
+    assert "annulée" not in result.message
 
 
 class SegmentedFallbackClient(GraphHopperClient):

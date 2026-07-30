@@ -35,7 +35,11 @@ class GeocodeResult(BaseModel):
     postcode: str = ""
     lat: float
     lon: float
-    source: Literal["ban", "demo"]
+    source: Literal["ban", "commune", "demo"]
+    kind: Literal["address", "municipality", "demo"] = "address"
+    code: str = ""
+    department_code: str = ""
+    population: int = 0
 
 
 class TollSegmentResult(BaseModel):
@@ -79,5 +83,8 @@ class RouteResponse(BaseModel):
     fastest_minutes: int
     max_extra_minutes: int | None
     candidate_count: int
+    distinct_count: int
     eligible_count: int
+    merged_count: int = 0
+    hidden_count: int = 0
     routes: list[RouteResult]

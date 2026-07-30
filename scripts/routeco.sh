@@ -12,6 +12,8 @@ GRAPHHOPPER_PID="$RUNTIME_DIR/graphhopper.pid"
 GRAPH_CACHE="$ROOT/data/graph-cache"
 GRAPH_PROFILE_MODEL="$ROOT/infra/graphhopper/custom_models/routeco_car.json"
 GRAPH_PROFILE_MARKER="$GRAPH_CACHE/.routeco-profile-sha256"
+DATA_DIR="${ROUTECO_DATA_DIR:-$ROOT/data}"
+COMMUNES_DB="${ROUTECO_COMMUNES_DB:-$DATA_DIR/communes.sqlite}"
 
 mkdir -p "$RUNTIME_DIR" "$LOG_DIR"
 
@@ -59,6 +61,23 @@ ensure_python() {
     .venv/bin/python -m pip install -U pip
     .venv/bin/python -m pip install -e .
   fi
+}
+
+ensure_communes() {
+  ensure_python
+  if [[ -f "$COMMUNES_DB" ]] && .venv/bin/python - "$COMMUNES_DB" <<'PY' >/dev/null 2>&1
+import sqlite3
+import sys
+
+with sqlite3.connect(sys.argv[1]) as connection:
+    count = connection.execute("SELECT COUNT(*) FROM communes").fetchone()[0]
+raise SystemExit(0 if count >= 30_000 else 1)
+PY
+  then
+    return 0
+  fi
+  echo "Préparation de l'index local des communes françaises…"
+  .venv/bin/python scripts/update_communes.py --output "$COMMUNES_DB"
 }
 
 find_graphhopper_jar() {
@@ -143,6 +162,7 @@ start_graphhopper() {
 
 start_backend() {
   ensure_graph_cache_compatible
+  ensure_communes
   if curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
     echo "Détour est déjà opérationnel sur le port 8000."
     return 0
@@ -322,6 +342,14 @@ case "${1:-status}" in
     shift || true
     exec .venv/bin/python -m scripts.verify_fastest_reference "$@"
     ;;
+  verify-geocoding)
+    ensure_python
+    exec .venv/bin/python -m scripts.verify_geocoding
+    ;;
+  update-communes)
+    ensure_python
+    exec .venv/bin/python scripts/update_communes.py --output "$COMMUNES_DB"
+    ;;
   *)
     cat <<EOF
 Usage : ./scripts/routeco.sh COMMANDE
@@ -338,6 +366,8 @@ Usage : ./scripts/routeco.sh COMMANDE
   validate-random [N] teste N couples de villes sans règle par destination
   validate-gold  vérifie séparément les trajets de référence chiffrés
   verify-fastest vérifie la vraie référence rapide sur un trajet long
+  verify-geocoding vérifie la couverture nationale et les homonymes
+  update-communes actualise l'index local de toutes les communes françaises
 EOF
     exit 2
     ;;

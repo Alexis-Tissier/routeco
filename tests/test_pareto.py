@@ -1,5 +1,9 @@
 from app.models import RouteResult
-from app.services.pareto import decorate_routes, pareto_front
+from app.services.pareto import (
+    decorate_routes,
+    pareto_front,
+    select_economically_distinct_routes,
+)
 
 
 def route(identifier: str, duration: int, cost: float) -> RouteResult:
@@ -77,3 +81,46 @@ def test_representative_selection_keeps_cheapest_trusted_route():
 
     assert "estimated" in selected_ids
     assert "trusted" in selected_ids
+
+
+def test_routes_are_ordered_fastest_then_by_total_cost():
+    decorated = decorate_routes(
+        [
+            route("fast", 100, 80),
+            route("balanced", 130, 55),
+            route("cheap", 170, 30),
+        ],
+        90,
+    )
+
+    assert [item.id for item in decorated] == ["fast", "cheap", "balanced"]
+
+
+def test_penny_saving_slow_variants_are_grouped_by_minimum_step():
+    routes = [
+        route("fast", 510, 143.74),
+        route("balanced", 667, 71.51),
+        route("free-fast", 759, 45.90),
+        route("free-middle", 770, 45.79),
+        route("free-slow", 785, 45.60),
+    ]
+
+    selected = select_economically_distinct_routes(routes, minimum_step_savings=5)
+
+    assert [item.id for item in selected] == ["fast", "balanced", "free-fast"]
+
+
+def test_trusted_cost_step_survives_a_cheaper_estimated_route():
+    fast = route("fast", 100, 100)
+    fast.toll_confidence = "exact"
+    estimated = route("estimated", 120, 50)
+    estimated.toll_confidence = "estimated"
+    trusted = route("trusted", 130, 52)
+    trusted.toll_confidence = "exact"
+
+    selected = select_economically_distinct_routes(
+        [fast, estimated, trusted],
+        minimum_step_savings=5,
+    )
+
+    assert [item.id for item in selected] == ["fast", "estimated", "trusted"]

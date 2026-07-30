@@ -72,7 +72,50 @@ def decorate_routes(routes: list[RouteResult], max_extra_minutes: int | None) ->
         else:
             route.label = "Alternative équilibrée"
             route.description = "Un compromis intermédiaire entre durée, carburant et péages."
-    return sorted(routes, key=lambda route: route.duration_minutes)
+    alternatives = sorted(
+        (route for route in routes if route.id != fastest.id),
+        key=lambda route: (route.total_cost, route.duration_minutes),
+    )
+    return [fastest, *alternatives]
+
+
+def select_economically_distinct_routes(
+    routes: list[RouteResult],
+    minimum_step_savings: float,
+) -> list[RouteResult]:
+    """Keep meaningful cost steps, not penny-saving versions of one trade-off.
+
+    Alternatives are walked from fast to slow. A slower candidate is useful only
+    when it lowers the best cost seen so far by the requested amount. The fastest
+    route is always preserved as the time baseline.
+    """
+    if not routes:
+        return []
+    fastest = min(routes, key=lambda route: route.duration_minutes)
+    threshold = max(0.50, float(minimum_step_savings))
+    selected = [fastest]
+    best_cost = fastest.total_cost
+    trusted_confidences = {"exact", "none", "missing"}
+    best_trusted_cost = (
+        fastest.total_cost
+        if fastest.toll_confidence in trusted_confidences
+        else float("inf")
+    )
+    for route in sorted(
+        (item for item in routes if item.id != fastest.id),
+        key=lambda item: (item.duration_minutes, item.total_cost),
+    ):
+        creates_cost_step = route.total_cost <= best_cost - threshold + 1e-9
+        creates_trusted_step = (
+            route.toll_confidence in trusted_confidences
+            and route.total_cost <= best_trusted_cost - threshold + 1e-9
+        )
+        if creates_cost_step or creates_trusted_step:
+            selected.append(route)
+            best_cost = route.total_cost
+            if route.toll_confidence in trusted_confidences:
+                best_trusted_cost = route.total_cost
+    return selected
 
 
 def select_representative_routes(
@@ -87,7 +130,7 @@ def select_representative_routes(
     trade-offs in time, cost and motorway usage.
     """
     if len(routes) <= max_routes:
-        return sorted(routes, key=lambda route: route.duration_minutes)
+        return decorate_routes(routes, None)
 
     fastest = min(routes, key=lambda route: route.duration_minutes)
     cheapest = min(routes, key=lambda route: route.total_cost)
@@ -145,4 +188,4 @@ def select_representative_routes(
         )
         add(best)
 
-    return sorted(selected, key=lambda route: route.duration_minutes)
+    return decorate_routes(selected, None)

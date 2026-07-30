@@ -1,9 +1,48 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
-
+from app.models import GeocodeResult
+from app.services.geocoder import AmbiguousLocationError
 
 client = TestClient(app)
+
+
+def test_geocode_resolve_reports_homonyms_instead_of_guessing(monkeypatch):
+    from app.main import geocoder
+
+    choices = [
+        GeocodeResult(
+            label="Saint-Aubin (31460 · 31)",
+            city="Saint-Aubin",
+            postcode="31460",
+            department_code="31",
+            code="31470",
+            lat=43.696,
+            lon=1.758,
+            source="commune",
+            kind="municipality",
+        ),
+        GeocodeResult(
+            label="Saint-Aubin (40250 · 40)",
+            city="Saint-Aubin",
+            postcode="40250",
+            department_code="40",
+            code="40249",
+            lat=43.712,
+            lon=-0.699,
+            source="commune",
+            kind="municipality",
+        ),
+    ]
+
+    def ambiguous(query: str):
+        raise AmbiguousLocationError(query, choices)
+
+    monkeypatch.setattr(geocoder, "resolve", ambiguous)
+    response = client.get("/api/geocode/resolve", params={"q": "Saint-Aubin"})
+
+    assert response.status_code == 409
+    assert len(response.json()["detail"]["choices"]) == 2
 
 
 def test_home():
@@ -28,7 +67,7 @@ def test_demo_route_calculation():
     assert payload["candidate_count"] >= len(payload["routes"])
 
 
-def test_dominated_but_distinct_routes_are_kept(monkeypatch):
+def test_slower_more_expensive_routes_are_not_presented_as_useful(monkeypatch):
     from app.main import routing
     from app.services.routing import EngineResult
 
@@ -71,8 +110,11 @@ def test_dominated_but_distinct_routes_are_kept(monkeypatch):
         "road_consumption": 5.5,
     })
     assert response.status_code == 200
-    ids = [route["id"] for route in response.json()["routes"]]
-    assert ids == ["fast", "different", "slow"]
+    payload = response.json()
+    ids = [route["id"] for route in payload["routes"]]
+    assert ids == ["fast"]
+    assert payload["candidate_count"] == 3
+    assert payload["hidden_count"] == 2
 
 
 def test_minimum_savings_keeps_fastest_and_filters_weak_alternatives(monkeypatch):
