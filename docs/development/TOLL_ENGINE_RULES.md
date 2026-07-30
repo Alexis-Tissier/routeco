@@ -101,3 +101,36 @@ prochaine étape devra retirer progressivement leur influence sur
 
 Toute évolution de ces valeurs doit être accompagnée d'un test générique et
 d'une validation gold.
+
+## Soustraction exacte des intervalles
+
+Le solde non résolu n'est plus calculé par :
+
+```text
+distance de la plage OSM - somme approximative des couvertures
+```
+
+Le moteur applique désormais :
+
+```text
+intervalles GraphHopper toll/unknown pour la classe 1
+- unions des matrices fermées exactes
+= fragments réellement non résolus
+```
+
+Les intervalles `NO` et `HGV` sont exclus pour une voiture classe 1. Les
+chevauchements entre matrices sont fusionnés avant soustraction afin de ne
+jamais compter deux fois une même distance.
+
+Lorsqu'un candidat transporte les états `toll` GraphHopper, les distances
+résiduelles proviennent directement de ces intervalles. Lorsqu'un ancien
+candidat n'en transporte aucun, Routeco conserve provisoirement
+`TollRange.distance_km` comme base de mesure : une géométrie simplifiée ne doit
+pas faire baisser silencieusement une estimation de 100 km à 81,6 km. Le
+diagnostic expose alors
+`measurement_basis = legacy_declared_range_distance`.
+
+Chaque validation écrit également un manifeste `missing-tariffs-*` regroupant
+les intervalles, gares et corridors à examiner. Ce manifeste est une file de
+diagnostic : il ne transforme jamais automatiquement un candidat en tarif
+officiel.

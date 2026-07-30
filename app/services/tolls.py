@@ -1244,23 +1244,99 @@ class TollPricingService:
             ):
                 resolved_ranges.add(range_index)
 
-        unresolved_indexes = [
+        candidate_unresolved_indexes = [
             index
             for index in range(len(ranges))
             if index not in resolved_ranges
         ]
-        unresolved_km_by_range = {
-            index: max(
-                0.0,
-                ranges[index].distance_km
-                - range_covered_km.get(index, 0.0),
+        unresolved_intervals_by_range: dict[
+            int,
+            list[tuple[float, float]],
+        ] = {}
+
+        for range_index in candidate_unresolved_indexes:
+            toll_range = ranges[range_index]
+            has_detailed_states = (
+                self._range_has_detailed_toll_states(
+                    toll_range,
+                    toll_state_intervals,
+                )
             )
-            for index in unresolved_indexes
-        }
+            fragments = self._unresolved_class1_toll_intervals(
+                toll_range,
+                toll_state_intervals,
+                closed_spans,
+            )
+
+            if not has_detailed_states and not fragments:
+                # Une géométrie simplifiée peut paraître entièrement couverte
+                # alors que la distance déclarée conserve encore un reliquat.
+                # Sans états GraphHopper détaillés, ce reliquat ne doit jamais
+                # être promu silencieusement en exact.
+                legacy_unresolved_km = max(
+                    0.0,
+                    toll_range.distance_km
+                    - range_covered_km.get(range_index, 0.0),
+                )
+                if legacy_unresolved_km > 0.05:
+                    fragments = [
+                        (
+                            toll_range.start_km,
+                            toll_range.end_km,
+                        )
+                    ]
+
+            if fragments or range_index in unresolved_event_ranges:
+                unresolved_intervals_by_range[
+                    range_index
+                ] = fragments
+            else:
+                # Cette promotion n'est autorisée que lorsqu'une preuve
+                # GraphHopper détaillée ou une couverture historique complète
+                # ne laisse réellement aucun solde.
+                resolved_ranges.add(range_index)
+
+        unresolved_indexes = [
+            index
+            for index in candidate_unresolved_indexes
+            if index not in resolved_ranges
+        ]
+        unresolved_km_by_range: dict[int, float] = {}
+        for index in unresolved_indexes:
+            toll_range = ranges[index]
+            fragments = unresolved_intervals_by_range.get(
+                index,
+                [],
+            )
+            if self._range_has_detailed_toll_states(
+                toll_range,
+                toll_state_intervals,
+            ):
+                # Les états GraphHopper donnent une mesure explicite des
+                # portions payantes classe 1 : la soustraction d'intervalles
+                # est alors la source de vérité.
+                unresolved_km_by_range[index] = sum(
+                    max(0.0, end_km - start_km)
+                    for start_km, end_km in fragments
+                )
+            else:
+                # Compatibilité avec les candidats historiques qui ne
+                # transportent pas encore les détails `toll`. Leur
+                # `distance_km` déclarée peut différer de la longueur
+                # reconstruite depuis une géométrie simplifiée. On conserve
+                # donc le calcul antérieur pour éviter toute sous-estimation.
+                unresolved_km_by_range[index] = max(
+                    0.0,
+                    toll_range.distance_km
+                    - range_covered_km.get(index, 0.0),
+                )
         diagnostics = self._build_unresolved_diagnostics(
             ranges=ranges,
             unresolved_indexes=unresolved_indexes,
             unresolved_km_by_range=unresolved_km_by_range,
+            unresolved_intervals_by_range=(
+                unresolved_intervals_by_range
+            ),
             toll_state_intervals=toll_state_intervals,
             projections=projections,
             segments=segments,
@@ -1483,93 +1559,391 @@ class TollPricingService:
                 return "free"
         return "unknown"
 
+    # ROUTECO_V034_EXACT_INTERVAL_SUBTRACTION
+    @staticmethod
+    def _merge_km_intervals(
+        intervals: list[tuple[float, float]],
+        *,
+        tolerance_km: float = 0.05,
+    ) -> list[tuple[float, float]]:
+        cleaned = sorted(
+            (
+                (float(start_km), float(end_km))
+                for start_km, end_km in intervals
+                if float(end_km) > float(start_km) + 0.01
+            ),
+            key=lambda item: (item[0], item[1]),
+        )
+        if not cleaned:
+            return []
+
+        merged: list[list[float]] = [
+            [cleaned[0][0], cleaned[0][1]]
+        ]
+        for start_km, end_km in cleaned[1:]:
+            current = merged[-1]
+            if start_km <= current[1] + tolerance_km:
+                current[1] = max(current[1], end_km)
+            else:
+                merged.append([start_km, end_km])
+        return [
+            (start_km, end_km)
+            for start_km, end_km in merged
+        ]
+
+    @classmethod
+    def _subtract_km_intervals(
+        cls,
+        base_intervals: list[tuple[float, float]],
+        covered_intervals: list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        base = cls._merge_km_intervals(base_intervals)
+        covered = cls._merge_km_intervals(covered_intervals)
+        if not base:
+            return []
+        if not covered:
+            return base
+
+        residuals: list[tuple[float, float]] = []
+        for base_start, base_end in base:
+            cursor = base_start
+            for covered_start, covered_end in covered:
+                if covered_end <= cursor + 0.01:
+                    continue
+                if covered_start >= base_end - 0.01:
+                    break
+
+                clipped_start = max(base_start, covered_start)
+                clipped_end = min(base_end, covered_end)
+                if clipped_end <= clipped_start + 0.01:
+                    continue
+
+                if clipped_start > cursor + 0.01:
+                    residuals.append((cursor, clipped_start))
+                cursor = max(cursor, clipped_end)
+                if cursor >= base_end - 0.01:
+                    break
+
+            if cursor < base_end - 0.01:
+                residuals.append((cursor, base_end))
+
+        return cls._merge_km_intervals(
+            residuals,
+            tolerance_km=0.01,
+        )
+
+    @classmethod
+    def _class1_chargeable_intervals_for_range(
+        cls,
+        toll_range: TollRange,
+        toll_state_intervals: list[TollStateInterval],
+    ) -> list[tuple[float, float]]:
+        overlapping = [
+            item
+            for item in toll_state_intervals
+            if item.end_km > toll_range.start_km + 0.01
+            and item.start_km < toll_range.end_km - 0.01
+        ]
+        if not overlapping:
+            # Compatibility fallback for candidates produced without detailed
+            # GraphHopper toll states. The complete range remains unresolved.
+            return [
+                (toll_range.start_km, toll_range.end_km)
+            ]
+
+        chargeable = [
+            (
+                max(toll_range.start_km, item.start_km),
+                min(toll_range.end_km, item.end_km),
+            )
+            for item in overlapping
+            if item.class1_status in {"toll", "unknown"}
+        ]
+        return cls._merge_km_intervals(chargeable)
+
+    @staticmethod
+    def _range_has_detailed_toll_states(
+        toll_range: TollRange,
+        toll_state_intervals: list[TollStateInterval],
+    ) -> bool:
+        return any(
+            item.end_km > toll_range.start_km + 0.01
+            and item.start_km < toll_range.end_km - 0.01
+            for item in toll_state_intervals
+        )
+
+    @classmethod
+    def _unresolved_class1_toll_intervals(
+        cls,
+        toll_range: TollRange,
+        toll_state_intervals: list[TollStateInterval],
+        covered_closed_spans: list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        chargeable = cls._class1_chargeable_intervals_for_range(
+            toll_range,
+            toll_state_intervals,
+        )
+        covered = [
+            (
+                max(toll_range.start_km, start_km),
+                min(toll_range.end_km, end_km),
+            )
+            for start_km, end_km in covered_closed_spans
+            if end_km > toll_range.start_km + 0.01
+            and start_km < toll_range.end_km - 0.01
+        ]
+        return cls._subtract_km_intervals(
+            chargeable,
+            covered,
+        )
+
     def _build_unresolved_diagnostics(
         self,
         *,
         ranges: list[TollRange],
         unresolved_indexes: list[int],
         unresolved_km_by_range: dict[int, float],
+        unresolved_intervals_by_range: dict[
+            int,
+            list[tuple[float, float]],
+        ],
         toll_state_intervals: list[TollStateInterval],
         projections: list[StationProjection],
         segments: list[TollSegmentQuote],
     ) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
-        for index in unresolved_indexes:
-            toll_range = ranges[index]
-            states = [
-                {
-                    "value": item.value,
-                    "class1_status": item.class1_status,
-                    "route_start_km": round(item.start_km, 1),
-                    "route_end_km": round(item.end_km, 1),
-                    "distance_km": round(item.distance_km, 1),
-                }
-                for item in toll_state_intervals
-                if item.end_km > toll_range.start_km
-                and item.start_km < toll_range.end_km
+
+        for range_index in unresolved_indexes:
+            toll_range = ranges[range_index]
+            fragments = list(
+                unresolved_intervals_by_range.get(
+                    range_index,
+                    [],
+                )
+            )
+            event_only = not fragments
+            if event_only:
+                # An unresolved physical billing event can remain even when
+                # every kilometre is already covered by a known matrix.
+                fragments = [
+                    (toll_range.start_km, toll_range.end_km)
+                ]
+
+            range_unresolved_km = max(
+                0.0,
+                unresolved_km_by_range.get(
+                    range_index,
+                    0.0,
+                ),
+            )
+            physical_fragment_km = [
+                max(0.0, end_km - start_km)
+                for start_km, end_km in fragments
             ]
-            nearby = []
-            for projection in projections:
-                if not (
-                    toll_range.start_km - 1.5
-                    <= projection.route_km
-                    <= toll_range.end_km + 1.5
-                ):
-                    continue
-                open_price = self._lookup_open(projection.station)
-                nearby.append(
+            physical_total_km = sum(physical_fragment_km)
+            allocated_km = 0.0
+
+            for interval_index, (
+                interval_start_km,
+                interval_end_km,
+            ) in enumerate(fragments):
+                physical_km = max(
+                    0.0,
+                    interval_end_km - interval_start_km,
+                )
+                if event_only:
+                    unresolved_km = 0.0
+                elif interval_index == len(fragments) - 1:
+                    # Affecter le reliquat au dernier fragment évite les
+                    # écarts d'arrondi dans le manifeste.
+                    unresolved_km = max(
+                        0.0,
+                        range_unresolved_km - allocated_km,
+                    )
+                elif physical_total_km > 0.01:
+                    unresolved_km = (
+                        range_unresolved_km
+                        * physical_km
+                        / physical_total_km
+                    )
+                    allocated_km += unresolved_km
+                else:
+                    unresolved_km = 0.0
+
+                states: list[dict[str, Any]] = []
+                for item in toll_state_intervals:
+                    clipped_start = max(
+                        interval_start_km,
+                        item.start_km,
+                    )
+                    clipped_end = min(
+                        interval_end_km,
+                        item.end_km,
+                    )
+                    if clipped_end <= clipped_start + 0.01:
+                        continue
+                    states.append(
+                        {
+                            "value": item.value,
+                            "class1_status": item.class1_status,
+                            "route_start_km": round(
+                                clipped_start,
+                                1,
+                            ),
+                            "route_end_km": round(
+                                clipped_end,
+                                1,
+                            ),
+                            "distance_km": round(
+                                clipped_end - clipped_start,
+                                1,
+                            ),
+                        }
+                    )
+
+                nearby: list[dict[str, Any]] = []
+                for projection in projections:
+                    if not (
+                        interval_start_km - 1.5
+                        <= projection.route_km
+                        <= interval_end_km + 1.5
+                    ):
+                        continue
+                    open_price = self._lookup_open(
+                        projection.station
+                    )
+                    nearby.append(
+                        {
+                            "name": projection.station.display_name,
+                            "operator": projection.station.operator,
+                            "system_type": projection.station.system_type,
+                            "physical_type": (
+                                projection.station.physical_type
+                                or projection.station.system_type
+                            ),
+                            "route_km": round(
+                                projection.route_km,
+                                1,
+                            ),
+                            "lateral_km": round(
+                                projection.lateral_km,
+                                3,
+                            ),
+                            "open_price": (
+                                round(open_price, 2)
+                                if open_price is not None
+                                else None
+                            ),
+                            "distance_to_interval_start_km": round(
+                                abs(
+                                    projection.route_km
+                                    - interval_start_km
+                                ),
+                                1,
+                            ),
+                            "distance_to_interval_end_km": round(
+                                abs(
+                                    projection.route_km
+                                    - interval_end_km
+                                ),
+                                1,
+                            ),
+                        }
+                    )
+                nearby.sort(
+                    key=lambda item: (
+                        item["lateral_km"],
+                        min(
+                            item[
+                                "distance_to_interval_start_km"
+                            ],
+                            item[
+                                "distance_to_interval_end_km"
+                            ],
+                        ),
+                        item["route_km"],
+                        item["name"],
+                    )
+                )
+
+                exact_segments = [
                     {
-                        "name": projection.station.display_name,
-                        "operator": projection.station.operator,
-                        "system_type": projection.station.system_type,
-                        "route_km": round(projection.route_km, 1),
-                        "lateral_km": round(projection.lateral_km, 3),
-                        "open_price": (
-                            round(open_price, 2)
-                            if open_price is not None
-                            else None
+                        "entry": segment.entry,
+                        "exit": segment.exit,
+                        "operator": segment.operator,
+                        "cost": segment.cost,
+                        "route_start_km": (
+                            segment.route_start_km
+                        ),
+                        "route_end_km": (
+                            segment.route_end_km
                         ),
                     }
+                    for segment in segments
+                    if segment.confidence == "exact"
+                    and segment.route_start_km is not None
+                    and segment.route_end_km is not None
+                    and segment.route_end_km
+                    >= toll_range.start_km
+                    and segment.route_start_km
+                    <= toll_range.end_km
+                ]
+
+                diagnostics.append(
+                    {
+                        "kind": "unresolved_toll_interval",
+                        "range_index": range_index,
+                        "interval_index": interval_index,
+                        "parent_range_start_km": round(
+                            toll_range.start_km,
+                            1,
+                        ),
+                        "parent_range_end_km": round(
+                            toll_range.end_km,
+                            1,
+                        ),
+                        "parent_range_distance_km": round(
+                            toll_range.distance_km,
+                            1,
+                        ),
+                        "route_start_km": round(
+                            interval_start_km,
+                            1,
+                        ),
+                        "route_end_km": round(
+                            interval_end_km,
+                            1,
+                        ),
+                        "physical_span_km": round(
+                            physical_km,
+                            1,
+                        ),
+                        "unresolved_km": round(
+                            unresolved_km,
+                            1,
+                        ),
+                        "measurement_basis": (
+                            "graphhopper_toll_states"
+                            if self._range_has_detailed_toll_states(
+                                toll_range,
+                                toll_state_intervals,
+                            )
+                            else "legacy_declared_range_distance"
+                        ),
+                        "range_unresolved_km": round(
+                            unresolved_km_by_range.get(
+                                range_index,
+                                0.0,
+                            ),
+                            1,
+                        ),
+                        "event_only": event_only,
+                        "toll_states": states,
+                        "nearby_stations": nearby[:16],
+                        "exact_segments": exact_segments,
+                    }
                 )
-            nearby.sort(
-                key=lambda item: (
-                    item["lateral_km"],
-                    item["route_km"],
-                    item["name"],
-                )
-            )
-            exact_segments = [
-                {
-                    "entry": segment.entry,
-                    "exit": segment.exit,
-                    "operator": segment.operator,
-                    "cost": segment.cost,
-                    "route_start_km": segment.route_start_km,
-                    "route_end_km": segment.route_end_km,
-                }
-                for segment in segments
-                if segment.confidence == "exact"
-                and segment.route_start_km is not None
-                and segment.route_end_km is not None
-                and segment.route_end_km >= toll_range.start_km
-                and segment.route_start_km <= toll_range.end_km
-            ]
-            diagnostics.append(
-                {
-                    "kind": "unresolved_toll_range",
-                    "range_index": index,
-                    "route_start_km": round(toll_range.start_km, 1),
-                    "route_end_km": round(toll_range.end_km, 1),
-                    "range_distance_km": round(toll_range.distance_km, 1),
-                    "unresolved_km": round(
-                        unresolved_km_by_range.get(index, 0.0),
-                        1,
-                    ),
-                    "toll_states": states,
-                    "nearby_stations": nearby[:12],
-                    "exact_segments": exact_segments,
-                }
-            )
+
         return diagnostics
 
     def _closed_chain_has_complete_event_topology(

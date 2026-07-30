@@ -500,7 +500,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
                     for item in diagnostic.get("toll_states", [])
                 ) or "aucun état transmis"
                 lines.append(
-                    "  - Diagnostic : plage "
+                    "  - Diagnostic : intervalle "
                     f"{diagnostic.get('route_start_km', '?')}→"
                     f"{diagnostic.get('route_end_km', '?')} km ; "
                     f"{diagnostic.get('unresolved_km', '?')} km non résolus ; "

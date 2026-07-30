@@ -11,6 +11,10 @@ from pathlib import Path
 from app.config import settings
 from app.services.routing import GraphHopperClient
 from app.services.tolls import TollPricingService
+from app.services.toll_manifest import (
+    build_missing_toll_manifest,
+    render_missing_toll_manifest,
+)
 from app.services.validation import (
     load_scenarios,
     render_markdown,
@@ -91,10 +95,28 @@ async def run(args: argparse.Namespace) -> int:
     markdown_path.write_text(render_markdown(payload), encoding="utf-8")
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    missing_manifest = build_missing_toll_manifest(payload)
+    missing_json_path = output_dir / f"missing-tariffs-{stamp}.json"
+    missing_markdown_path = output_dir / f"missing-tariffs-{stamp}.md"
+    missing_json_path.write_text(
+        json.dumps(
+            missing_manifest,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    missing_markdown_path.write_text(
+        render_missing_toll_manifest(missing_manifest),
+        encoding="utf-8",
+    )
+
     summary = payload["summary"]
     print()
     print(f"Rapport Markdown : {markdown_path}")
     print(f"Rapport JSON     : {json_path}")
+    print(f"Manifeste MD     : {missing_markdown_path}")
+    print(f"Manifeste JSON   : {missing_json_path}")
     print(
         f"Résumé : {summary['errors']} erreur(s), {summary['warnings']} avertissement(s), "
         f"{summary['exact']} exact(s), {summary['estimated']} estimé(s)."
