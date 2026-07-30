@@ -18,6 +18,7 @@ class RouteRequest(BaseModel):
     fuel_type: Literal["SP95-E10", "SP98"] = "SP95-E10"
     fuel_price: float = Field(default=1.82, gt=0, le=5)
     max_extra_minutes: int | None = Field(default=45, ge=0, le=720)
+    min_savings: float = Field(default=5.0, ge=0, le=500)
     show_all: bool = False
     motorway_consumption: float = Field(default=6.5, gt=0, le=30)
     road_consumption: float = Field(default=5.5, gt=0, le=30)
@@ -77,4 +78,6 @@ class RouteResponse(BaseModel):
     engine_message: str
     fastest_minutes: int
     max_extra_minutes: int | None
+    candidate_count: int
+    eligible_count: int
     routes: list[RouteResult]

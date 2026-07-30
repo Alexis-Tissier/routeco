@@ -25,6 +25,7 @@ def test_demo_route_calculation():
     payload = response.json()
     assert payload["routes"]
     assert payload["engine"] in {"demo", "graphhopper"}
+    assert payload["candidate_count"] >= len(payload["routes"])
 
 
 def test_dominated_but_distinct_routes_are_kept(monkeypatch):
@@ -64,6 +65,7 @@ def test_dominated_but_distinct_routes_are_kept(monkeypatch):
         "fuel_type": "SP95-E10",
         "fuel_price": 1.82,
         "max_extra_minutes": 45,
+        "min_savings": 0,
         "show_all": False,
         "motorway_consumption": 6.5,
         "road_consumption": 5.5,
@@ -71,3 +73,36 @@ def test_dominated_but_distinct_routes_are_kept(monkeypatch):
     assert response.status_code == 200
     ids = [route["id"] for route in response.json()["routes"]]
     assert ids == ["fast", "different", "slow"]
+
+
+def test_minimum_savings_keeps_fastest_and_filters_weak_alternatives(monkeypatch):
+    from app.main import routing
+    from app.services.routing import EngineResult
+
+    async def fake_candidates(start, end):
+        geometry = [[2.0, 48.0], [3.0, 47.0]]
+        return EngineResult(
+            engine="graphhopper",
+            message="3 itinéraires candidats calculés localement.",
+            candidates=[
+                {"id": "fast", "distance_km": 100.0, "duration_minutes": 100,
+                 "motorway_km": 100.0, "road_km": 0.0, "tolled_km": 0.0,
+                 "toll_ranges": [], "geometry": geometry, "source": "graphhopper"},
+                {"id": "weak", "distance_km": 99.0, "duration_minutes": 110,
+                 "motorway_km": 99.0, "road_km": 0.0, "tolled_km": 0.0,
+                 "toll_ranges": [], "geometry": geometry, "source": "graphhopper"},
+                {"id": "strong", "distance_km": 70.0, "duration_minutes": 120,
+                 "motorway_km": 0.0, "road_km": 70.0, "tolled_km": 0.0,
+                 "toll_ranges": [], "geometry": geometry, "source": "graphhopper"},
+            ],
+        )
+
+    monkeypatch.setattr(routing, "candidates", fake_candidates)
+    response = client.post("/api/routes", json={
+        "start": {"lat": 48.0, "lon": 2.0}, "end": {"lat": 47.0, "lon": 3.0},
+        "fuel_price": 2.0, "max_extra_minutes": 45, "min_savings": 3,
+        "motorway_consumption": 6.5, "road_consumption": 5.5,
+    })
+    payload = response.json()
+    assert payload["candidate_count"] == 3
+    assert [route["id"] for route in payload["routes"]] == ["fast", "strong"]

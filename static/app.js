@@ -1,7 +1,6 @@
 const state = {
   maxExtra: 45,
   showAll: false,
-  fuelType: 'SP95-E10',
   routes: [],
   selectedRoute: null,
 };
@@ -85,7 +84,8 @@ function renderResults(data) {
   state.routes = data.routes;
   $('#empty-state').style.display = 'none';
   $('#results-title').textContent = `${data.routes.length} itinéraire${data.routes.length > 1 ? 's' : ''} proposé${data.routes.length > 1 ? 's' : ''}`;
-  $('#summary-pill').textContent = `Twingo 2 · ${state.fuelType} · ${Number($('#fuel-price').value).toFixed(3)} €/L`;
+  const hidden = Math.max(0, data.candidate_count - data.routes.length);
+  $('#candidate-count').textContent = `${data.candidate_count} calculés · ${data.routes.length} utiles${hidden ? ` · ${hidden} masqués` : ''}`;
   $('#results').innerHTML = data.routes.map((route, index) => `
     <article class="route-card ${index === 0 ? 'selected' : ''} ${route.within_limit ? '' : 'outside'}" data-id="${route.id}">
       <div class="card-top">
@@ -115,10 +115,32 @@ function selectRoute(id) {
   state.selectedRoute = state.routes.find((route) => route.id === id) || state.routes[0];
   document.querySelectorAll('.route-card').forEach((card) => card.classList.toggle('selected', card.dataset.id === state.selectedRoute?.id));
   drawRoutes();
+  updateNavigationLinks();
 }
 
 function drawRoutes() {
   window.RoutecoMap?.render(state.routes, state.selectedRoute);
+}
+
+function sampledWaypoints(geometry, count = 6) {
+  if (!geometry || geometry.length < 3) return [];
+  return Array.from({ length: count }, (_, index) => {
+    const pointIndex = Math.round(((index + 1) * (geometry.length - 1)) / (count + 1));
+    return geometry[pointIndex];
+  });
+}
+
+function updateNavigationLinks() {
+  const route = state.selectedRoute;
+  if (!route?.geometry?.length) return;
+  const start = route.geometry[0];
+  const end = route.geometry[route.geometry.length - 1];
+  const origin = `${start[1]},${start[0]}`;
+  const destination = `${end[1]},${end[0]}`;
+  const waypoints = sampledWaypoints(route.geometry).map(([lon, lat]) => `${lat},${lon}`).join('|');
+  $('#google-link').href = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving&waypoints=${encodeURIComponent(waypoints)}`;
+  $('#waze-link').href = `https://www.waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`;
+  $('#apple-link').href = `https://maps.apple.com/?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(destination)}&dirflg=d`;
 }
 
 async function calculate(event) {
@@ -136,8 +158,9 @@ async function calculate(event) {
       end,
       start_label: $('#start').value,
       end_label: $('#end').value,
-      fuel_type: state.fuelType,
+      fuel_type: 'SP95-E10',
       fuel_price: Number($('#fuel-price').value),
+      min_savings: Number($('#min-savings').value),
       max_extra_minutes: state.showAll ? null : state.maxExtra,
       show_all: state.showAll,
       motorway_consumption: Number($('#motorway-consumption').value),
@@ -176,11 +199,17 @@ $('#time-chips').querySelectorAll('button').forEach((button) => button.addEventL
   state.showAll = button.dataset.minutes === 'all';
   state.maxExtra = state.showAll ? null : Number(button.dataset.minutes);
 }));
-$('#fuel-type').querySelectorAll('button').forEach((button) => button.addEventListener('click', () => {
-  $('#fuel-type').querySelectorAll('button').forEach((item) => item.classList.remove('active'));
-  button.classList.add('active');
-  state.fuelType = button.dataset.fuel;
-}));
+$('#nav-toggle').addEventListener('click', () => {
+  const menu = $('#nav-options');
+  const open = menu.classList.toggle('open');
+  $('#nav-toggle').setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.nav-menu')) {
+    $('#nav-options').classList.remove('open');
+    $('#nav-toggle').setAttribute('aria-expanded', 'false');
+  }
+});
 
 health();
 calculate();

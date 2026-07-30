@@ -123,18 +123,24 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
     # to expose useful trade-offs, not only mathematically non-dominated paths.
     decorated = decorate_routes(results, request.max_extra_minutes)
     if not request.show_all:
-        visible = [route for route in decorated if route.within_limit]
         fastest = min(decorated, key=lambda route: route.duration_minutes)
-        if all(route.id != fastest.id for route in visible):
-            visible.insert(0, fastest)
+        visible = [
+            route
+            for route in decorated
+            if route.within_limit
+            and (route.id == fastest.id or route.savings >= request.min_savings)
+        ]
         decorated = visible
 
-    decorated = select_representative_routes(decorated, max_routes=5)
+    eligible_count = len(decorated)
+    decorated = select_representative_routes(decorated, max_routes=7)
     fastest_minutes = min(route.duration_minutes for route in results)
     return RouteResponse(
         engine=engine_result.engine,  # type: ignore[arg-type]
         engine_message=engine_result.message,
         fastest_minutes=fastest_minutes,
         max_extra_minutes=request.max_extra_minutes,
+        candidate_count=len(results),
+        eligible_count=eligible_count,
         routes=decorated,
     )
