@@ -76,6 +76,7 @@ class TollQuote:
     stations: list[str]
     message: str
     segments: list[TollSegmentQuote] = field(default_factory=list)
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -145,6 +146,18 @@ class TollRange:
     distance_km: float
 
 
+# ROUTECO_V034_TOLL_STATE_PROOF
+@dataclass(slots=True)
+class TollStateInterval:
+    start_index: int
+    end_index: int
+    start_km: float
+    end_km: float
+    distance_km: float
+    value: str
+    class1_status: str
+
+
 @dataclass(slots=True)
 class ClosedMatch:
     range_index: int
@@ -180,6 +193,10 @@ class TollPlan:
     unresolved_km_by_range: dict[int, float]
     unresolved_event_ranges: set[int]
     ignored_noise_indexes: set[int]
+    toll_state_intervals: list[TollStateInterval] = field(
+        default_factory=list
+    )
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def unresolved_km(self) -> float:
@@ -396,6 +413,7 @@ class TollPricingService:
             geometry=candidate["geometry"],
             tolled_km=candidate.get("tolled_km", 0.0),
             toll_ranges=candidate.get("toll_ranges"),
+            toll_state_intervals=candidate.get("toll_state_intervals"),
             road_class_link_details=candidate.get("road_class_link_details"),
             demo_toll=candidate.get("demo_toll"),
         )
@@ -407,6 +425,7 @@ class TollPricingService:
         toll_ranges: list[dict[str, Any]] | None = None,
         road_class_link_details: list[list] | None = None,
         demo_toll: float | None = None,
+        toll_state_intervals: list[dict[str, Any]] | None = None,
     ) -> TollQuote:
         if demo_toll is not None:
             return TollQuote(
@@ -444,6 +463,7 @@ class TollPricingService:
                 tolled_km,
                 toll_ranges or [],
                 road_class_link_details or [],
+                toll_state_intervals or [],
             )
             if exact is not None:
                 return exact
@@ -1029,8 +1049,14 @@ class TollPricingService:
         tolled_km: float,
         raw_ranges: list[dict[str, Any]],
         road_class_link_details: list[list],
+        raw_toll_state_intervals: list[dict[str, Any]] | None = None,
     ) -> TollQuote | None:
         projections, cumulative = self._project_stations(geometry)
+        toll_state_intervals = self._prepare_toll_state_intervals(
+            geometry,
+            cumulative,
+            raw_toll_state_intervals or [],
+        )
 
         ranges = self._prepare_ranges(geometry, cumulative, raw_ranges)
         if not ranges:
@@ -1212,7 +1238,10 @@ class TollPricingService:
         for range_index, matches in accepted_by_range.items():
             if range_index in unresolved_event_ranges:
                 continue
-            if self._closed_chain_has_complete_event_topology(matches):
+            if self._closed_chain_has_complete_event_topology(
+                matches,
+                toll_state_intervals,
+            ):
                 resolved_ranges.add(range_index)
 
         unresolved_indexes = [
@@ -1228,6 +1257,14 @@ class TollPricingService:
             )
             for index in unresolved_indexes
         }
+        diagnostics = self._build_unresolved_diagnostics(
+            ranges=ranges,
+            unresolved_indexes=unresolved_indexes,
+            unresolved_km_by_range=unresolved_km_by_range,
+            toll_state_intervals=toll_state_intervals,
+            projections=projections,
+            segments=segments,
+        )
         plan = TollPlan(
             exact_cost=total,
             station_names=station_names,
@@ -1237,6 +1274,8 @@ class TollPricingService:
             unresolved_km_by_range=unresolved_km_by_range,
             unresolved_event_ranges=unresolved_event_ranges,
             ignored_noise_indexes=ignored_noise_indexes,
+            toll_state_intervals=toll_state_intervals,
+            diagnostics=diagnostics,
         )
 
         if plan.is_complete:
@@ -1361,11 +1400,182 @@ class TollPricingService:
             station_names,
             message,
             segments=segments,
+            diagnostics=plan.diagnostics,
         )
+
+    def _prepare_toll_state_intervals(
+        self,
+        geometry: list[list[float]],
+        cumulative: list[float],
+        raw_intervals: list[dict[str, Any]],
+    ) -> list[TollStateInterval]:
+        output: list[TollStateInterval] = []
+        if len(geometry) < 2:
+            return output
+
+        for item in raw_intervals:
+            try:
+                start_index = max(
+                    0,
+                    min(len(geometry) - 2, int(item["start_index"])),
+                )
+                end_index = max(
+                    start_index + 1,
+                    min(len(geometry) - 1, int(item["end_index"])),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            start_km = cumulative[start_index]
+            end_km = cumulative[end_index]
+            distance_km = max(0.0, end_km - start_km)
+            if distance_km <= 0.01:
+                continue
+
+            value = str(item.get("value", "MISSING")).upper()
+            class1_status = str(
+                item.get("class1_status", "unknown")
+            ).lower()
+            if class1_status not in {"toll", "free", "unknown"}:
+                class1_status = "unknown"
+
+            output.append(
+                TollStateInterval(
+                    start_index=start_index,
+                    end_index=end_index,
+                    start_km=start_km,
+                    end_km=end_km,
+                    distance_km=distance_km,
+                    value=value,
+                    class1_status=class1_status,
+                )
+            )
+        return sorted(output, key=lambda item: (item.start_km, item.end_km))
+
+    @staticmethod
+    def _connector_class1_status(
+        start_km: float,
+        end_km: float,
+        intervals: list[TollStateInterval],
+    ) -> str:
+        # Return toll/free/unknown for the complete connector interval.
+        if end_km <= start_km + 0.05:
+            return "free"
+
+        cursor = start_km
+        relevant = [
+            item
+            for item in intervals
+            if item.end_km > start_km + 0.01
+            and item.start_km < end_km - 0.01
+        ]
+        for item in relevant:
+            if item.end_km <= cursor + 0.01:
+                continue
+            if item.start_km > cursor + 0.05:
+                return "unknown"
+            if item.class1_status == "toll":
+                return "toll"
+            if item.class1_status != "free":
+                return "unknown"
+            cursor = max(cursor, item.end_km)
+            if cursor >= end_km - 0.05:
+                return "free"
+        return "unknown"
+
+    def _build_unresolved_diagnostics(
+        self,
+        *,
+        ranges: list[TollRange],
+        unresolved_indexes: list[int],
+        unresolved_km_by_range: dict[int, float],
+        toll_state_intervals: list[TollStateInterval],
+        projections: list[StationProjection],
+        segments: list[TollSegmentQuote],
+    ) -> list[dict[str, Any]]:
+        diagnostics: list[dict[str, Any]] = []
+        for index in unresolved_indexes:
+            toll_range = ranges[index]
+            states = [
+                {
+                    "value": item.value,
+                    "class1_status": item.class1_status,
+                    "route_start_km": round(item.start_km, 1),
+                    "route_end_km": round(item.end_km, 1),
+                    "distance_km": round(item.distance_km, 1),
+                }
+                for item in toll_state_intervals
+                if item.end_km > toll_range.start_km
+                and item.start_km < toll_range.end_km
+            ]
+            nearby = []
+            for projection in projections:
+                if not (
+                    toll_range.start_km - 1.5
+                    <= projection.route_km
+                    <= toll_range.end_km + 1.5
+                ):
+                    continue
+                open_price = self._lookup_open(projection.station)
+                nearby.append(
+                    {
+                        "name": projection.station.display_name,
+                        "operator": projection.station.operator,
+                        "system_type": projection.station.system_type,
+                        "route_km": round(projection.route_km, 1),
+                        "lateral_km": round(projection.lateral_km, 3),
+                        "open_price": (
+                            round(open_price, 2)
+                            if open_price is not None
+                            else None
+                        ),
+                    }
+                )
+            nearby.sort(
+                key=lambda item: (
+                    item["lateral_km"],
+                    item["route_km"],
+                    item["name"],
+                )
+            )
+            exact_segments = [
+                {
+                    "entry": segment.entry,
+                    "exit": segment.exit,
+                    "operator": segment.operator,
+                    "cost": segment.cost,
+                    "route_start_km": segment.route_start_km,
+                    "route_end_km": segment.route_end_km,
+                }
+                for segment in segments
+                if segment.confidence == "exact"
+                and segment.route_start_km is not None
+                and segment.route_end_km is not None
+                and segment.route_end_km >= toll_range.start_km
+                and segment.route_start_km <= toll_range.end_km
+            ]
+            diagnostics.append(
+                {
+                    "kind": "unresolved_toll_range",
+                    "range_index": index,
+                    "route_start_km": round(toll_range.start_km, 1),
+                    "route_end_km": round(toll_range.end_km, 1),
+                    "range_distance_km": round(toll_range.distance_km, 1),
+                    "unresolved_km": round(
+                        unresolved_km_by_range.get(index, 0.0),
+                        1,
+                    ),
+                    "toll_states": states,
+                    "nearby_stations": nearby[:12],
+                    "exact_segments": exact_segments,
+                }
+            )
+        return diagnostics
 
     def _closed_chain_has_complete_event_topology(
         self,
         matches: list[ClosedMatch],
+        toll_state_intervals: list[TollStateInterval] | None = None,
     ) -> bool:
         # Deux voyages fermés ou plus peuvent former un plan complet lorsque
         # chaque trajet possède une entrée et une sortie officielles, dans le
@@ -1412,8 +1622,17 @@ class TollPricingService:
                 connector_km = match.span_start_km - previous_end
                 if connector_km < -1.0:
                     return False
+
+                connector_status = self._connector_class1_status(
+                    previous_end,
+                    match.span_start_km,
+                    toll_state_intervals or [],
+                )
+                if connector_status == "toll":
+                    return False
                 if (
-                    connector_km
+                    connector_status != "free"
+                    and connector_km
                     > self.MAX_UNVERIFIED_CLOSED_CONNECTOR_KM
                 ):
                     return False

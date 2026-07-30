@@ -32,6 +32,7 @@ class ValidatedRoute:
     total_cost: float
     toll_message: str
     toll_segments: list[dict[str, Any]] = field(default_factory=list)
+    toll_diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -298,6 +299,7 @@ async def validate_scenario(
                 total_cost=float(costs.total_cost),
                 toll_message=quote.message,
                 toll_segments=segments,
+                toll_diagnostics=list(quote.diagnostics),
             )
         )
 
@@ -490,6 +492,31 @@ def render_markdown(payload: dict[str, Any]) -> str:
                     f"  - Péage : {label} — {segment['cost']:.2f} € "
                     f"({segment['confidence']})."
                 )
+            for diagnostic in route.get("toll_diagnostics", []):
+                states = ", ".join(
+                    f"{item.get('value', '?')}/{item.get('class1_status', '?')} "
+                    f"{item.get('route_start_km', '?')}→"
+                    f"{item.get('route_end_km', '?')} km"
+                    for item in diagnostic.get("toll_states", [])
+                ) or "aucun état transmis"
+                lines.append(
+                    "  - Diagnostic : plage "
+                    f"{diagnostic.get('route_start_km', '?')}→"
+                    f"{diagnostic.get('route_end_km', '?')} km ; "
+                    f"{diagnostic.get('unresolved_km', '?')} km non résolus ; "
+                    f"états : {states}."
+                )
+                stations = diagnostic.get("nearby_stations", [])
+                if stations:
+                    labels = ", ".join(
+                        f"{item.get('name', '?')}@"
+                        f"{item.get('route_km', '?')} km/"
+                        f"{item.get('lateral_km', '?')} km"
+                        for item in stations[:6]
+                    )
+                    lines.append(
+                        f"    - Gares/portiques proches : {labels}."
+                    )
 
     lines.append("")
     return "\n".join(lines)

@@ -488,6 +488,14 @@ class GraphHopperClient:
                 "road_class_link", []
             )
             toll_details = path.get("details", {}).get("toll", [])
+            # ROUTECO_V034_TOLL_STATE_INTERVALS
+            # Preserve every GraphHopper toll state. Routeco still derives the
+            # passenger-car paid ranges from ALL, but no longer discards NO,
+            # HGV or MISSING/unknown intervals needed for completeness proofs.
+            toll_state_intervals = self._detail_intervals(
+                geometry,
+                toll_details,
+            )
             motorway_km = self._detail_distance(
                 geometry, road_class_details, {"MOTORWAY"}
             )
@@ -515,6 +523,7 @@ class GraphHopperClient:
                     "road_km": round(max(0, total_km - motorway_km), 1),
                     "tolled_km": round(tolled_km, 1),
                     "toll_ranges": toll_ranges,
+                    "toll_state_intervals": toll_state_intervals,
                     "road_class_link_details": road_class_link_details,
                     "geometry": geometry,
                     "source": "graphhopper",
@@ -534,6 +543,52 @@ class GraphHopperClient:
                 pass
             raise GraphHopperRequestError(response.status_code, detail)
         return response.json()
+
+    @staticmethod
+    def _detail_intervals(
+        geometry: list[list[float]],
+        details: list[list],
+    ) -> list[dict]:
+        # Return every GraphHopper toll state with classe-1 semantics.
+        # ALL applies to cars. HGV applies only to heavy goods vehicles. NO is
+        # explicit non-toll. MISSING remains unknown because an absent OSM tag
+        # is not positive proof that a road is free.
+        intervals: list[dict] = []
+        for detail in details:
+            if len(detail) != 3 or len(geometry) < 2:
+                continue
+            start_index = max(
+                0,
+                min(len(geometry) - 2, int(detail[0])),
+            )
+            end_index = max(
+                start_index + 1,
+                min(len(geometry) - 1, int(detail[1])),
+            )
+            distance = polyline_distance_km(
+                geometry[start_index : end_index + 1]
+            )
+            if distance <= 0.01:
+                continue
+
+            value = str(detail[2]).upper()
+            if value == "ALL":
+                class1_status = "toll"
+            elif value in {"NO", "HGV"}:
+                class1_status = "free"
+            else:
+                class1_status = "unknown"
+
+            intervals.append(
+                {
+                    "start_index": start_index,
+                    "end_index": end_index,
+                    "distance_km": round(distance, 3),
+                    "value": value,
+                    "class1_status": class1_status,
+                }
+            )
+        return intervals
 
     @staticmethod
     def _detail_ranges(

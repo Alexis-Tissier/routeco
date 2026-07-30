@@ -1425,11 +1425,13 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
             toll_ranges=None,
             road_class_link_details=None,
             demo_toll=None,
+            toll_state_intervals=None,
         ) -> TollQuote:
             self.received = {
                 "geometry": geometry,
                 "tolled_km": tolled_km,
                 "toll_ranges": toll_ranges,
+                "toll_state_intervals": toll_state_intervals,
                 "road_class_link_details": road_class_link_details,
                 "demo_toll": demo_toll,
             }
@@ -1441,6 +1443,15 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
         "toll_ranges": [
             {"start_index": 0, "end_index": 2, "distance_km": 10.0}
         ],
+        "toll_state_intervals": [
+            {
+                "start_index": 0,
+                "end_index": 2,
+                "distance_km": 10.0,
+                "value": "ALL",
+                "class1_status": "toll",
+            }
+        ],
         "road_class_link_details": [[0, 2, False]],
         "demo_toll": None,
     }
@@ -1451,6 +1462,7 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
         "geometry": candidate["geometry"],
         "tolled_km": 10.0,
         "toll_ranges": candidate["toll_ranges"],
+        "toll_state_intervals": candidate["toll_state_intervals"],
         "road_class_link_details": [[0, 2, False]],
         "demo_toll": None,
     }
