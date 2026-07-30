@@ -194,3 +194,28 @@ Décisions possibles :
 Une matrice diagnostiquée comme disponible n'est pas automatiquement ajoutée
 au plan. La sélection automatique fera l'objet d'une étape séparée, après
 examen des raisons de rejet sur la validation nationale.
+
+## Sélection des matrices fermées résiduelles
+
+Après la sélection globale et la facturation des portiques ouverts, Routeco
+peut examiner séparément un composant payant encore non résolu.
+
+Une matrice résiduelle n'est ajoutée que lorsque toutes les conditions suivantes
+sont réunies :
+
+- une seule interprétation physique subsiste après déduplication des alias ;
+- la matrice possède un tarif officiel ;
+- elle couvre au moins 60 % du composant ;
+- son entrée ou sa sortie touche une borne du composant à 500 m près ;
+- elle ne chevauche aucun trajet fermé déjà facturé ;
+- elle ne réutilise une gare que comme sortie puis entrée d'une chaîne continue ;
+- elle n'absorbe aucun portique ouvert déjà facturé ;
+- aucun événement physique sans tarif ne subsiste dans le composant.
+
+Deux lignes tarifaires ne constituent pas une ambiguïté lorsqu'elles désignent
+les mêmes installations physiques, aux mêmes positions, avec le même opérateur,
+le même prix et la même distance officielle.
+
+Un dépassement de balisage OSM peut être absorbé sans coût supplémentaire
+uniquement lorsqu'il mesure au maximum 500 m, touche directement une borne
+exacte et ne contient aucun autre événement de paiement.

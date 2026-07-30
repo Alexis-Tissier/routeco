@@ -1474,6 +1474,140 @@ class TollPricingService:
                     )
                 )
 
+        # ROUTECO_V034_RESIDUAL_CLOSED_MATRICES
+        # Les systèmes ouverts ont déjà été traités. On examine maintenant les
+        # véritables composants payants qui restent, sans modifier les autres.
+        residual_component_spans: list[tuple[float, float]] = []
+
+        for range_index, toll_range in enumerate(ranges):
+            if not self._range_has_detailed_toll_states(
+                toll_range,
+                toll_state_intervals,
+            ):
+                continue
+
+            while True:
+                fragments = self._unresolved_class1_toll_intervals(
+                    toll_range,
+                    toll_state_intervals,
+                    (
+                        closed_spans
+                        + open_resolved_spans
+                        + residual_component_spans
+                    ),
+                )
+                selected: tuple[
+                    ClosedMatch,
+                    tuple[float, float],
+                ] | None = None
+
+                for interval_start_km, interval_end_km in fragments:
+                    match = self._select_unique_residual_closed_match(
+                        range_index=range_index,
+                        toll_range=toll_range,
+                        interval_start_km=interval_start_km,
+                        interval_end_km=interval_end_km,
+                        projections=projections,
+                        existing_closed=accepted,
+                        used_open=used_open,
+                        road_class_link_details=(
+                            road_class_link_details
+                        ),
+                        used_station_keys=used_station_keys,
+                    )
+                    if match is not None:
+                        selected = (
+                            match,
+                            (interval_start_km, interval_end_km),
+                        )
+                        break
+
+                if selected is None:
+                    break
+
+                match, component_span = selected
+                accepted.append(match)
+                residual_component_spans.append(component_span)
+                closed_spans.append(
+                    (
+                        match.span_start_km,
+                        match.span_end_km,
+                    )
+                )
+                range_covered_km[range_index] = min(
+                    toll_range.distance_km,
+                    range_covered_km.get(range_index, 0.0)
+                    + max(
+                        0.0,
+                        component_span[1] - component_span[0],
+                    ),
+                )
+
+                total += match.record.price
+                entry_name = match.entry.station.display_name
+                exit_name = match.exit.station.display_name
+                station_names.extend([entry_name, exit_name])
+                used_station_keys.update(
+                    self._station_identity_keys(
+                        match.entry.station
+                    )
+                )
+                used_station_keys.update(
+                    self._station_identity_keys(
+                        match.exit.station
+                    )
+                )
+                segments.append(
+                    TollSegmentQuote(
+                        entry=entry_name,
+                        exit=exit_name,
+                        operator=match.record.operator,
+                        cost=round(match.record.price, 2),
+                        distance_km=match.record.distance_km,
+                        confidence="exact",
+                        route_start_km=round(
+                            match.span_start_km,
+                            1,
+                        ),
+                        route_end_km=round(
+                            match.span_end_km,
+                            1,
+                        ),
+                    )
+                )
+
+        # Recalculer les événements sans tarif après l'ajout éventuel des
+        # matrices résiduelles. Une ancienne alerte ne doit pas survivre si
+        # l'événement est désormais expliqué par une matrice officielle.
+        for range_index, toll_range in enumerate(ranges):
+            unpriced_events = (
+                self._unpriced_billing_events_in_range(
+                    projections,
+                    toll_range,
+                    road_class_link_details,
+                    accepted,
+                    used_station_keys,
+                )
+            )
+            if unpriced_events:
+                unresolved_event_ranges.add(range_index)
+                resolved_ranges.discard(range_index)
+            else:
+                unresolved_event_ranges.discard(range_index)
+
+        boundary_overhang_spans = (
+            self._closed_boundary_overhang_spans(
+                ranges=ranges,
+                toll_state_intervals=toll_state_intervals,
+                projections=projections,
+                accepted_closed=accepted,
+                road_class_link_details=(
+                    road_class_link_details
+                ),
+                used_station_keys=used_station_keys,
+            )
+        )
+
         # Isolated OSM toll tags are not billing events. Resolve them as zero only
         # when no mainline barrier or exact open charge is physically crossed.
         exact_boundaries = [
@@ -1541,7 +1675,12 @@ class TollPricingService:
             fragments = self._unresolved_class1_toll_intervals(
                 toll_range,
                 toll_state_intervals,
-                closed_spans + open_resolved_spans,
+                (
+                    closed_spans
+                    + open_resolved_spans
+                    + residual_component_spans
+                    + boundary_overhang_spans
+                ),
             )
 
             if not has_detailed_states and not fragments:
@@ -2054,6 +2193,478 @@ class TollPricingService:
             - max(start_km, segment.route_start_km),
         )
 
+    # ROUTECO_V034_RESIDUAL_CLOSED_MATRICES
+    @staticmethod
+    def _closed_projection_aliases(
+        projection: StationProjection,
+    ) -> set[str]:
+        return (
+            name_aliases(projection.station.name)
+            | name_aliases(projection.station.osm_name)
+        )
+
+    @classmethod
+    def _same_physical_closed_projection(
+        cls,
+        first: StationProjection,
+        second: StationProjection,
+    ) -> bool:
+        route_gap = abs(first.route_km - second.route_km)
+        if route_gap > 0.5:
+            return False
+
+        aliases_overlap = bool(
+            cls._closed_projection_aliases(first)
+            & cls._closed_projection_aliases(second)
+        )
+        geo_gap = haversine_km(
+            (first.station.lon, first.station.lat),
+            (second.station.lon, second.station.lat),
+        )
+        return aliases_overlap or geo_gap <= 0.8
+
+    @staticmethod
+    def _same_optional_distance(
+        first: float | None,
+        second: float | None,
+    ) -> bool:
+        if first is None or second is None:
+            return first is None and second is None
+        return abs(first - second) <= 0.05
+
+    @classmethod
+    def _residual_matches_are_equivalent(
+        cls,
+        first: ClosedMatch,
+        second: ClosedMatch,
+    ) -> bool:
+        return (
+            (first.record.operator or "").upper()
+            == (second.record.operator or "").upper()
+            and abs(first.record.price - second.record.price) <= 0.01
+            and cls._same_optional_distance(
+                first.record.distance_km,
+                second.record.distance_km,
+            )
+            and cls._same_physical_closed_projection(
+                first.entry,
+                second.entry,
+            )
+            and cls._same_physical_closed_projection(
+                first.exit,
+                second.exit,
+            )
+        )
+
+    @classmethod
+    def _topology_candidate_dicts_are_equivalent(
+        cls,
+        first: dict[str, Any],
+        second: dict[str, Any],
+    ) -> bool:
+        first_distance = first.get("official_distance_km")
+        second_distance = second.get("official_distance_km")
+        return (
+            normalize_name(str(first.get("entry") or ""))
+            == normalize_name(str(second.get("entry") or ""))
+            and normalize_name(str(first.get("exit") or ""))
+            == normalize_name(str(second.get("exit") or ""))
+            and abs(
+                float(first.get("route_start_km") or 0.0)
+                - float(second.get("route_start_km") or 0.0)
+            )
+            <= 0.5
+            and abs(
+                float(first.get("route_end_km") or 0.0)
+                - float(second.get("route_end_km") or 0.0)
+            )
+            <= 0.5
+            and str(first.get("matrix_operator") or "").upper()
+            == str(second.get("matrix_operator") or "").upper()
+            and abs(
+                float(first.get("price") or 0.0)
+                - float(second.get("price") or 0.0)
+            )
+            <= 0.01
+            and cls._same_optional_distance(
+                (
+                    float(first_distance)
+                    if first_distance is not None
+                    else None
+                ),
+                (
+                    float(second_distance)
+                    if second_distance is not None
+                    else None
+                ),
+            )
+        )
+
+    @classmethod
+    def _dedupe_equivalent_topology_candidates(
+        cls,
+        candidates: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        groups: list[list[dict[str, Any]]] = []
+        for candidate in candidates:
+            for group in groups:
+                if cls._topology_candidate_dicts_are_equivalent(
+                    candidate,
+                    group[0],
+                ):
+                    group.append(candidate)
+                    break
+            else:
+                groups.append([candidate])
+
+        return [
+            min(
+                group,
+                key=lambda item: (
+                    float(item.get("boundary_gap_km") or 0.0),
+                    -float(
+                        item.get("interval_coverage_ratio") or 0.0
+                    ),
+                    float(item.get("entry_lateral_km") or 999.0)
+                    + float(item.get("exit_lateral_km") or 999.0),
+                ),
+            )
+            for group in groups
+        ]
+
+    def _dedupe_equivalent_residual_matches(
+        self,
+        matches: list[ClosedMatch],
+        *,
+        interval_start_km: float,
+        interval_end_km: float,
+    ) -> list[ClosedMatch]:
+        groups: list[list[ClosedMatch]] = []
+        for match in matches:
+            for group in groups:
+                if self._residual_matches_are_equivalent(
+                    match,
+                    group[0],
+                ):
+                    group.append(match)
+                    break
+            else:
+                groups.append([match])
+
+        def score(item: ClosedMatch) -> tuple[float, float, float]:
+            boundary_gap = (
+                abs(item.span_start_km - interval_start_km)
+                + abs(item.span_end_km - interval_end_km)
+            )
+            overlap = max(
+                0.0,
+                min(item.span_end_km, interval_end_km)
+                - max(item.span_start_km, interval_start_km),
+            )
+            return (
+                boundary_gap,
+                -overlap,
+                item.entry.lateral_km + item.exit.lateral_km,
+            )
+
+        return [min(group, key=score) for group in groups]
+
+    def _residual_match_compatible_with_existing(
+        self,
+        candidate: ClosedMatch,
+        existing: list[ClosedMatch],
+    ) -> bool:
+        for current in existing:
+            if self._closed_spans_conflict(candidate, current):
+                return False
+
+            candidate_entry_same_current_entry = (
+                self._same_physical_closed_projection(
+                    candidate.entry,
+                    current.entry,
+                )
+            )
+            candidate_entry_same_current_exit = (
+                self._same_physical_closed_projection(
+                    candidate.entry,
+                    current.exit,
+                )
+            )
+            candidate_exit_same_current_entry = (
+                self._same_physical_closed_projection(
+                    candidate.exit,
+                    current.entry,
+                )
+            )
+            candidate_exit_same_current_exit = (
+                self._same_physical_closed_projection(
+                    candidate.exit,
+                    current.exit,
+                )
+            )
+
+            # Le partage d'une gare n'est accepté qu'entre la sortie d'un
+            # voyage et l'entrée du voyage suivant, à la même position.
+            if candidate_entry_same_current_entry:
+                return False
+            if candidate_exit_same_current_exit:
+                return False
+            if (
+                candidate_entry_same_current_exit
+                and abs(
+                    candidate.span_start_km
+                    - current.span_end_km
+                )
+                > 1.0
+            ):
+                return False
+            if (
+                candidate_exit_same_current_entry
+                and abs(
+                    candidate.span_end_km
+                    - current.span_start_km
+                )
+                > 1.0
+            ):
+                return False
+
+        return True
+
+    def _select_unique_residual_closed_match(
+        self,
+        *,
+        range_index: int,
+        toll_range: TollRange,
+        interval_start_km: float,
+        interval_end_km: float,
+        projections: list[StationProjection],
+        existing_closed: list[ClosedMatch],
+        used_open: list[tuple[StationProjection, float]],
+        road_class_link_details: list[list],
+        used_station_keys: set[str],
+    ) -> ClosedMatch | None:
+        span_km = max(
+            0.0,
+            interval_end_km - interval_start_km,
+        )
+        if span_km < 1.0:
+            return None
+
+        boundary_window_km = max(
+            2.0,
+            min(10.0, span_km * 0.30),
+        )
+        nearby = self._dedupe_closed_topology_projections(
+            [
+                projection
+                for projection in projections
+                if interval_start_km - boundary_window_km
+                <= projection.route_km
+                <= interval_end_km + boundary_window_km
+            ]
+        )
+        starts = [
+            item
+            for item in nearby
+            if abs(item.route_km - interval_start_km)
+            <= boundary_window_km
+        ]
+        ends = [
+            item
+            for item in nearby
+            if abs(item.route_km - interval_end_km)
+            <= boundary_window_km
+        ]
+
+        candidates: list[ClosedMatch] = []
+        for entry in starts:
+            for exit_ in ends:
+                if exit_.route_km <= entry.route_km + 0.05:
+                    continue
+                if self._same_physical_closed_projection(
+                    entry,
+                    exit_,
+                ):
+                    continue
+
+                record = self._lookup_closed(
+                    entry.station,
+                    exit_.station,
+                )
+                if record is None:
+                    continue
+
+                interval_overlap_km = max(
+                    0.0,
+                    min(exit_.route_km, interval_end_km)
+                    - max(entry.route_km, interval_start_km),
+                )
+                coverage_ratio = interval_overlap_km / span_km
+                touches_boundary = (
+                    abs(entry.route_km - interval_start_km) <= 0.5
+                    or abs(exit_.route_km - interval_end_km) <= 0.5
+                )
+                if coverage_ratio < 0.60 or not touches_boundary:
+                    continue
+
+                candidate = ClosedMatch(
+                    range_index=range_index,
+                    toll_range=toll_range,
+                    record=record,
+                    entry=entry,
+                    exit=exit_,
+                    coverage_km=interval_overlap_km,
+                    full_range=False,
+                )
+                if not self._residual_match_compatible_with_existing(
+                    candidate,
+                    existing_closed,
+                ):
+                    continue
+
+                open_conflict = False
+                for open_projection, _ in used_open:
+                    if not (
+                        candidate.span_start_km - 0.10
+                        <= open_projection.route_km
+                        <= candidate.span_end_km + 0.10
+                    ):
+                        continue
+                    if (
+                        self._same_physical_closed_projection(
+                            open_projection,
+                            candidate.entry,
+                        )
+                        or self._same_physical_closed_projection(
+                            open_projection,
+                            candidate.exit,
+                        )
+                    ):
+                        continue
+                    open_conflict = True
+                    break
+                if open_conflict:
+                    continue
+
+                candidates.append(candidate)
+
+        physical_candidates = (
+            self._dedupe_equivalent_residual_matches(
+                candidates,
+                interval_start_km=interval_start_km,
+                interval_end_km=interval_end_km,
+            )
+        )
+        if len(physical_candidates) != 1:
+            return None
+
+        candidate = physical_candidates[0]
+        component = TollRange(
+            start_index=toll_range.start_index,
+            end_index=toll_range.end_index,
+            start_km=interval_start_km,
+            end_km=interval_end_km,
+            distance_km=span_km,
+        )
+        candidate_keys = (
+            self._station_identity_keys(candidate.entry.station)
+            | self._station_identity_keys(candidate.exit.station)
+        )
+        unpriced = self._unpriced_billing_events_in_range(
+            projections,
+            component,
+            road_class_link_details,
+            existing_closed + [candidate],
+            used_station_keys | candidate_keys,
+        )
+        if unpriced:
+            return None
+
+        return candidate
+
+    def _closed_boundary_overhang_spans(
+        self,
+        *,
+        ranges: list[TollRange],
+        toll_state_intervals: list[TollStateInterval],
+        projections: list[StationProjection],
+        accepted_closed: list[ClosedMatch],
+        road_class_link_details: list[list],
+        used_station_keys: set[str],
+    ) -> list[tuple[float, float]]:
+        resolved: list[tuple[float, float]] = []
+
+        for toll_range in ranges:
+            if not self._range_has_detailed_toll_states(
+                toll_range,
+                toll_state_intervals,
+            ):
+                continue
+
+            chargeable = (
+                self._class1_chargeable_intervals_for_range(
+                    toll_range,
+                    toll_state_intervals,
+                )
+            )
+            for match in accepted_closed:
+                if (
+                    match.span_end_km
+                    <= toll_range.start_km + 0.01
+                    or match.span_start_km
+                    >= toll_range.end_km - 0.01
+                ):
+                    continue
+
+                for start_km, end_km in chargeable:
+                    candidates: list[tuple[float, float]] = []
+                    start_gap = match.span_start_km - start_km
+                    if (
+                        0.01 < start_gap <= 0.5
+                        and match.span_start_km <= end_km + 0.01
+                    ):
+                        candidates.append(
+                            (start_km, match.span_start_km)
+                        )
+
+                    end_gap = end_km - match.span_end_km
+                    if (
+                        0.01 < end_gap <= 0.5
+                        and match.span_end_km >= start_km - 0.01
+                    ):
+                        candidates.append(
+                            (match.span_end_km, end_km)
+                        )
+
+                    for fragment_start, fragment_end in candidates:
+                        fragment = TollRange(
+                            start_index=toll_range.start_index,
+                            end_index=toll_range.end_index,
+                            start_km=fragment_start,
+                            end_km=fragment_end,
+                            distance_km=(
+                                fragment_end - fragment_start
+                            ),
+                        )
+                        unpriced = (
+                            self._unpriced_billing_events_in_range(
+                                projections,
+                                fragment,
+                                road_class_link_details,
+                                accepted_closed,
+                                used_station_keys,
+                            )
+                        )
+                        if not unpriced:
+                            resolved.append(
+                                (fragment_start, fragment_end)
+                            )
+
+        return self._merge_km_intervals(
+            resolved,
+            tolerance_km=0.01,
+        )
+
     def _analyze_closed_interval_topology(
         self,
         *,
@@ -2224,10 +2835,15 @@ class TollPricingService:
             for item in matrix_candidates
             if item["status"] == "available"
         ]
+        physical_available = (
+            self._dedupe_equivalent_topology_candidates(
+                available
+            )
+        )
 
-        if len(available) == 1:
+        if len(physical_available) == 1:
             decision = "unique_official_matrix"
-        elif len(available) > 1:
+        elif len(physical_available) > 1:
             decision = "multiple_official_matrices"
         elif (
             start_candidates
@@ -2276,7 +2892,8 @@ class TollPricingService:
                 for item in end_candidates[:12]
             ],
             "matrix_candidates": matrix_candidates[:64],
-            "available_matrix_count": len(available),
+            "available_matrix_count": len(physical_available),
+            "raw_available_matrix_count": len(available),
         }
 
     def _build_unresolved_diagnostics(
