@@ -1973,6 +1973,312 @@ class TollPricingService:
             covered,
         )
 
+    # ROUTECO_V034_CLOSED_TOPOLOGY_ANALYZER
+    @staticmethod
+    def _closed_projection_is_credible(
+        projection: StationProjection,
+    ) -> bool:
+        station = projection.station
+        physical_type = station.physical_type or station.system_type
+
+        # Un vrai portique ouvert n'est pas une borne de système fermé.
+        # Un jumeau ouvert matérialisé depuis une gare fermée reste toutefois
+        # représenté par sa version non ouverte après déduplication.
+        if station.system_type == "open" and physical_type == "open":
+            return False
+
+        lateral_limit = 1.15 if station.is_mainline_barrier else 0.32
+        return projection.lateral_km <= lateral_limit
+
+    def _dedupe_closed_topology_projections(
+        self,
+        projections: list[StationProjection],
+    ) -> list[StationProjection]:
+        unique: dict[
+            tuple[tuple[str, ...], int],
+            StationProjection,
+        ] = {}
+        for projection in projections:
+            if not self._closed_projection_is_credible(projection):
+                continue
+            identity = tuple(
+                sorted(self._station_identity_keys(projection.station))
+            )
+            if not identity:
+                identity = (
+                    physical_label_key(
+                        projection.station.display_name
+                    ),
+                )
+            key = (identity, round(projection.route_km * 10))
+            current = unique.get(key)
+            score = (
+                int(projection.station.system_type != "open"),
+                -projection.lateral_km,
+            )
+            current_score = (
+                (
+                    int(current.station.system_type != "open"),
+                    -current.lateral_km,
+                )
+                if current is not None
+                else None
+            )
+            if current_score is None or score > current_score:
+                unique[key] = projection
+
+        return sorted(
+            unique.values(),
+            key=lambda item: (
+                item.route_km,
+                item.lateral_km,
+                item.station.display_name,
+            ),
+        )
+
+    @staticmethod
+    def _closed_segment_overlap_km(
+        start_km: float,
+        end_km: float,
+        segment: TollSegmentQuote,
+    ) -> float:
+        if (
+            segment.exit is None
+            or segment.route_start_km is None
+            or segment.route_end_km is None
+        ):
+            return 0.0
+        return max(
+            0.0,
+            min(end_km, segment.route_end_km)
+            - max(start_km, segment.route_start_km),
+        )
+
+    def _analyze_closed_interval_topology(
+        self,
+        *,
+        interval_start_km: float,
+        interval_end_km: float,
+        projections: list[StationProjection],
+        segments: list[TollSegmentQuote],
+    ) -> dict[str, Any]:
+        """Explain every closed-matrix interpretation around one interval.
+
+        The search window is intentionally only a discovery window. It never
+        proves completeness and never changes a price.
+        """
+        span_km = max(0.0, interval_end_km - interval_start_km)
+        boundary_window_km = max(
+            2.0,
+            min(10.0, span_km * 0.30),
+        )
+
+        nearby = self._dedupe_closed_topology_projections(
+            [
+                projection
+                for projection in projections
+                if interval_start_km - boundary_window_km
+                <= projection.route_km
+                <= interval_end_km + boundary_window_km
+            ]
+        )
+        start_candidates = [
+            projection
+            for projection in nearby
+            if abs(projection.route_km - interval_start_km)
+            <= boundary_window_km
+        ]
+        end_candidates = [
+            projection
+            for projection in nearby
+            if abs(projection.route_km - interval_end_km)
+            <= boundary_window_km
+        ]
+
+        exact_closed_segments = [
+            segment
+            for segment in segments
+            if segment.confidence == "exact"
+            and segment.exit is not None
+            and segment.route_start_km is not None
+            and segment.route_end_km is not None
+        ]
+
+        matrix_candidates: list[dict[str, Any]] = []
+        for entry in start_candidates:
+            for exit_ in end_candidates:
+                reasons: list[str] = []
+                entry_keys = self._station_identity_keys(entry.station)
+                exit_keys = self._station_identity_keys(exit_.station)
+
+                if entry.route_km >= exit_.route_km - 0.05:
+                    reasons.append("wrong_direction")
+                if entry_keys.intersection(exit_keys):
+                    reasons.append("same_physical_station")
+
+                record = None
+                if not reasons:
+                    record = self._lookup_closed(
+                        entry.station,
+                        exit_.station,
+                    )
+                    if record is None:
+                        reasons.append("no_official_matrix")
+
+                overlap_km = 0.0
+                if record is not None:
+                    overlap_km = max(
+                        (
+                            self._closed_segment_overlap_km(
+                                entry.route_km,
+                                exit_.route_km,
+                                segment,
+                            )
+                            for segment in exact_closed_segments
+                        ),
+                        default=0.0,
+                    )
+                    if overlap_km > 1.0:
+                        reasons.append(
+                            "overlaps_existing_closed_segment"
+                        )
+
+                interval_overlap_km = max(
+                    0.0,
+                    min(exit_.route_km, interval_end_km)
+                    - max(entry.route_km, interval_start_km),
+                )
+                coverage_ratio = (
+                    interval_overlap_km / span_km
+                    if span_km > 0.05
+                    else 0.0
+                )
+                boundary_gap_km = (
+                    abs(entry.route_km - interval_start_km)
+                    + abs(exit_.route_km - interval_end_km)
+                )
+
+                matrix_candidates.append(
+                    {
+                        "entry": entry.station.display_name,
+                        "exit": exit_.station.display_name,
+                        "entry_operator": entry.station.operator,
+                        "exit_operator": exit_.station.operator,
+                        "route_start_km": round(entry.route_km, 1),
+                        "route_end_km": round(exit_.route_km, 1),
+                        "entry_lateral_km": round(
+                            entry.lateral_km,
+                            3,
+                        ),
+                        "exit_lateral_km": round(
+                            exit_.lateral_km,
+                            3,
+                        ),
+                        "matrix_operator": (
+                            record.operator
+                            if record is not None
+                            else None
+                        ),
+                        "price": (
+                            round(record.price, 2)
+                            if record is not None
+                            else None
+                        ),
+                        "official_distance_km": (
+                            record.distance_km
+                            if record is not None
+                            else None
+                        ),
+                        "interval_coverage_ratio": round(
+                            coverage_ratio,
+                            3,
+                        ),
+                        "boundary_gap_km": round(
+                            boundary_gap_km,
+                            1,
+                        ),
+                        "overlap_existing_km": round(
+                            overlap_km,
+                            1,
+                        ),
+                        "status": (
+                            "available"
+                            if not reasons
+                            else "rejected"
+                        ),
+                        "reasons": reasons,
+                    }
+                )
+
+        matrix_candidates.sort(
+            key=lambda item: (
+                item["status"] != "available",
+                item["boundary_gap_km"],
+                -item["interval_coverage_ratio"],
+                item["entry"],
+                item["exit"],
+            )
+        )
+        available = [
+            item
+            for item in matrix_candidates
+            if item["status"] == "available"
+        ]
+
+        if len(available) == 1:
+            decision = "unique_official_matrix"
+        elif len(available) > 1:
+            decision = "multiple_official_matrices"
+        elif (
+            start_candidates
+            and end_candidates
+            and any(
+                "no_official_matrix" in item["reasons"]
+                for item in matrix_candidates
+            )
+        ):
+            decision = "boundary_pair_without_matrix"
+        elif not start_candidates or not end_candidates:
+            decision = "missing_boundary_candidates"
+        else:
+            decision = "no_usable_official_matrix"
+
+        def serialize(
+            projection: StationProjection,
+        ) -> dict[str, Any]:
+            return {
+                "name": projection.station.display_name,
+                "operator": projection.station.operator,
+                "system_type": projection.station.system_type,
+                "physical_type": (
+                    projection.station.physical_type
+                    or projection.station.system_type
+                ),
+                "route_km": round(projection.route_km, 1),
+                "lateral_km": round(
+                    projection.lateral_km,
+                    3,
+                ),
+            }
+
+        return {
+            "decision": decision,
+            "search_window_km": round(
+                boundary_window_km,
+                1,
+            ),
+            "start_candidates": [
+                serialize(item)
+                for item in start_candidates[:12]
+            ],
+            "end_candidates": [
+                serialize(item)
+                for item in end_candidates[:12]
+            ],
+            "matrix_candidates": matrix_candidates[:64],
+            "available_matrix_count": len(available),
+        }
+
     def _build_unresolved_diagnostics(
         self,
         *,
@@ -2217,6 +2523,14 @@ class TollPricingService:
                         "toll_states": states,
                         "nearby_stations": nearby[:16],
                         "exact_segments": exact_segments,
+                        "closed_topology": (
+                            self._analyze_closed_interval_topology(
+                                interval_start_km=interval_start_km,
+                                interval_end_km=interval_end_km,
+                                projections=projections,
+                                segments=segments,
+                            )
+                        ),
                     }
                 )
 

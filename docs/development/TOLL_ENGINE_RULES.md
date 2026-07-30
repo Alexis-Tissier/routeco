@@ -165,3 +165,32 @@ seulement si aucun autre événement physique sans tarif n'y subsiste.
 
 Cette règle ne contient aucun cas particulier lié à une ville, un trajet ou un
 opérateur.
+
+## Analyse des systèmes fermés non résolus
+
+Chaque intervalle non résolu contient désormais une analyse de topologie
+fermée. Cette analyse est strictement diagnostique : elle ne modifie ni la
+confiance ni le prix.
+
+La fenêtre autour des bornes sert uniquement à découvrir des gares candidates.
+Elle ne constitue jamais une preuve de complétude. Pour chaque paire ordonnée,
+le diagnostic enregistre :
+
+- l'existence ou l'absence d'une matrice officielle ;
+- le sens entrée vers sortie ;
+- le chevauchement avec un trajet fermé déjà facturé ;
+- le prix, l'opérateur et la distance officielle lorsqu'ils existent ;
+- l'écart avec les bornes de l'intervalle ;
+- le taux de couverture physique de l'intervalle.
+
+Décisions possibles :
+
+- `unique_official_matrix` : une seule matrice officielle non conflictuelle ;
+- `multiple_official_matrices` : plusieurs interprétations tarifaires ;
+- `boundary_pair_without_matrix` : gares plausibles mais tarif absent ;
+- `missing_boundary_candidates` : une borne physique n'est pas identifiée ;
+- `no_usable_official_matrix` : toutes les matrices sont rejetées.
+
+Une matrice diagnostiquée comme disponible n'est pas automatiquement ajoutée
+au plan. La sélection automatique fera l'objet d'une étape séparée, après
+examen des raisons de rejet sur la validation nationale.

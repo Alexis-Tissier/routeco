@@ -8,7 +8,9 @@ from typing import Any
 CAUSE_PRIORITY = {
     "missing_open_tariff": 10,
     "known_open_tariff_not_selected": 20,
+    "closed_matrix_candidate_available": 25,
     "missing_closed_matrix": 30,
+    "ambiguous_closed_topology": 35,
     "station_topology_review": 40,
     "boundary_overhang": 50,
     "unknown_osm_corridor": 60,
@@ -22,8 +24,16 @@ CAUSE_ACTION = {
     "known_open_tariff_not_selected": (
         "Vérifier pourquoi un tarif ouvert déjà présent n'est pas sélectionné."
     ),
+    "closed_matrix_candidate_available": (
+        "Une matrice officielle existe : vérifier pourquoi elle n'est pas "
+        "retenue par le solveur."
+    ),
     "missing_closed_matrix": (
         "Rechercher la cellule officielle entrée-sortie correspondante."
+    ),
+    "ambiguous_closed_topology": (
+        "Plusieurs matrices officielles sont possibles : lever l'ambiguïté "
+        "physique avant toute sélection."
     ),
     "station_topology_review": (
         "Vérifier le type physique, les alias et le sens de circulation."
@@ -93,6 +103,19 @@ def classify_unresolved_interval(
     nearby = list(occurrence.get("nearby_stations", []))
     exact_segments = list(occurrence.get("exact_segments", []))
     unresolved_km = float(occurrence.get("unresolved_km") or 0.0)
+
+    topology = dict(
+        occurrence.get("closed_topology") or {}
+    )
+    topology_decision = str(
+        topology.get("decision") or ""
+    )
+    if topology_decision == "unique_official_matrix":
+        return "closed_matrix_candidate_available"
+    if topology_decision == "multiple_official_matrices":
+        return "ambiguous_closed_topology"
+    if topology_decision == "boundary_pair_without_matrix":
+        return "missing_closed_matrix"
 
     if unresolved_km <= 0.5 and exact_segments:
         start_km = float(occurrence.get("route_start_km") or 0.0)

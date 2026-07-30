@@ -143,6 +143,13 @@ def build_missing_toll_manifest(
                             [],
                         )
                     ),
+                    "closed_topology": dict(
+                        diagnostic.get(
+                            "closed_topology",
+                            {},
+                        )
+                        or {}
+                    ),
                 }
                 cause = classify_unresolved_interval(occurrence)
                 occurrence["cause"] = cause
