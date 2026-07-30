@@ -148,3 +148,20 @@ un identifiant présent dans le registre des sources officielles.
 
 Une donnée tarifaire spécifique à une installation est autorisée. Une règle de
 code spécifique à une ville ou à un trajet reste interdite.
+
+<!-- ROUTECO_V034_OPEN_EVENT_COMPONENTS -->
+## Événements ouverts distincts des matrices fermées
+
+Une matrice fermée absorbe un portique ouvert uniquement lorsque le point est
+physiquement compris dans le trajet entrée-sortie ou lorsqu'il représente la
+même installation que l'une de ses bornes. Une marge arbitraire autour de la
+matrice ne constitue plus une preuve d'absorption.
+
+Un portique distinct situé juste avant l'entrée ou juste après la sortie reste
+facturable lorsqu'il satisfait les contrôles physiques de projection. Pour les
+itinéraires disposant des états GraphHopper détaillés, le composant `toll`
+correspondant est considéré comme expliqué par ses événements ouverts exacts
+seulement si aucun autre événement physique sans tarif n'y subsiste.
+
+Cette règle ne contient aucun cas particulier lié à une ville, un trajet ou un
+opérateur.

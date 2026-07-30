@@ -998,12 +998,110 @@ class TollPricingService:
 
         return proposals
 
+    # ROUTECO_V034_OPEN_EVENT_COMPONENTS
+    def _open_projection_absorbed_by_closed_matches(
+        self,
+        projection: StationProjection,
+        matches: list[ClosedMatch],
+    ) -> bool:
+        # Une matrice absorbe un événement uniquement s'il est physiquement
+        # dans son trajet ou s'il représente la même installation de bord.
+        route_km = projection.route_km
+        keys = self._station_identity_keys(projection.station)
+
+        for match in matches:
+            start_km = match.span_start_km
+            end_km = match.span_end_km
+            entry_keys = self._station_identity_keys(match.entry.station)
+            exit_keys = self._station_identity_keys(match.exit.station)
+
+            if (
+                abs(route_km - start_km) <= 1.0
+                and keys.intersection(entry_keys)
+            ):
+                return True
+            if (
+                abs(route_km - end_km) <= 1.0
+                and keys.intersection(exit_keys)
+            ):
+                return True
+
+            # 100 m couvrent seulement le bruit de projection géométrique.
+            if start_km - 0.10 <= route_km <= end_km + 0.10:
+                return True
+
+        return False
+
+    def _open_components_priced_by_events(
+        self,
+        *,
+        projections: list[StationProjection],
+        toll_range: TollRange,
+        toll_state_intervals: list[TollStateInterval],
+        accepted_closed: list[ClosedMatch],
+        accepted_open: list[tuple[StationProjection, float]],
+        road_class_link_details: list[list],
+        used_station_keys: set[str],
+    ) -> list[tuple[float, float]]:
+        # Un système ouvert est facturé par ses événements physiques. Le
+        # composant est résolu seulement si aucun autre événement sans tarif
+        # n'y subsiste.
+        if not accepted_open:
+            return []
+        if not self._range_has_detailed_toll_states(
+            toll_range,
+            toll_state_intervals,
+        ):
+            return []
+
+        closed_spans = [
+            (match.span_start_km, match.span_end_km)
+            for match in accepted_closed
+        ]
+        components = self._unresolved_class1_toll_intervals(
+            toll_range,
+            toll_state_intervals,
+            closed_spans,
+        )
+        resolved: list[tuple[float, float]] = []
+
+        for start_km, end_km in components:
+            component_events = [
+                projection
+                for projection, _ in accepted_open
+                if start_km - 0.10
+                <= projection.route_km
+                <= end_km + 0.10
+            ]
+            if not component_events:
+                continue
+
+            component_range = TollRange(
+                start_index=toll_range.start_index,
+                end_index=toll_range.end_index,
+                start_km=start_km,
+                end_km=end_km,
+                distance_km=max(0.0, end_km - start_km),
+            )
+            unpriced = self._unpriced_billing_events_in_range(
+                projections,
+                component_range,
+                road_class_link_details,
+                accepted_closed,
+                used_station_keys,
+            )
+            if unpriced:
+                continue
+            resolved.append((start_km, end_km))
+
+        return self._merge_km_intervals(resolved)
+
     def _unpriced_billing_events_in_range(
         self,
         projections: list[StationProjection],
         toll_range: TollRange,
         road_class_link_details: list[list],
-        closed_spans: list[tuple[float, float]],
+        closed_matches: list[ClosedMatch],
         used_station_keys: set[str],
     ) -> list[StationProjection]:
         # Return physical billing events crossed without a local exact tariff.
@@ -1017,9 +1115,9 @@ class TollPricingService:
                 <= toll_range.end_km + 1.5
             ):
                 continue
-            if any(
-                start_km - 0.5 <= projection.route_km <= end_km + 0.5
-                for start_km, end_km in closed_spans
+            if self._open_projection_absorbed_by_closed_matches(
+                projection,
+                closed_matches,
             ):
                 continue
 
@@ -1250,6 +1348,7 @@ class TollPricingService:
         station_names: list[str] = []
         segments: list[TollSegmentQuote] = []
         closed_spans: list[tuple[float, float]] = []
+        open_resolved_spans: list[tuple[float, float]] = []
 
         for match in accepted:
             range_covered_km[match.range_index] = min(
@@ -1302,9 +1401,9 @@ class TollPricingService:
             )
             accepted_open: list[tuple[StationProjection, float]] = []
             for projection in open_matches:
-                if any(
-                    start_km - 0.5 <= projection.route_km <= end_km + 0.5
-                    for start_km, end_km in closed_spans
+                if self._open_projection_absorbed_by_closed_matches(
+                    projection,
+                    accepted,
                 ):
                     continue
                 keys = self._station_identity_keys(projection.station)
@@ -1323,7 +1422,7 @@ class TollPricingService:
                 projections,
                 toll_range,
                 road_class_link_details,
-                closed_spans,
+                accepted,
                 used_station_keys,
             )
             if unpriced_events:
@@ -1333,15 +1432,30 @@ class TollPricingService:
             if not accepted_open:
                 continue
 
+            open_resolved_spans.extend(
+                self._open_components_priced_by_events(
+                    projections=projections,
+                    toll_range=toll_range,
+                    toll_state_intervals=toll_state_intervals,
+                    accepted_closed=accepted,
+                    accepted_open=accepted_open,
+                    road_class_link_details=road_class_link_details,
+                    used_station_keys=used_station_keys,
+                )
+            )
+
             # A pure open-system range is priced by the crossed gantry itself.
             # When closed matrix spans already cover part of the same OSM range,
             # the gantry is added but the remaining distance still has to be
             # explained instead of declaring the entire range resolved.
-            if range_covered_km.get(range_index, 0.0) <= 0.05:
-                # In an open system, the crossed gantry is the tariff event: its
-                # official fixed charge prices the range even when OSM marks a long
-                # approach. The station has already passed a very tight on-route
-                # projection test and an exact local tariff lookup.
+            if (
+                not self._range_has_detailed_toll_states(
+                    toll_range,
+                    toll_state_intervals,
+                )
+                and range_covered_km.get(range_index, 0.0) <= 0.05
+            ):
+                # Compatibilité pour les anciens candidats sans états détaillés.
                 resolved_ranges.add(range_index)
             for projection, price in accepted_open:
                 name = projection.station.display_name
@@ -1427,7 +1541,7 @@ class TollPricingService:
             fragments = self._unresolved_class1_toll_intervals(
                 toll_range,
                 toll_state_intervals,
-                closed_spans,
+                closed_spans + open_resolved_spans,
             )
 
             if not has_detailed_states and not fragments:
