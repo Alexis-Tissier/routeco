@@ -107,6 +107,33 @@ def test_native_alternative_route_request_is_bounded() -> None:
     assert client.body["alternative_route.max_paths"] == 3
     assert client.body["alternative_route.max_weight_factor"] == 1.55
     assert client.body["alternative_route.max_share_factor"] == 0.80
+
+
+def test_fastest_profile_uses_unmodified_prepared_car_profile() -> None:
+    class CapturingClient(GraphHopperClient):
+        def __init__(self) -> None:
+            super().__init__("http://graphhopper.test")
+            self.body = {}
+
+        async def _post_route(self, body):
+            self.body = body
+            return {"paths": []}
+
+    client = CapturingClient()
+    asyncio.run(
+        client._request_once(
+            Coordinate(lat=48.0, lon=2.0),
+            Coordinate(lat=43.0, lon=6.0),
+            "fastest",
+            1.0,
+            1.0,
+            0,
+            90.0,
+        )
+    )
+
+    assert client.body["profile"] == "car"
+    assert "custom_model" not in client.body
     assert "custom_model" not in client.body
 
 

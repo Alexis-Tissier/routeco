@@ -94,6 +94,10 @@ class GraphHopperClient:
             )
 
         profiles = [
+            # The reference route must use GraphHopper's prepared "car"
+            # profile without a request-time custom model. A custom model with
+            # distance_influence is not a strict fastest-time calculation and
+            # can omit the normal motorway route on long journeys.
             ("fastest", 1.0, 1.0, 0),
             ("light", 0.88, 0.72, 1),
             ("balanced", 0.70, 0.42, 2),
@@ -534,7 +538,9 @@ class GraphHopperClient:
             "instructions": False,
             "points_encoded": False,
             "details": list(self.PATH_DETAILS),
-            "custom_model": {
+        }
+        if name != "fastest":
+            body["custom_model"] = {
                 "priority": [
                     {
                         "if": "road_class == MOTORWAY",
@@ -543,8 +549,7 @@ class GraphHopperClient:
                     {"if": "toll == ALL", "multiply_by": toll_priority},
                 ],
                 "distance_influence": distance_influence,
-            },
-        }
+            }
         payload = await self._post_route(body)
         return self._paths_to_candidates(payload, name, rank)
 
