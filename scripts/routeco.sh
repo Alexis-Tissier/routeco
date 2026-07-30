@@ -9,6 +9,9 @@ RUNTIME_DIR="${ROUTECO_RUNTIME_DIR:-$ROOT/.runtime}"
 LOG_DIR="${ROUTECO_LOG_DIR:-$ROOT/data/logs}"
 BACKEND_PID="$RUNTIME_DIR/backend.pid"
 GRAPHHOPPER_PID="$RUNTIME_DIR/graphhopper.pid"
+GRAPH_CACHE="$ROOT/data/graph-cache"
+GRAPH_PROFILE_MODEL="$ROOT/infra/graphhopper/custom_models/routeco_car.json"
+GRAPH_PROFILE_MARKER="$GRAPH_CACHE/.routeco-profile-sha256"
 
 mkdir -p "$RUNTIME_DIR" "$LOG_DIR"
 
@@ -26,6 +29,22 @@ wait_http() {
   for ((i=1; i<=attempts; i++)); do
     if curl -fsS "$url" >/dev/null 2>&1; then
       return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+wait_process_http() {
+  local url="$1"
+  local pid_file="$2"
+  local attempts="${3:-60}"
+  for ((i=1; i<=attempts; i++)); do
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    if ! pid_alive "$pid_file"; then
+      return 1
     fi
     sleep 1
   done
@@ -54,7 +73,36 @@ find_graphhopper_jar() {
   printf '%s\n' "$jar"
 }
 
+graph_profile_fingerprint() {
+  {
+    sed -n '/^graphhopper:/,/^server:/p' "$ROOT/infra/graphhopper/config.yml"
+    cat "$GRAPH_PROFILE_MODEL"
+  } | sha256sum | awk '{print $1}'
+}
+
+graph_cache_matches_profile() {
+  [[ ! -d "$GRAPH_CACHE" ]] && return 0
+  [[ -f "$GRAPH_PROFILE_MARKER" ]] || return 1
+  [[ "$(cat "$GRAPH_PROFILE_MARKER" 2>/dev/null || true)" == "$(graph_profile_fingerprint)" ]]
+}
+
+write_graph_profile_marker() {
+  [[ -d "$GRAPH_CACHE" ]] || return 1
+  graph_profile_fingerprint > "$GRAPH_PROFILE_MARKER"
+}
+
+ensure_graph_cache_compatible() {
+  if graph_cache_matches_profile; then
+    return 0
+  fi
+  echo "Le graphe local a été construit avec un ancien profil de routage." >&2
+  echo "Reconstruis-le une seule fois avec :" >&2
+  echo "  ./scripts/routeco.sh rebuild-graph" >&2
+  return 1
+}
+
 start_graphhopper() {
+  ensure_graph_cache_compatible
   if curl -fsS http://127.0.0.1:8989/info >/dev/null 2>&1; then
     echo "GraphHopper est déjà opérationnel sur le port 8989."
     return 0
@@ -70,7 +118,7 @@ start_graphhopper() {
     return 1
   fi
   local wait_attempts=90
-  if [[ ! -d "$ROOT/data/graph-cache" ]]; then
+  if [[ ! -d "$GRAPH_CACHE" ]]; then
     wait_attempts=3600
     echo "Le graphe France est absent : reconstruction automatique en cours."
     echo "Cette étape peut prendre plusieurs minutes ; suivi : $LOG_DIR/graphhopper.log"
@@ -80,15 +128,21 @@ start_graphhopper() {
     -jar "$jar" server "$ROOT/infra/graphhopper/config.yml" \
     >"$LOG_DIR/graphhopper.log" 2>&1 &
   echo $! > "$GRAPHHOPPER_PID"
-  if wait_http http://127.0.0.1:8989/info "$wait_attempts"; then
+  if wait_process_http \
+    http://127.0.0.1:8989/info \
+    "$GRAPHHOPPER_PID" \
+    "$wait_attempts"; then
+    write_graph_profile_marker
     echo "GraphHopper prêt."
   else
-    echo "GraphHopper ne répond pas encore. Consulte : $LOG_DIR/graphhopper.log" >&2
+    echo "GraphHopper n'a pas démarré. Consulte : $LOG_DIR/graphhopper.log" >&2
+    tail -n 20 "$LOG_DIR/graphhopper.log" >&2 || true
     return 1
   fi
 }
 
 start_backend() {
+  ensure_graph_cache_compatible
   if curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
     echo "Détour est déjà opérationnel sur le port 8000."
     return 0
@@ -103,10 +157,14 @@ start_backend() {
     --host 127.0.0.1 --port 8000 \
     >"$LOG_DIR/detour.log" 2>&1 &
   echo $! > "$BACKEND_PID"
-  if wait_http http://127.0.0.1:8000/api/health 30; then
+  if wait_process_http \
+    http://127.0.0.1:8000/api/health \
+    "$BACKEND_PID" \
+    30; then
     echo "Détour prêt : http://127.0.0.1:8000"
   else
     echo "Détour ne répond pas. Consulte : $LOG_DIR/detour.log" >&2
+    tail -n 20 "$LOG_DIR/detour.log" >&2 || true
     return 1
   fi
 }
@@ -146,6 +204,13 @@ stop_matching_port() {
     command="$(ps -o args= -p "$pid" 2>/dev/null || true)"
     if [[ "$owner" == "$(id -un)" && "$command" == *"$pattern"* ]]; then
       kill "$pid" 2>/dev/null || true
+      for _ in {1..20}; do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.25
+      done
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
       found=1
     fi
   done
@@ -171,6 +236,24 @@ stop_graphhopper() {
     rm -f "$GRAPHHOPPER_PID"
     stop_matching_port 8989 "graphhopper" "GraphHopper"
   fi
+}
+
+rebuild_graph() {
+  stop_backend
+  stop_graphhopper
+  if [[ -e "$GRAPH_CACHE" ]]; then
+    local resolved_cache
+    resolved_cache="$(realpath -m "$GRAPH_CACHE")"
+    if [[ "$resolved_cache" != "$ROOT/data/graph-cache" ]]; then
+      echo "Chemin de cache inattendu, suppression refusée : $resolved_cache" >&2
+      return 1
+    fi
+    rm -rf -- "$resolved_cache"
+    echo "Ancien graphe généré supprimé."
+  fi
+  start_graphhopper
+  start_backend
+  status
 }
 
 status() {
@@ -207,6 +290,9 @@ case "${1:-status}" in
     "$0" stop
     "$0" start
     ;;
+  rebuild-graph)
+    rebuild_graph
+    ;;
   status)
     status
     ;;
@@ -217,19 +303,24 @@ case "${1:-status}" in
   validate)
     ensure_python
     shift || true
-    exec .venv/bin/python scripts/validate_routes.py "$@"
+    exec .venv/bin/python -m scripts.validate_routes "$@"
     ;;
   validate-random)
     ensure_python
     shift || true
     count="${1:-50}"
     if [[ $# -gt 0 ]]; then shift; fi
-    exec .venv/bin/python scripts/validate_routes.py --random "$count" "$@"
+    exec .venv/bin/python -m scripts.validate_routes --random "$count" "$@"
     ;;
   validate-gold)
     ensure_python
     shift || true
-    exec .venv/bin/python scripts/validate_routes.py --gold "$@"
+    exec .venv/bin/python -m scripts.validate_routes --gold "$@"
+    ;;
+  verify-fastest)
+    ensure_python
+    shift || true
+    exec .venv/bin/python -m scripts.verify_fastest_reference "$@"
     ;;
   *)
     cat <<EOF
@@ -240,11 +331,13 @@ Usage : ./scripts/routeco.sh COMMANDE
   restart-app    redémarre seulement Détour
   stop           arrête les deux services lancés par ce script
   restart        redémarre les deux services
+  rebuild-graph  reconstruit le graphe après un changement de profil
   status         affiche l'état détaillé
   logs           suit les deux fichiers de logs
   validate       vérifie la structure sur les trajets de couverture
   validate-random [N] teste N couples de villes sans règle par destination
   validate-gold  vérifie séparément les trajets de référence chiffrés
+  verify-fastest vérifie la vraie référence rapide sur un trajet long
 EOF
     exit 2
     ;;

@@ -94,10 +94,11 @@ class GraphHopperClient:
             )
 
         profiles = [
-            # The reference route must use GraphHopper's prepared "car"
-            # profile without a request-time custom model. A custom model with
-            # distance_influence is not a strict fastest-time calculation and
-            # can omit the normal motorway route on long journeys.
+            # The reference route uses Routeco's prepared "car" profile. Its
+            # server-side model is versioned with distance_influence=0, so its
+            # weight is travel time instead of GraphHopper's default
+            # distance/time compromise. The other profiles deliberately add a
+            # request-time economic model.
             ("fastest", 1.0, 1.0, 0),
             ("light", 0.88, 0.72, 1),
             ("balanced", 0.70, 0.42, 2),

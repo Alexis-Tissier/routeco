@@ -4,7 +4,10 @@ graphhopper:
 
   profiles:
     - name: car
-      custom_model_files: [car.json]
+      # GraphHopper 11's built-in car.json uses distance_influence=90, which
+      # trades a little time for fewer kilometres. Routeco needs a genuine
+      # time-minimizing reference route, so this versioned model uses 0.
+      custom_model_files: [routeco_car.json]
 
   # No CH: request-specific custom models are required. LM keeps them usable on large graphs.
   profiles_ch: []

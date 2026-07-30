@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 
 from app.models import Coordinate
 from app.services.routing import GraphHopperClient, GraphHopperRequestError
@@ -109,7 +111,7 @@ def test_native_alternative_route_request_is_bounded() -> None:
     assert client.body["alternative_route.max_share_factor"] == 0.80
 
 
-def test_fastest_profile_uses_unmodified_prepared_car_profile() -> None:
+def test_fastest_profile_uses_prepared_strict_time_car_profile() -> None:
     class CapturingClient(GraphHopperClient):
         def __init__(self) -> None:
             super().__init__("http://graphhopper.test")
@@ -134,7 +136,22 @@ def test_fastest_profile_uses_unmodified_prepared_car_profile() -> None:
 
     assert client.body["profile"] == "car"
     assert "custom_model" not in client.body
-    assert "custom_model" not in client.body
+
+
+def test_prepared_car_profile_is_a_strict_time_baseline() -> None:
+    model_path = Path("infra/graphhopper/custom_models/routeco_car.json")
+    model = json.loads(model_path.read_text(encoding="utf-8"))
+    config = Path("infra/graphhopper/config.yml").read_text(encoding="utf-8")
+
+    assert model["distance_influence"] == 0
+    assert model["priority"] == [
+        {"if": "!car_access", "multiply_by": "0"}
+    ]
+    assert model["speed"] == [
+        {"if": "true", "limit_to": "car_average_speed"}
+    ]
+    assert "custom_model_files: [routeco_car.json]" in config
+    assert "custom_model_files: [car.json]" not in config
 
 
 def test_failed_profile_is_reported_as_retried() -> None:
