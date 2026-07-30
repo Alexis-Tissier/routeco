@@ -47,11 +47,7 @@ async def run(start_query: str, end_query: str) -> None:
         geometry = candidate["geometry"]
         projections, cumulative = tolls._project_stations(geometry)
         ranges = tolls._prepare_ranges(geometry, cumulative, candidate.get("toll_ranges", []))
-        quote = tolls.quote(
-            geometry=geometry,
-            tolled_km=candidate.get("tolled_km", 0.0),
-            toll_ranges=candidate.get("toll_ranges", []),
-        )
+        quote = tolls.quote_candidate(candidate)
 
         print("=" * 100)
         print(

@@ -1,0 +1,1375 @@
+{
+  "generated_at": "2026-07-30T07:50:20.286251+00:00",
+  "strict": true,
+  "summary": {
+    "scenarios": 10,
+    "errors": 8,
+    "warnings": 0,
+    "routes": 51,
+    "exact": 21,
+    "estimated": 6,
+    "estimated_minor": 0,
+    "none": 24,
+    "routing_retries": 0,
+    "routing_failures": 0
+  },
+  "results": [
+    {
+      "id": "paris-lyon-aprr",
+      "name": "Paris → Lyon (APRR)",
+      "engine": "graphhopper",
+      "engine_message": "7 itinéraires candidats calculés localement.",
+      "issues": [
+        {
+          "level": "error",
+          "message": "gh-native-2-60c67d42a2ae : péage estimated en mode strict."
+        },
+        {
+          "level": "error",
+          "message": "gh-native-1-f6dc70ab429b : péage estimated en mode strict."
+        }
+      ],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-ed6b93cc105d",
+          "duration_minutes": 260,
+          "distance_km": 463.1,
+          "motorway_km": 445.0,
+          "road_km": 18.1,
+          "tolled_km": 397.3,
+          "toll_cost": 41.3,
+          "toll_confidence": "exact",
+          "fuel_cost": 54.46,
+          "total_cost": 95.76,
+          "toll_message": "Tarif exact classe 1 : Fleury-En-Biere → Peage De Villefranche Limas.",
+          "toll_segments": [
+            {
+              "entry": "Fleury-En-Biere",
+              "exit": "Peage De Villefranche Limas",
+              "operator": "APRR",
+              "cost": 41.3,
+              "distance_km": 430.28,
+              "confidence": "exact",
+              "route_start_km": 55.6,
+              "route_end_km": 432.6
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-4f8f460a1ae9",
+          "duration_minutes": 294,
+          "distance_km": 456.8,
+          "motorway_km": 327.2,
+          "road_km": 129.6,
+          "tolled_km": 279.1,
+          "toll_cost": 28.0,
+          "toll_confidence": "exact",
+          "fuel_cost": 51.68,
+          "total_cost": 79.68,
+          "toll_message": "Tarif exact classe 1 : Fleury-En-Biere → Avallon → Chalon Centre → Peage De Villefranche Limas.",
+          "toll_segments": [
+            {
+              "entry": "Fleury-En-Biere",
+              "exit": "Avallon",
+              "operator": "APRR",
+              "cost": 16.5,
+              "distance_km": 182.48,
+              "confidence": "exact",
+              "route_start_km": 55.6,
+              "route_end_km": 215.3
+            },
+            {
+              "entry": "Chalon Centre",
+              "exit": "Peage De Villefranche Limas",
+              "operator": "APRR",
+              "cost": 11.5,
+              "distance_km": 128.3,
+              "confidence": "exact",
+              "route_start_km": 327.2,
+              "route_end_km": 426.3
+            }
+          ]
+        },
+        {
+          "id": "gh-native-2-60c67d42a2ae",
+          "duration_minutes": 330,
+          "distance_km": 472.0,
+          "motorway_km": 269.2,
+          "road_km": 202.8,
+          "tolled_km": 127.0,
+          "toll_cost": 16.27,
+          "toll_confidence": "estimated",
+          "fuel_cost": 52.15,
+          "total_cost": 68.42,
+          "toll_message": "Tarif partiellement apparié ; le solde réel reste sans tarif officiel.",
+          "toll_segments": [
+            {
+              "entry": "Ury",
+              "exit": "Val De Loing Souppes",
+              "operator": "APRR",
+              "cost": 2.3,
+              "distance_km": 24.27,
+              "confidence": "exact",
+              "route_start_km": 66.8,
+              "route_end_km": 90.7
+            },
+            {
+              "entry": "Myennes",
+              "exit": null,
+              "operator": "APRR",
+              "cost": 4.2,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 182.4,
+              "route_end_km": 182.4
+            },
+            {
+              "entry": "Tarare Ouest",
+              "exit": "Peage De St Romain De Popey",
+              "operator": "ASF",
+              "cost": 3.1,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 427.4,
+              "route_end_km": 437.1
+            },
+            {
+              "entry": null,
+              "exit": null,
+              "operator": "",
+              "cost": 6.67,
+              "distance_km": 63.5,
+              "confidence": "estimated",
+              "route_start_km": null,
+              "route_end_km": null
+            }
+          ]
+        },
+        {
+          "id": "gh-native-1-f6dc70ab429b",
+          "duration_minutes": 331,
+          "distance_km": 464.3,
+          "motorway_km": 270.0,
+          "road_km": 194.3,
+          "tolled_km": 135.4,
+          "toll_cost": 16.34,
+          "toll_confidence": "estimated",
+          "fuel_cost": 51.39,
+          "total_cost": 67.73,
+          "toll_message": "Tarif partiellement apparié ; le solde réel reste sans tarif officiel.",
+          "toll_segments": [
+            {
+              "entry": "Ury",
+              "exit": "Val De Loing Souppes",
+              "operator": "APRR",
+              "cost": 2.3,
+              "distance_km": 24.27,
+              "confidence": "exact",
+              "route_start_km": 66.8,
+              "route_end_km": 90.7
+            },
+            {
+              "entry": "Myennes",
+              "exit": null,
+              "operator": "APRR",
+              "cost": 4.2,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 182.4,
+              "route_end_km": 182.4
+            },
+            {
+              "entry": null,
+              "exit": null,
+              "operator": "",
+              "cost": 9.84,
+              "distance_km": 93.7,
+              "confidence": "estimated",
+              "route_start_km": null,
+              "route_end_km": null
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-3f14e7719d75",
+          "duration_minutes": 404,
+          "distance_km": 456.9,
+          "motorway_km": 58.8,
+          "road_km": 398.2,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 46.82,
+          "total_cost": 46.82,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-economy-0-57c0625223f2",
+          "duration_minutes": 422,
+          "distance_km": 458.9,
+          "motorway_km": 9.7,
+          "road_km": 449.2,
+          "tolled_km": 0.1,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 46.11,
+          "total_cost": 46.11,
+          "toll_message": "Micro-segment de péage OSM ignoré : aucun tarif ouvert correspondant.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-free-0-d50df27a103f",
+          "duration_minutes": 428,
+          "distance_km": 460.2,
+          "motorway_km": 0.0,
+          "road_km": 460.2,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 46.07,
+          "total_cost": 46.07,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "paris-bordeaux",
+      "name": "Paris → Bordeaux (Cofiroute / ASF)",
+      "engine": "graphhopper",
+      "engine_message": "7 itinéraires candidats calculés localement.",
+      "issues": [],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-native-1-1b04bfe554f5",
+          "duration_minutes": 323,
+          "distance_km": 582.1,
+          "motorway_km": 570.3,
+          "road_km": 11.8,
+          "tolled_km": 522.0,
+          "toll_cost": 60.6,
+          "toll_confidence": "exact",
+          "fuel_cost": 68.65,
+          "total_cost": 129.25,
+          "toll_message": "Tarif exact classe 1 : Peage De St Arnoult → Peage De Monnaie → Peage De Tours Centre → Virsac (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Peage De St Arnoult",
+              "exit": "Peage De Monnaie",
+              "operator": "APRR",
+              "cost": 26.0,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 52.7,
+              "route_end_km": 220.8
+            },
+            {
+              "entry": "Peage De Tours Centre",
+              "exit": "Virsac",
+              "operator": "ASF",
+              "cost": 34.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 255.8,
+              "route_end_km": 553.6
+            }
+          ]
+        },
+        {
+          "id": "gh-fastest-0-749aab569855",
+          "duration_minutes": 336,
+          "distance_km": 563.1,
+          "motorway_km": 356.3,
+          "road_km": 206.8,
+          "tolled_km": 307.2,
+          "toll_cost": 40.6,
+          "toll_confidence": "exact",
+          "fuel_cost": 62.85,
+          "total_cost": 103.45,
+          "toll_message": "Tarif exact classe 1 : Peage De St Arnoult → Peage De Monnaie → Peage De Tours Centre → Poitiers Sud (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Peage De St Arnoult",
+              "exit": "Peage De Monnaie",
+              "operator": "APRR",
+              "cost": 26.0,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 52.7,
+              "route_end_km": 220.8
+            },
+            {
+              "entry": "Peage De Tours Centre",
+              "exit": "Poitiers Sud",
+              "operator": "ASF",
+              "cost": 14.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 255.8,
+              "route_end_km": 340.2
+            }
+          ]
+        },
+        {
+          "id": "gh-native-2-a6f51eb29e55",
+          "duration_minutes": 372,
+          "distance_km": 553.8,
+          "motorway_km": 229.1,
+          "road_km": 324.7,
+          "tolled_km": 179.7,
+          "toll_cost": 22.4,
+          "toll_confidence": "exact",
+          "fuel_cost": 59.61,
+          "total_cost": 82.01,
+          "toll_message": "Tarif exact classe 1 : Peage De St Arnoult → Chartres-Est → Peage De Tours Centre → Poitiers Sud (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Peage De St Arnoult",
+              "exit": "Chartres-Est",
+              "operator": "APRR",
+              "cost": 7.8,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 52.7,
+              "route_end_km": 83.8
+            },
+            {
+              "entry": "Peage De Tours Centre",
+              "exit": "Poitiers Sud",
+              "operator": "ASF",
+              "cost": 14.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 246.5,
+              "route_end_km": 331.0
+            }
+          ]
+        },
+        {
+          "id": "gh-native-3-8e9bb0ea2ad6",
+          "duration_minutes": 384,
+          "distance_km": 597.9,
+          "motorway_km": 409.1,
+          "road_km": 188.8,
+          "tolled_km": 365.5,
+          "toll_cost": 57.0,
+          "toll_confidence": "exact",
+          "fuel_cost": 67.3,
+          "total_cost": 124.3,
+          "toll_message": "Tarif exact classe 1 : Peage De St Arnoult → Vivy Saumur → Niort Nord → Virsac (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Peage De St Arnoult",
+              "exit": "Vivy Saumur",
+              "operator": "APRR",
+              "cost": 34.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 52.7,
+              "route_end_km": 286.7
+            },
+            {
+              "entry": "Niort Nord",
+              "exit": "Virsac",
+              "operator": "ASF",
+              "cost": 22.4,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 395.7,
+              "route_end_km": 569.3
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-70751cba5405",
+          "duration_minutes": 391,
+          "distance_km": 553.3,
+          "motorway_km": 150.7,
+          "road_km": 402.6,
+          "tolled_km": 112.1,
+          "toll_cost": 14.6,
+          "toll_confidence": "exact",
+          "fuel_cost": 58.13,
+          "total_cost": 72.73,
+          "toll_message": "Tarif exact classe 1 : Peage De Tours Centre → Poitiers Sud (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Peage De Tours Centre",
+              "exit": "Poitiers Sud",
+              "operator": "ASF",
+              "cost": 14.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 246.0,
+              "route_end_km": 330.5
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-4ceeba5ea192",
+          "duration_minutes": 441,
+          "distance_km": 555.2,
+          "motorway_km": 37.3,
+          "road_km": 517.9,
+          "tolled_km": 4.1,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 56.25,
+          "total_cost": 56.25,
+          "toll_message": "Fragments OSM isolés ignorés : aucun événement de paiement traversé.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-economy-0-af6855642730",
+          "duration_minutes": 465,
+          "distance_km": 556.2,
+          "motorway_km": 3.0,
+          "road_km": 553.3,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 55.74,
+          "total_cost": 55.74,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "paris-lille",
+      "name": "Paris → Lille (Sanef)",
+      "engine": "graphhopper",
+      "engine_message": "6 itinéraires candidats calculés localement.",
+      "issues": [
+        {
+          "level": "error",
+          "message": "gh-native-2-5fb786c2031e : péage estimated en mode strict."
+        }
+      ],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-318a4817621e",
+          "duration_minutes": 132,
+          "distance_km": 215.5,
+          "motorway_km": 197.4,
+          "road_km": 18.1,
+          "tolled_km": 152.6,
+          "toll_cost": 18.9,
+          "toll_confidence": "exact",
+          "fuel_cost": 25.16,
+          "total_cost": 44.06,
+          "toll_message": "Tarif exact classe 1 : Chamant → Fresnes.",
+          "toll_segments": [
+            {
+              "entry": "Chamant",
+              "exit": "Fresnes",
+              "operator": "SANEF",
+              "cost": 18.9,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 47.1,
+              "route_end_km": 175.7
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-022b00515c0f",
+          "duration_minutes": 133,
+          "distance_km": 215.1,
+          "motorway_km": 192.5,
+          "road_km": 22.6,
+          "tolled_km": 152.6,
+          "toll_cost": 18.9,
+          "toll_confidence": "exact",
+          "fuel_cost": 25.04,
+          "total_cost": 43.94,
+          "toll_message": "Tarif exact classe 1 : Chamant → Fresnes.",
+          "toll_segments": [
+            {
+              "entry": "Chamant",
+              "exit": "Fresnes",
+              "operator": "SANEF",
+              "cost": 18.9,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 47.1,
+              "route_end_km": 175.7
+            }
+          ]
+        },
+        {
+          "id": "gh-native-2-5fb786c2031e",
+          "duration_minutes": 154,
+          "distance_km": 233.4,
+          "motorway_km": 182.5,
+          "road_km": 50.9,
+          "tolled_km": 144.9,
+          "toll_cost": 17.71,
+          "toll_confidence": "estimated",
+          "fuel_cost": 26.68,
+          "total_cost": 44.39,
+          "toll_message": "Tarif partiellement apparié ; le solde réel reste sans tarif officiel.",
+          "toll_segments": [
+            {
+              "entry": "Chamant",
+              "exit": "Vallee de la Somme",
+              "operator": "SANEF",
+              "cost": 10.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 47.1,
+              "route_end_km": 124.2
+            },
+            {
+              "entry": null,
+              "exit": null,
+              "operator": "",
+              "cost": 7.11,
+              "distance_km": 67.8,
+              "confidence": "estimated",
+              "route_start_km": null,
+              "route_end_km": null
+            }
+          ]
+        },
+        {
+          "id": "gh-native-1-27ebffb2290a",
+          "duration_minutes": 156,
+          "distance_km": 234.1,
+          "motorway_km": 192.6,
+          "road_km": 41.5,
+          "tolled_km": 159.2,
+          "toll_cost": 16.3,
+          "toll_confidence": "exact",
+          "fuel_cost": 26.94,
+          "total_cost": 43.24,
+          "toll_message": "Tarif exact classe 1 : Chamant → Hordain (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Chamant",
+              "exit": "Hordain",
+              "operator": "SANEF",
+              "cost": 16.3,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 47.1,
+              "route_end_km": 177.5
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-f644c87d8a88",
+          "duration_minutes": 222,
+          "distance_km": 222.3,
+          "motorway_km": 19.0,
+          "road_km": 203.4,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 22.61,
+          "total_cost": 22.61,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-free-0-0db6ca87d17a",
+          "duration_minutes": 231,
+          "distance_km": 225.7,
+          "motorway_km": 0.0,
+          "road_km": 225.7,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 22.59,
+          "total_cost": 22.59,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "lyon-marseille",
+      "name": "Lyon → Marseille",
+      "engine": "graphhopper",
+      "engine_message": "3 itinéraires candidats calculés localement.",
+      "issues": [],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-f9fddd236945",
+          "duration_minutes": 180,
+          "distance_km": 313.4,
+          "motorway_km": 303.1,
+          "road_km": 10.3,
+          "tolled_km": 257.7,
+          "toll_cost": 29.1,
+          "toll_confidence": "exact",
+          "fuel_cost": 36.89,
+          "total_cost": 65.99,
+          "toll_message": "Tarif exact classe 1 : Peage De Vienne → Peage De Lancon → Condrieu.",
+          "toll_segments": [
+            {
+              "entry": "Condrieu",
+              "exit": null,
+              "operator": "ASF",
+              "cost": 1.1,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 34.4,
+              "route_end_km": 34.4
+            },
+            {
+              "entry": "Peage De Vienne",
+              "exit": "Peage De Lancon",
+              "operator": "ASF",
+              "cost": 28.0,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 37.9,
+              "route_end_km": 272.2
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-8e995f408d93",
+          "duration_minutes": 309,
+          "distance_km": 319.6,
+          "motorway_km": 13.5,
+          "road_km": 306.1,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 32.24,
+          "total_cost": 32.24,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-free-0-467706d3638b",
+          "duration_minutes": 323,
+          "distance_km": 321.0,
+          "motorway_km": 0.0,
+          "road_km": 321.0,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 32.13,
+          "total_cost": 32.13,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "nantes-paris",
+      "name": "Nantes → Paris (Cofiroute)",
+      "engine": "graphhopper",
+      "engine_message": "6 itinéraires candidats calculés localement.",
+      "issues": [],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-1764a2448580",
+          "duration_minutes": 221,
+          "distance_km": 379.7,
+          "motorway_km": 365.4,
+          "road_km": 14.3,
+          "tolled_km": 323.8,
+          "toll_cost": 43.3,
+          "toll_confidence": "exact",
+          "fuel_cost": 44.66,
+          "total_cost": 87.96,
+          "toll_message": "Tarif exact classe 1 : Peage De Corze → Peage De St Arnoult → Ancenis Peage.",
+          "toll_segments": [
+            {
+              "entry": "Ancenis Peage",
+              "exit": null,
+              "operator": "COFIROUTE",
+              "cost": 10.4,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 36.3,
+              "route_end_km": 36.3
+            },
+            {
+              "entry": "Peage De Corze",
+              "exit": "Peage De St Arnoult",
+              "operator": "UNKNOWN",
+              "cost": 32.9,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 106.3,
+              "route_end_km": 326.8
+            }
+          ]
+        },
+        {
+          "id": "gh-native-2-bafa22283c7c",
+          "duration_minutes": 256,
+          "distance_km": 379.9,
+          "motorway_km": 253.6,
+          "road_km": 126.2,
+          "tolled_km": 227.4,
+          "toll_cost": 28.8,
+          "toll_confidence": "exact",
+          "fuel_cost": 42.63,
+          "total_cost": 71.43,
+          "toll_message": "Tarif exact classe 1 : Joue En Charnie → Peage De St Arnoult → Ancenis Dir Nantes.",
+          "toll_segments": [
+            {
+              "entry": "Ancenis Dir Nantes",
+              "exit": null,
+              "operator": "COFIROUTE",
+              "cost": 3.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 36.5,
+              "route_end_km": 36.5
+            },
+            {
+              "entry": "Joue En Charnie",
+              "exit": "Peage De St Arnoult",
+              "operator": "UNKNOWN",
+              "cost": 25.2,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 148.9,
+              "route_end_km": 327.0
+            }
+          ]
+        },
+        {
+          "id": "gh-native-1-fe5f914d7e64",
+          "duration_minutes": 257,
+          "distance_km": 376.4,
+          "motorway_km": 253.6,
+          "road_km": 122.8,
+          "tolled_km": 227.4,
+          "toll_cost": 28.8,
+          "toll_confidence": "exact",
+          "fuel_cost": 42.29,
+          "total_cost": 71.09,
+          "toll_message": "Tarif exact classe 1 : Joue En Charnie → Peage De St Arnoult → Ancenis Dir Nantes.",
+          "toll_segments": [
+            {
+              "entry": "Ancenis Dir Nantes",
+              "exit": null,
+              "operator": "COFIROUTE",
+              "cost": 3.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 36.5,
+              "route_end_km": 36.5
+            },
+            {
+              "entry": "Joue En Charnie",
+              "exit": "Peage De St Arnoult",
+              "operator": "UNKNOWN",
+              "cost": 25.2,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 145.4,
+              "route_end_km": 323.6
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-dbfc259156c8",
+          "duration_minutes": 266,
+          "distance_km": 374.7,
+          "motorway_km": 217.2,
+          "road_km": 157.5,
+          "tolled_km": 193.9,
+          "toll_cost": 26.4,
+          "toll_confidence": "exact",
+          "fuel_cost": 41.46,
+          "total_cost": 67.86,
+          "toll_message": "Tarif exact classe 1 : La Ferte Bernard → Peage De St Arnoult → Ancenis Peage (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Ancenis Peage",
+              "exit": null,
+              "operator": "COFIROUTE",
+              "cost": 10.4,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 36.3,
+              "route_end_km": 36.3
+            },
+            {
+              "entry": "La Ferte Bernard",
+              "exit": "Peage De St Arnoult",
+              "operator": "UNKNOWN",
+              "cost": 16.0,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 217.4,
+              "route_end_km": 324.3
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-638b24c9e4ab",
+          "duration_minutes": 330,
+          "distance_km": 383.2,
+          "motorway_km": 4.3,
+          "road_km": 379.0,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 38.45,
+          "total_cost": 38.45,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-economy-0-7a05bf21b6ea",
+          "duration_minutes": 334,
+          "distance_km": 382.6,
+          "motorway_km": 0.0,
+          "road_km": 382.6,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 38.3,
+          "total_cost": 38.3,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "toulouse-montpellier",
+      "name": "Toulouse → Montpellier (ASF)",
+      "engine": "graphhopper",
+      "engine_message": "4 itinéraires candidats calculés localement.",
+      "issues": [],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-fdf83823dc84",
+          "duration_minutes": 139,
+          "distance_km": 240.3,
+          "motorway_km": 226.4,
+          "road_km": 13.9,
+          "tolled_km": 224.6,
+          "toll_cost": 27.9,
+          "toll_confidence": "exact",
+          "fuel_cost": 28.17,
+          "total_cost": 56.07,
+          "toll_message": "Tarif exact classe 1 : Toulouse Sud Est → Peage De Montpellier St Jean.",
+          "toll_segments": [
+            {
+              "entry": "Toulouse Sud Est",
+              "exit": "Peage De Montpellier St Jean",
+              "operator": "ASF",
+              "cost": 27.9,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 9.2,
+              "route_end_km": 232.0
+            }
+          ]
+        },
+        {
+          "id": "gh-native-2-d9e4e94cf4a6",
+          "duration_minutes": 169,
+          "distance_km": 239.3,
+          "motorway_km": 153.5,
+          "road_km": 85.8,
+          "tolled_km": 151.3,
+          "toll_cost": 16.4,
+          "toll_confidence": "exact",
+          "fuel_cost": 26.75,
+          "total_cost": 43.15,
+          "toll_message": "Tarif exact classe 1 : Toulouse Sud Est → Carcassonne Est → Beziers Ouest → Peage De Montpellier St Jean.",
+          "toll_segments": [
+            {
+              "entry": "Toulouse Sud Est",
+              "exit": "Carcassonne Est",
+              "operator": "ASF",
+              "cost": 10.3,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 9.2,
+              "route_end_km": 99.0
+            },
+            {
+              "entry": "Beziers Ouest",
+              "exit": "Peage De Montpellier St Jean",
+              "operator": "ASF",
+              "cost": 6.1,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 171.4,
+              "route_end_km": 231.1
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-659e8bbf6bc0",
+          "duration_minutes": 220,
+          "distance_km": 226.9,
+          "motorway_km": 19.9,
+          "road_km": 207.0,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 23.07,
+          "total_cost": 23.07,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-free-0-3ee7b26c1b1c",
+          "duration_minutes": 232,
+          "distance_km": 228.8,
+          "motorway_km": 0.0,
+          "road_km": 228.8,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 22.9,
+          "total_cost": 22.9,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "clermont-montpellier",
+      "name": "Clermont-Ferrand → Montpellier",
+      "engine": "graphhopper",
+      "engine_message": "7 itinéraires candidats calculés localement.",
+      "issues": [
+        {
+          "level": "error",
+          "message": "gh-fastest-0-aefbb1882577 : péage estimated en mode strict."
+        },
+        {
+          "level": "error",
+          "message": "gh-light-0-0935909e021d : péage estimated en mode strict."
+        }
+      ],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-aefbb1882577",
+          "duration_minutes": 193,
+          "distance_km": 331.7,
+          "motorway_km": 313.8,
+          "road_km": 17.9,
+          "tolled_km": 13.4,
+          "toll_cost": 1.41,
+          "toll_confidence": "estimated",
+          "fuel_cost": 38.91,
+          "total_cost": 40.32,
+          "toll_message": "Estimation provisoire à 0,105 €/km payant : aucune paire entrée-sortie fiable.",
+          "toll_segments": [
+            {
+              "entry": null,
+              "exit": null,
+              "operator": "",
+              "cost": 1.41,
+              "distance_km": 13.4,
+              "confidence": "estimated",
+              "route_start_km": null,
+              "route_end_km": null
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-0935909e021d",
+          "duration_minutes": 195,
+          "distance_km": 330.8,
+          "motorway_km": 308.2,
+          "road_km": 22.7,
+          "tolled_km": 13.4,
+          "toll_cost": 1.41,
+          "toll_confidence": "estimated",
+          "fuel_cost": 38.73,
+          "total_cost": 40.14,
+          "toll_message": "Estimation provisoire à 0,105 €/km payant : aucune paire entrée-sortie fiable.",
+          "toll_segments": [
+            {
+              "entry": null,
+              "exit": null,
+              "operator": "",
+              "cost": 1.41,
+              "distance_km": 13.4,
+              "confidence": "estimated",
+              "route_start_km": null,
+              "route_end_km": null
+            }
+          ]
+        },
+        {
+          "id": "gh-native-1-92e691dcd46c",
+          "duration_minutes": 244,
+          "distance_km": 327.4,
+          "motorway_km": 170.6,
+          "road_km": 156.9,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 35.89,
+          "total_cost": 35.89,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-balanced-0-b8c5a8af1565",
+          "duration_minutes": 247,
+          "distance_km": 326.1,
+          "motorway_km": 161.6,
+          "road_km": 164.5,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 35.58,
+          "total_cost": 35.58,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-native-2-273a1a23484b",
+          "duration_minutes": 259,
+          "distance_km": 325.6,
+          "motorway_km": 132.1,
+          "road_km": 193.5,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 35.0,
+          "total_cost": 35.0,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-economy-0-b5e47c9afbde",
+          "duration_minutes": 305,
+          "distance_km": 321.6,
+          "motorway_km": 18.1,
+          "road_km": 303.5,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 32.52,
+          "total_cost": 32.52,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-free-0-b2d855df51e1",
+          "duration_minutes": 314,
+          "distance_km": 323.3,
+          "motorway_km": 2.5,
+          "road_km": 320.8,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 32.41,
+          "total_cost": 32.41,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "paris-rouen",
+      "name": "Paris → Rouen (A13/A14 SAPN flux libre)",
+      "engine": "graphhopper",
+      "engine_message": "4 itinéraires candidats calculés localement.",
+      "issues": [
+        {
+          "level": "error",
+          "message": "gh-fastest-0-a8d91885c4ae : péage estimated en mode strict."
+        },
+        {
+          "level": "error",
+          "message": "Péage du plus rapide : estimated, attendu : exact."
+        },
+        {
+          "level": "error",
+          "message": "Péage du plus rapide 19.39 € hors plage [15.00; 17.50] €."
+        }
+      ],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-a8d91885c4ae",
+          "duration_minutes": 88,
+          "distance_km": 131.6,
+          "motorway_km": 109.8,
+          "road_km": 21.8,
+          "tolled_km": 55.7,
+          "toll_cost": 19.39,
+          "toll_confidence": "estimated",
+          "fuel_cost": 15.17,
+          "total_cost": 34.56,
+          "toll_message": "Tarif partiellement apparié ; le solde réel reste sans tarif officiel. Les fragments OSM sans événement tarifaire ont été exclus.",
+          "toll_segments": [
+            {
+              "entry": "Montesson",
+              "exit": null,
+              "operator": "SAPN",
+              "cost": 10.8,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 15.8,
+              "route_end_km": 15.8
+            },
+            {
+              "entry": "Buchelay (groupe tarifaire A13)",
+              "exit": "Heudebouville",
+              "operator": "SAPN",
+              "cost": 5.4,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 54.3,
+              "route_end_km": 96.4
+            },
+            {
+              "entry": null,
+              "exit": null,
+              "operator": "",
+              "cost": 3.19,
+              "distance_km": 30.4,
+              "confidence": "estimated",
+              "route_start_km": null,
+              "route_end_km": null
+            }
+          ]
+        },
+        {
+          "id": "gh-light-0-50e5fe1b8f2a",
+          "duration_minutes": 110,
+          "distance_km": 121.6,
+          "motorway_km": 21.0,
+          "road_km": 100.6,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 12.55,
+          "total_cost": 12.55,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-economy-0-2244256bac78",
+          "duration_minutes": 120,
+          "distance_km": 121.0,
+          "motorway_km": 5.0,
+          "road_km": 116.0,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 12.2,
+          "total_cost": 12.2,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-free-0-e8a172b57305",
+          "duration_minutes": 124,
+          "distance_km": 122.1,
+          "motorway_km": 0.1,
+          "road_km": 122.1,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 12.23,
+          "total_cost": 12.23,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "bordeaux-toulouse",
+      "name": "Bordeaux → Toulouse (ASF)",
+      "engine": "graphhopper",
+      "engine_message": "5 itinéraires candidats calculés localement.",
+      "issues": [],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-eacd0be343ad",
+          "duration_minutes": 139,
+          "distance_km": 240.8,
+          "motorway_km": 227.1,
+          "road_km": 13.8,
+          "tolled_km": 214.3,
+          "toll_cost": 22.2,
+          "toll_confidence": "exact",
+          "fuel_cost": 28.25,
+          "total_cost": 50.45,
+          "toll_message": "Tarif exact classe 1 : Peage De Saint Selve → Peage De Toulouse Nord Ouest.",
+          "toll_segments": [
+            {
+              "entry": "Peage De Saint Selve",
+              "exit": "Peage De Toulouse Nord Ouest",
+              "operator": "ASF",
+              "cost": 22.2,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 24.2,
+              "route_end_km": 233.3
+            }
+          ]
+        },
+        {
+          "id": "gh-native-2-d8c3c94e5621",
+          "duration_minutes": 167,
+          "distance_km": 242.9,
+          "motorway_km": 171.4,
+          "road_km": 71.5,
+          "tolled_km": 158.4,
+          "toll_cost": 15.3,
+          "toll_confidence": "exact",
+          "fuel_cost": 27.43,
+          "total_cost": 42.73,
+          "toll_message": "Tarif exact classe 1 : Peage De Saint Selve → Langon → Aiguillon → Peage De Toulouse Nord Ouest.",
+          "toll_segments": [
+            {
+              "entry": "Peage De Saint Selve",
+              "exit": "Langon",
+              "operator": "ASF",
+              "cost": 2.3,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 24.2,
+              "route_end_km": 44.9
+            },
+            {
+              "entry": "Aiguillon",
+              "exit": "Peage De Toulouse Nord Ouest",
+              "operator": "ASF",
+              "cost": 13.0,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 102.8,
+              "route_end_km": 235.3
+            }
+          ]
+        },
+        {
+          "id": "gh-native-1-165d90c2a969",
+          "duration_minutes": 173,
+          "distance_km": 242.6,
+          "motorway_km": 155.3,
+          "road_km": 87.2,
+          "tolled_km": 140.1,
+          "toll_cost": 14.5,
+          "toll_confidence": "exact",
+          "fuel_cost": 27.1,
+          "total_cost": 41.6,
+          "toll_message": "Tarif exact classe 1 : Peage De Saint Selve → Valence D Agen (fragments OSM sans événement tarifaire ignorés).",
+          "toll_segments": [
+            {
+              "entry": "Peage De Saint Selve",
+              "exit": "Valence D Agen",
+              "operator": "ASF",
+              "cost": 14.5,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 24.2,
+              "route_end_km": 158.7
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-3405f79b7292",
+          "duration_minutes": 244,
+          "distance_km": 240.3,
+          "motorway_km": 15.5,
+          "road_km": 224.8,
+          "tolled_km": 0.4,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 24.34,
+          "total_cost": 24.34,
+          "toll_message": "Micro-segment de péage OSM ignoré : aucun tarif ouvert correspondant.",
+          "toll_segments": []
+        },
+        {
+          "id": "gh-economy-0-2ebf4f569ea6",
+          "duration_minutes": 247,
+          "distance_km": 244.0,
+          "motorway_km": 0.0,
+          "road_km": 244.0,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 24.42,
+          "total_cost": 24.42,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    },
+    {
+      "id": "reims-calais",
+      "name": "Reims → Calais (Sanef)",
+      "engine": "graphhopper",
+      "engine_message": "2 itinéraires candidats calculés localement.",
+      "issues": [],
+      "retried_profiles": [],
+      "failed_profiles": [],
+      "routes": [
+        {
+          "id": "gh-fastest-0-b9c46fae7f78",
+          "duration_minutes": 144,
+          "distance_km": 265.7,
+          "motorway_km": 257.3,
+          "road_km": 8.4,
+          "tolled_km": 255.5,
+          "toll_cost": 26.6,
+          "toll_confidence": "exact",
+          "fuel_cost": 31.28,
+          "total_cost": 57.88,
+          "toll_message": "Tarif exact classe 1 : Courcy → Setques.",
+          "toll_segments": [
+            {
+              "entry": "Courcy",
+              "exit": "Setques",
+              "operator": "SANEF",
+              "cost": 26.6,
+              "distance_km": null,
+              "confidence": "exact",
+              "route_start_km": 8.1,
+              "route_end_km": 228.8
+            }
+          ]
+        },
+        {
+          "id": "gh-balanced-0-5f00d7a48442",
+          "duration_minutes": 265,
+          "distance_km": 271.0,
+          "motorway_km": 0.0,
+          "road_km": 271.0,
+          "tolled_km": 0.0,
+          "toll_cost": 0.0,
+          "toll_confidence": "none",
+          "fuel_cost": 27.13,
+          "total_cost": 27.13,
+          "toll_message": "Aucun tronçon payant détecté.",
+          "toll_segments": []
+        }
+      ]
+    }
+  ]
+}

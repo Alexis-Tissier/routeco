@@ -72,13 +72,7 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
     engine_result = await routing.candidates(request.start, request.end)
     results: list[RouteResult] = []
     for candidate in engine_result.candidates:
-        quote = tolls.quote(
-            geometry=candidate["geometry"],
-            tolled_km=candidate.get("tolled_km", 0),
-            toll_ranges=candidate.get("toll_ranges"),
-            road_class_link_details=candidate.get("road_class_link_details"),
-            demo_toll=candidate.get("demo_toll"),
-        )
+        quote = tolls.quote_candidate(candidate)
         costs = calculate_costs(
             candidate["motorway_km"],
             candidate["road_km"],

@@ -109,12 +109,7 @@ async def validate_scenario(
         )
 
     for candidate in engine_result.candidates:
-        quote = tolls.quote(
-            geometry=candidate["geometry"],
-            tolled_km=candidate.get("tolled_km", 0.0),
-            toll_ranges=candidate.get("toll_ranges"),
-            demo_toll=candidate.get("demo_toll"),
-        )
+        quote = tolls.quote_candidate(candidate)
         costs = calculate_costs(
             candidate["motorway_km"],
             candidate["road_km"],
@@ -281,7 +276,7 @@ async def validate_scenario(
 
         if len(candidate.get("geometry", [])) < 2:
             issues.append(ValidationIssue("error", f"{candidate['id']} : géométrie vide."))
-        if strict and candidate.get("tolled_km", 0.0) > 0.05 and quote.confidence != "exact":
+        if strict and quote.confidence == "estimated":
             issues.append(
                 ValidationIssue(
                     "error",
