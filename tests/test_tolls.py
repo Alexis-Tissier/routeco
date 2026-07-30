@@ -130,6 +130,74 @@ def test_estimate_when_no_reliable_station_pair(tmp_path: Path) -> None:
     assert quote.cost == 10.50
 
 
+def test_unresolved_interval_preserves_geographic_road_context(
+    tmp_path: Path,
+) -> None:
+    service = make_service(tmp_path)
+    geometry = [
+        [0.0, 45.0],
+        [0.1, 45.0],
+        [0.2, 45.0],
+    ]
+    distance = GraphHopperClient._detail_distance(
+        geometry,
+        [[0, 2, "ALL"]],
+        {"ALL"},
+    )
+
+    quote = service.quote(
+        geometry=geometry,
+        tolled_km=distance,
+        toll_ranges=[
+            {
+                "start_index": 0,
+                "end_index": 2,
+                "distance_km": distance,
+            }
+        ],
+        toll_state_intervals=[
+            {
+                "start_index": 0,
+                "end_index": 2,
+                "distance_km": distance,
+                "value": "ALL",
+                "class1_status": "toll",
+            }
+        ],
+        street_name_details=[
+            [0, 1, "Route Alpha"],
+            [1, 2, "Route Bravo"],
+        ],
+        street_ref_details=[[0, 2, "A42"]],
+    )
+
+    assert quote.confidence == "estimated"
+    diagnostic = quote.diagnostics[0]
+    context = diagnostic["road_context"]
+    assert context["start_coordinate"] == {
+        "lon": 0.0,
+        "lat": 45.0,
+    }
+    assert context["midpoint_coordinate"] == {
+        "lon": 0.1,
+        "lat": 45.0,
+    }
+    assert context["end_coordinate"] == {
+        "lon": 0.2,
+        "lat": 45.0,
+    }
+    assert [
+        item["value"] for item in context["street_names"]
+    ] == ["Route Alpha", "Route Bravo"]
+    assert context["street_refs"] == [
+        {
+            "value": "A42",
+            "route_start_km": 0.0,
+            "route_end_km": round(distance, 1),
+        }
+    ]
+
+
 def test_graphhopper_toll_details_are_merged() -> None:
     geometry = [[2.0, 48.0], [2.1, 47.9], [2.2, 47.8], [2.3, 47.7], [2.4, 47.6]]
     details = [[0, 2, "ALL"], [2, 4, "ALL"]]
@@ -1426,6 +1494,8 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
             road_class_link_details=None,
             demo_toll=None,
             toll_state_intervals=None,
+            street_name_details=None,
+            street_ref_details=None,
         ) -> TollQuote:
             self.received = {
                 "geometry": geometry,
@@ -1433,6 +1503,8 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
                 "toll_ranges": toll_ranges,
                 "toll_state_intervals": toll_state_intervals,
                 "road_class_link_details": road_class_link_details,
+                "street_name_details": street_name_details,
+                "street_ref_details": street_ref_details,
                 "demo_toll": demo_toll,
             }
             return TollQuote(0.0, "none", [], "test")
@@ -1453,6 +1525,8 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
             }
         ],
         "road_class_link_details": [[0, 2, False]],
+        "street_name_details": [[0, 2, "Autoroute du Test"]],
+        "street_ref_details": [[0, 2, "A42"]],
         "demo_toll": None,
     }
     service = RecordingService()
@@ -1464,6 +1538,8 @@ def test_quote_candidate_forwards_all_routing_metadata() -> None:
         "toll_ranges": candidate["toll_ranges"],
         "toll_state_intervals": candidate["toll_state_intervals"],
         "road_class_link_details": [[0, 2, False]],
+        "street_name_details": [[0, 2, "Autoroute du Test"]],
+        "street_ref_details": [[0, 2, "A42"]],
         "demo_toll": None,
     }
 

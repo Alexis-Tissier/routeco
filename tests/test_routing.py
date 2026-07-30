@@ -378,6 +378,8 @@ def test_native_alternative_route_uses_four_paths_on_long_distance() -> None:
 def test_candidate_preserves_road_class_link_details() -> None:
     client = GraphHopperClient("http://graphhopper.test")
     link_details = [[0, 1, False], [1, 2, True]]
+    street_name_details = [[0, 2, "Autoroute du Test"]]
+    street_ref_details = [[0, 2, "A42"]]
     payload = {
         "paths": [
             {
@@ -393,6 +395,8 @@ def test_candidate_preserves_road_class_link_details() -> None:
                 "details": {
                     "road_class": [[0, 2, "MOTORWAY"]],
                     "road_class_link": link_details,
+                    "street_name": street_name_details,
+                    "street_ref": street_ref_details,
                     "toll": [[0, 2, "ALL"]],
                 },
             }
@@ -402,6 +406,8 @@ def test_candidate_preserves_road_class_link_details() -> None:
     route = client._paths_to_candidates(payload, "details", 0)[0]
 
     assert route["road_class_link_details"] == link_details
+    assert route["street_name_details"] == street_name_details
+    assert route["street_ref_details"] == street_ref_details
 
 
 def test_graphhopper_config_encodes_road_class_link() -> None:

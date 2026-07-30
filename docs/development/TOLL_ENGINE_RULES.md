@@ -252,3 +252,21 @@ appliquée avant l'optimisation de couverture afin qu'une plage OSM locale plus
 longue ne favorise pas artificiellement la cellule partielle. La provenance,
 les bornes physiques et l'ordre du trajet constituent la preuve ; la longueur
 projetée seule ne suffit jamais.
+
+## Contexte géographique des corridors non résolus
+
+Un intervalle payant sans gare ni portique identifiable reste estimé. Il ne
+peut pas devenir exact à partir de sa seule longueur ou d'un libellé de route.
+
+Pour rendre la vérification exploitable, Routeco conserve toutefois dans son
+diagnostic :
+
+- les coordonnées du début, du milieu et de la fin de l'intervalle ;
+- les noms de voie renvoyés par GraphHopper ;
+- les références routières renvoyées par GraphHopper ;
+- les positions kilométriques auxquelles chaque nom ou référence s'applique.
+
+Ces informations proviennent de la géométrie et des détails de chemin
+GraphHopper. Elles servent à contrôler le balisage OpenStreetMap et à rechercher
+les événements physiques absents de la base. Elles ne constituent jamais une
+preuve tarifaire.

@@ -4,6 +4,7 @@ import csv
 import math
 import re
 import unicodedata
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -666,6 +667,8 @@ class TollPricingService:
             toll_ranges=candidate.get("toll_ranges"),
             toll_state_intervals=candidate.get("toll_state_intervals"),
             road_class_link_details=candidate.get("road_class_link_details"),
+            street_name_details=candidate.get("street_name_details"),
+            street_ref_details=candidate.get("street_ref_details"),
             demo_toll=candidate.get("demo_toll"),
         )
 
@@ -677,6 +680,8 @@ class TollPricingService:
         road_class_link_details: list[list] | None = None,
         demo_toll: float | None = None,
         toll_state_intervals: list[dict[str, Any]] | None = None,
+        street_name_details: list[list] | None = None,
+        street_ref_details: list[list] | None = None,
     ) -> TollQuote:
         if demo_toll is not None:
             return TollQuote(
@@ -715,6 +720,8 @@ class TollPricingService:
                 toll_ranges or [],
                 road_class_link_details or [],
                 toll_state_intervals or [],
+                street_name_details or [],
+                street_ref_details or [],
             )
             if exact is not None:
                 return exact
@@ -1399,6 +1406,8 @@ class TollPricingService:
         raw_ranges: list[dict[str, Any]],
         road_class_link_details: list[list],
         raw_toll_state_intervals: list[dict[str, Any]] | None = None,
+        street_name_details: list[list] | None = None,
+        street_ref_details: list[list] | None = None,
     ) -> TollQuote | None:
         projections, cumulative = self._project_stations(geometry)
         toll_state_intervals = self._prepare_toll_state_intervals(
@@ -1844,6 +1853,10 @@ class TollPricingService:
             toll_state_intervals=toll_state_intervals,
             projections=projections,
             segments=segments,
+            geometry=geometry,
+            cumulative=cumulative,
+            street_name_details=street_name_details or [],
+            street_ref_details=street_ref_details or [],
         )
         plan = TollPlan(
             exact_cost=total,
@@ -2994,6 +3007,143 @@ class TollPricingService:
             "raw_available_matrix_count": len(available),
         }
 
+    @staticmethod
+    def _coordinate_at_route_km(
+        geometry: list[list[float]],
+        cumulative: list[float],
+        route_km: float,
+    ) -> dict[str, float] | None:
+        if len(geometry) < 2 or len(cumulative) != len(geometry):
+            return None
+
+        target = min(max(0.0, route_km), cumulative[-1])
+        segment_index = min(
+            max(1, bisect_right(cumulative, target)),
+            len(geometry) - 1,
+        )
+        segment_start_km = cumulative[segment_index - 1]
+        segment_end_km = cumulative[segment_index]
+        segment_km = segment_end_km - segment_start_km
+        fraction = (
+            0.0
+            if segment_km <= 1e-9
+            else (target - segment_start_km) / segment_km
+        )
+        start = geometry[segment_index - 1]
+        end = geometry[segment_index]
+        return {
+            "lon": round(
+                start[0] + (end[0] - start[0]) * fraction,
+                6,
+            ),
+            "lat": round(
+                start[1] + (end[1] - start[1]) * fraction,
+                6,
+            ),
+        }
+
+    @staticmethod
+    def _road_details_for_interval(
+        details: list[list],
+        cumulative: list[float],
+        interval_start_km: float,
+        interval_end_km: float,
+    ) -> list[dict[str, Any]]:
+        output: list[dict[str, Any]] = []
+        if len(cumulative) < 2:
+            return output
+
+        for detail in details:
+            if not isinstance(detail, list) or len(detail) != 3:
+                continue
+            try:
+                start_index = max(
+                    0,
+                    min(len(cumulative) - 2, int(detail[0])),
+                )
+                end_index = max(
+                    start_index + 1,
+                    min(len(cumulative) - 1, int(detail[1])),
+                )
+            except (TypeError, ValueError):
+                continue
+
+            value = str(detail[2] or "").strip()
+            if not value:
+                continue
+            clipped_start = max(
+                interval_start_km,
+                cumulative[start_index],
+            )
+            clipped_end = min(
+                interval_end_km,
+                cumulative[end_index],
+            )
+            if clipped_end <= clipped_start + 0.01:
+                continue
+            item = {
+                "value": value,
+                "route_start_km": round(clipped_start, 1),
+                "route_end_km": round(clipped_end, 1),
+            }
+            previous = output[-1] if output else None
+            if (
+                previous is not None
+                and previous["value"] == value
+                and abs(
+                    float(previous["route_end_km"])
+                    - float(item["route_start_km"])
+                )
+                <= 0.2
+            ):
+                previous["route_end_km"] = item["route_end_km"]
+            else:
+                output.append(item)
+        return output
+
+    def _unresolved_road_context(
+        self,
+        *,
+        geometry: list[list[float]],
+        cumulative: list[float],
+        interval_start_km: float,
+        interval_end_km: float,
+        street_name_details: list[list],
+        street_ref_details: list[list],
+    ) -> dict[str, Any]:
+        midpoint_km = (
+            interval_start_km + interval_end_km
+        ) / 2.0
+        return {
+            "start_coordinate": self._coordinate_at_route_km(
+                geometry,
+                cumulative,
+                interval_start_km,
+            ),
+            "midpoint_coordinate": self._coordinate_at_route_km(
+                geometry,
+                cumulative,
+                midpoint_km,
+            ),
+            "end_coordinate": self._coordinate_at_route_km(
+                geometry,
+                cumulative,
+                interval_end_km,
+            ),
+            "street_names": self._road_details_for_interval(
+                street_name_details,
+                cumulative,
+                interval_start_km,
+                interval_end_km,
+            ),
+            "street_refs": self._road_details_for_interval(
+                street_ref_details,
+                cumulative,
+                interval_start_km,
+                interval_end_km,
+            ),
+        }
+
     def _build_unresolved_diagnostics(
         self,
         *,
@@ -3007,6 +3157,10 @@ class TollPricingService:
         toll_state_intervals: list[TollStateInterval],
         projections: list[StationProjection],
         segments: list[TollSegmentQuote],
+        geometry: list[list[float]],
+        cumulative: list[float],
+        street_name_details: list[list],
+        street_ref_details: list[list],
     ) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
 
@@ -3236,6 +3390,20 @@ class TollPricingService:
                         ),
                         "event_only": event_only,
                         "toll_states": states,
+                        "road_context": (
+                            self._unresolved_road_context(
+                                geometry=geometry,
+                                cumulative=cumulative,
+                                interval_start_km=interval_start_km,
+                                interval_end_km=interval_end_km,
+                                street_name_details=(
+                                    street_name_details
+                                ),
+                                street_ref_details=(
+                                    street_ref_details
+                                ),
+                            )
+                        ),
                         "nearby_stations": nearby[:16],
                         "exact_segments": exact_segments,
                         "closed_topology": (

@@ -55,6 +55,14 @@ class GraphHopperRequestError(RuntimeError):
 
 
 class GraphHopperClient:
+    PATH_DETAILS = (
+        "road_class",
+        "road_class_link",
+        "street_name",
+        "street_ref",
+        "toll",
+    )
+
     def __init__(self, base_url: str, timeout_seconds: float = 180.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout_seconds
@@ -246,7 +254,7 @@ class GraphHopperClient:
             "locale": "fr",
             "instructions": False,
             "points_encoded": False,
-            "details": ["road_class", "road_class_link", "toll"],
+            "details": list(self.PATH_DETAILS),
             "algorithm": "alternative_route",
             "alternative_route.max_paths": native_max_paths,
             "alternative_route.max_weight_factor": 1.55,
@@ -384,7 +392,7 @@ class GraphHopperClient:
                     "locale": "fr",
                     "instructions": False,
                     "points_encoded": False,
-                    "details": ["road_class", "road_class_link", "toll"],
+                    "details": list(self.PATH_DETAILS),
                     "pass_through": True,
                     "custom_model": {
                         "priority": [
@@ -460,7 +468,7 @@ class GraphHopperClient:
             "locale": "fr",
             "instructions": False,
             "points_encoded": False,
-            "details": ["road_class", "road_class_link", "toll"],
+            "details": list(self.PATH_DETAILS),
             "custom_model": {
                 "priority": [
                     {
@@ -486,6 +494,12 @@ class GraphHopperClient:
             road_class_details = path.get("details", {}).get("road_class", [])
             road_class_link_details = path.get("details", {}).get(
                 "road_class_link", []
+            )
+            street_name_details = path.get("details", {}).get(
+                "street_name", []
+            )
+            street_ref_details = path.get("details", {}).get(
+                "street_ref", []
             )
             toll_details = path.get("details", {}).get("toll", [])
             # ROUTECO_V034_TOLL_STATE_INTERVALS
@@ -525,6 +539,8 @@ class GraphHopperClient:
                     "toll_ranges": toll_ranges,
                     "toll_state_intervals": toll_state_intervals,
                     "road_class_link_details": road_class_link_details,
+                    "street_name_details": street_name_details,
+                    "street_ref_details": street_ref_details,
                     "geometry": geometry,
                     "source": "graphhopper",
                 }

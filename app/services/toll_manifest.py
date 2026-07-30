@@ -56,6 +56,39 @@ def _candidate_kind(station: dict[str, Any]) -> str:
     return ""
 
 
+def _road_context_labels(
+    context: dict[str, Any],
+    field: str,
+) -> list[str]:
+    labels: list[str] = []
+    for item in context.get(field, []):
+        value = str(item.get("value") or "").strip()
+        if value and value not in labels:
+            labels.append(value)
+    return labels
+
+
+def _osm_link(
+    label: str,
+    coordinate: dict[str, Any] | None,
+) -> str | None:
+    if not coordinate:
+        return None
+    try:
+        lat = float(coordinate["lat"])
+        lon = float(coordinate["lon"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not -90.0 <= lat <= 90.0 or not -180.0 <= lon <= 180.0:
+        return None
+    return (
+        f"[OSM {label}]"
+        f"(https://www.openstreetmap.org/"
+        f"?mlat={lat:.6f}&mlon={lon:.6f}"
+        f"#map=16/{lat:.6f}/{lon:.6f})"
+    )
+
+
 def build_missing_toll_manifest(
     validation_payload: dict[str, Any],
 ) -> dict[str, Any]:
@@ -135,6 +168,13 @@ def build_missing_toll_manifest(
                             "toll_states",
                             [],
                         )
+                    ),
+                    "road_context": dict(
+                        diagnostic.get(
+                            "road_context",
+                            {},
+                        )
+                        or {}
                     ),
                     "nearby_stations": nearby,
                     "exact_segments": list(
@@ -317,6 +357,9 @@ def build_missing_toll_manifest(
                         "unresolved_km": occurrence[
                             "unresolved_km"
                         ],
+                        "road_context": occurrence[
+                            "road_context"
+                        ],
                     }
                 )
 
@@ -348,6 +391,7 @@ def build_missing_toll_manifest(
                 "route_start_km": item["route_start_km"],
                 "route_end_km": item["route_end_km"],
                 "unresolved_km": item["unresolved_km"],
+                "road_context": item["road_context"],
             }
             for item in intervals
         ],
@@ -424,6 +468,41 @@ def render_missing_toll_manifest(
             f"{item['route_end_km']:.1f} km : "
             f"{item['recommended_action']}"
         )
+        road_context = dict(
+            item.get("road_context", {}) or {}
+        )
+        refs = _road_context_labels(
+            road_context,
+            "street_refs",
+        )
+        names = _road_context_labels(
+            road_context,
+            "street_names",
+        )
+        if refs or names:
+            labels = refs + [
+                name for name in names if name not in refs
+            ]
+            lines.append(
+                "  - Route OSM : " + ", ".join(labels)
+            )
+        links = [
+            _osm_link(
+                "début",
+                road_context.get("start_coordinate"),
+            ),
+            _osm_link(
+                "milieu",
+                road_context.get("midpoint_coordinate"),
+            ),
+            _osm_link(
+                "fin",
+                road_context.get("end_coordinate"),
+            ),
+        ]
+        links = [link for link in links if link is not None]
+        if links:
+            lines.append("  - " + " · ".join(links))
     if not manifest.get("verification_queue"):
         lines.append("- Aucune vérification en attente.")
     lines.extend(
