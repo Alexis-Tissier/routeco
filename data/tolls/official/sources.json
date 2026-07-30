@@ -15,11 +15,39 @@
       "name": "SAPN tarifs classe 1",
       "url": "https://www.autoroutes.sanef.com/sites/default/files/2026-01/2026_02-Grille-SAPN.pdf",
       "valid_from": "2026-02-01"
+    },
+    {
+      "name": "APRR tarifs classes 1 à 5",
+      "url": "https://voyage.aprr.fr/sites/default/files/2026-02/TARIFS_APRR.pdf",
+      "valid_from": "2026-02-01"
+    },
+    {
+      "name": "AREA tarifs classes 1 à 5",
+      "url": "https://voyage.aprr.fr/sites/default/files/2026-01/TARIFS_INTERNES_AREA.pdf",
+      "valid_from": "2026-02-01"
+    },
+    {
+      "name": "ESCOTA tarifs classe 1",
+      "url": "https://public-content.vinci-autoroutes.com/PDF/Tarifs-peage-Escota/Escota-tarifs-provisoire-2026.pdf",
+      "valid_from": "2026-02-01"
+    },
+    {
+      "name": "ALIAÉ A79 tarifs classes 1 à 5",
+      "url": "https://www.aliae.com/files/live/sites/aliae/files/Documents/TARIFS_ALIAE-2026.pdf",
+      "valid_from": "2026-02-01"
+    },
+    {
+      "name": "Ponts de Normandie et de Tancarville",
+      "url": "https://www.pontsnormandietancarville.fr/les-tarifs/",
+      "valid_from": "2026-05-01"
     }
   ],
   "notes": [
     "Sanef: matrices A16/A29 and A1/A2/A26/A29.",
     "SAPN: A29 North, A13/A29 South and A14 base open tolls.",
-    "SAPN flux libre 2026: portiques principaux Buchelay, Heudebouville, Beuzeville et Dozulé."
+    "SAPN flux libre 2026: portiques principaux Buchelay, Heudebouville, Beuzeville et Dozulé.",
+    "APRR et AREA : catalogues classe 1 complets extraits des grilles officielles 2026.",
+    "ALIAÉ : six portiques A79 et cellules de flux libre classe 1.",
+    "ESCOTA : matrice A51 et barrières principales A50."
   ]
 }

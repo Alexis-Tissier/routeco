@@ -44,6 +44,42 @@
       "effective_from": "2026-02-01",
       "effective_to": "2027-01-31",
       "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "area-class1-2026",
+      "publisher": "AREA",
+      "title": "Réseau AREA - Tarifs de péage classes 1 à 5",
+      "url": "https://voyage.aprr.fr/sites/default/files/2026-01/TARIFS_INTERNES_AREA.pdf",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "escota-class1-2026",
+      "publisher": "ESCOTA",
+      "title": "Réseau ESCOTA - Tarifs classe 1",
+      "url": "https://public-content.vinci-autoroutes.com/PDF/Tarifs-peage-Escota/Escota-tarifs-provisoire-2026.pdf",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "aliae-class1-2026",
+      "publisher": "ALIAÉ",
+      "title": "A79 - Tarifs classes 1 à 5",
+      "url": "https://www.aliae.com/files/live/sites/aliae/files/Documents/TARIFS_ALIAE-2026.pdf",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "ponts-seine-estuaire-class1-2026",
+      "publisher": "CCI Seine Estuaire",
+      "title": "Tarifs des ponts de Normandie et de Tancarville",
+      "url": "https://www.pontsnormandietancarville.fr/les-tarifs/",
+      "effective_from": "2026-05-01",
+      "effective_to": null,
+      "retrieved_at": "2026-07-30"
     }
   ]
 }

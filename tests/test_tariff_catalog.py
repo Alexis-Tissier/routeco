@@ -394,6 +394,60 @@ def test_production_catalog_uses_verified_2026_closed_cells() -> None:
             7.5,
             "sapn-class1-2026",
         ),
+        (
+            TollStation(
+                "Saint Quentin Fallavier Barriere",
+                "OFFICIAL",
+                45.6545711,
+                5.0946733,
+                "mainline",
+            ),
+            TollStation(
+                "Aiguebelette",
+                "AREA",
+                45.5,
+                5.7,
+                "closed",
+            ),
+            11.0,
+            "area-class1-2026",
+        ),
+        (
+            TollStation(
+                "Sisteron Nord",
+                "OFFICIAL",
+                44.2233057,
+                5.9159940,
+                "closed",
+            ),
+            TollStation(
+                "Meyrargues",
+                "OFFICIAL",
+                43.6613054,
+                5.5035341,
+                "mainline",
+            ),
+            14.0,
+            "escota-class1-2026",
+        ),
+        (
+            TollStation(
+                "LE MONTET OUEST",
+                "ALIAE",
+                46.3891633,
+                3.0331607,
+                "mainline",
+            ),
+            TollStation(
+                "MOLINET EST",
+                "ALIAE",
+                46.4632386,
+                3.9773172,
+                "mainline",
+            ),
+            4.2,
+            "aliae-class1-2026",
+        ),
     ]
 
     for entry, exit_, price, source_id in cases:
@@ -401,3 +455,85 @@ def test_production_catalog_uses_verified_2026_closed_cells() -> None:
         assert selected is not None
         assert selected.price == price
         assert selected.source_id == source_id
+
+
+def test_production_catalog_prices_a79_full_free_flow_crossing() -> None:
+    service = TollPricingService(
+        Path("data/tolls"),
+        pricing_date=date(2026, 7, 30),
+    )
+    geometry = [
+        [3.0331607, 46.3891633],
+        [3.1072282, 46.4173525],
+        [3.4261736, 46.5043758],
+        [3.4689789, 46.5163715],
+        [3.9042445, 46.4562950],
+        [3.9773172, 46.4632386],
+    ]
+
+    quote = service.quote(
+        geometry=geometry,
+        tolled_km=45.5,
+        toll_ranges=[
+            {
+                "start_index": 1,
+                "end_index": 5,
+                "distance_km": 45.5,
+            }
+        ],
+        toll_state_intervals=[
+            {
+                "start_index": 1,
+                "end_index": 5,
+                "value": "ALL",
+                "class1_status": "toll",
+            }
+        ],
+        street_ref_details=[[0, 5, "A 79"]],
+    )
+
+    assert quote.confidence == "exact"
+    assert quote.cost == 4.2
+    assert quote.stations == [
+        "Le Montet Ouest",
+        "Molinet Est",
+    ]
+
+
+def test_production_catalog_prices_a50_mainline_barriers() -> None:
+    service = TollPricingService(
+        Path("data/tolls"),
+        pricing_date=date(2026, 7, 30),
+    )
+    geometry = [
+        [5.80, 43.13],
+        [5.7719846, 43.1464186],
+        [5.68, 43.18],
+        [5.5906781, 43.2051152],
+        [5.55, 43.22],
+    ]
+
+    quote = service.quote(
+        geometry=geometry,
+        tolled_km=27.4,
+        toll_ranges=[
+            {
+                "start_index": 0,
+                "end_index": 4,
+                "distance_km": 27.4,
+            }
+        ],
+        toll_state_intervals=[
+            {
+                "start_index": 0,
+                "end_index": 4,
+                "value": "ALL",
+                "class1_status": "toll",
+            }
+        ],
+        street_ref_details=[[0, 4, "A 50"]],
+    )
+
+    assert quote.confidence == "exact"
+    assert quote.cost == 5.2
+    assert quote.stations == ["Bandol", "La Ciotat"]

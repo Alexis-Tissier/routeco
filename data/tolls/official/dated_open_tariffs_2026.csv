@@ -1,3 +1,7 @@
-operator,name,vehicle_class,price,effective_from,effective_to,season_start,season_end,source_id
-CEVM,GARES DE PEAGE DE SAINT GERMAIN,1,11.30,2026-02-01,2027-01-31,09-16,06-14,cevm-viaduc-millau-2026
-CEVM,GARES DE PEAGE DE SAINT GERMAIN,1,13.80,2026-02-01,2027-01-31,06-15,09-15,cevm-viaduc-millau-2026
+operator,name,vehicle_class,price,effective_from,effective_to,season_start,season_end,source_id,additive_to_closed
+CEVM,GARES DE PEAGE DE SAINT GERMAIN,1,11.30,2026-02-01,2027-01-31,09-16,06-14,cevm-viaduc-millau-2026,false
+CEVM,GARES DE PEAGE DE SAINT GERMAIN,1,13.80,2026-02-01,2027-01-31,06-15,09-15,cevm-viaduc-millau-2026,false
+ESCOTA,Bandol,1,2.60,2026-02-01,2027-01-31,,,escota-class1-2026,false
+ESCOTA,La Ciotat,1,2.60,2026-02-01,2027-01-31,,,escota-class1-2026,false
+CCI-SEINE-ESTUAIRE,PEAGE PONT NORMANDIE,1,6.10,2026-05-01,,,,ponts-seine-estuaire-class1-2026,true
+CCI-SEINE-ESTUAIRE,PEAGE PONT TANCARVILLE,1,2.90,2026-05-01,,,,ponts-seine-estuaire-class1-2026,true

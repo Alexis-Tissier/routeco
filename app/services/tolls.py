@@ -236,6 +236,7 @@ class OpenTariffSelection:
     price: float
     source_id: str | None
     kind: str
+    additive_to_closed: bool = False
 
 class TollPricingService:
     """Price French tolls from local OpenTollData matrices.
@@ -253,6 +254,10 @@ class TollPricingService:
     # Budget transitoire : le routage ne prouve pas encore positivement qu'un
     # intervalle entre une sortie fermée et l'entrée suivante est gratuit.
     MAX_UNVERIFIED_CLOSED_CONNECTOR_KM = 5.0
+    # GraphHopper peut prolonger un état `toll` sur l'approche d'une gare.
+    # Une cellule officielle peut absorber ce débordement uniquement s'il est
+    # contigu à sa borne et qu'aucun autre événement physique n'y est présent.
+    MAX_OFFICIAL_BOUNDARY_OVERHANG_KM = 5.0
 
     # ROUTECO_V034_GLOBAL_TOLL_PLAN
     # Isolated OSM toll tags below this size are non-billable unless a real
@@ -564,6 +569,7 @@ class TollPricingService:
             price=record.price,
             source_id=record.source_id,
             kind="dated",
+            additive_to_closed=record.additive_to_closed,
         )
 
     def _select_fixed_open_tariff(
@@ -1102,6 +1108,14 @@ class TollPricingService:
     ) -> bool:
         # Une matrice absorbe un événement uniquement s'il est physiquement
         # dans son trajet ou s'il représente la même installation de bord.
+        #
+        # Certains ouvrages à péage ouvert sont facturés en plus du système
+        # fermé adjacent. Cette propriété vient du catalogue daté et sourcé :
+        # la proximité géographique ne doit alors jamais supprimer la charge.
+        selection = self._lookup_open_selection(projection.station)
+        if selection is not None and selection.additive_to_closed:
+            return False
+
         route_km = projection.route_km
         keys = self._station_identity_keys(projection.station)
 
@@ -1221,6 +1235,12 @@ class TollPricingService:
             keys = self._station_identity_keys(station)
             if keys & used_station_keys:
                 continue
+            if self._duplicates_used_open_event(
+                projection,
+                projections,
+                used_station_keys,
+            ):
+                continue
 
             is_event = False
             if station.system_type == "open":
@@ -1263,6 +1283,77 @@ class TollPricingService:
             unresolved.append(projection)
 
         return unresolved
+
+    def _duplicates_used_open_event(
+        self,
+        projection: StationProjection,
+        projections: list[StationProjection],
+        used_station_keys: set[str],
+    ) -> bool:
+        """Recognize national-dataset aliases of one priced open barrier.
+
+        The official station inventory can expose both directional mainline
+        records and an OpenTollData point for the same physical barrier. Once
+        the priced point has been selected, its unpriced directional aliases
+        must not make the complete OSM toll component unresolved.
+
+        Geographic proximity alone is deliberately insufficient: a shared,
+        non-directional name token and route proximity are also required.
+        """
+        station = projection.station
+        ignored_tokens = {
+            "vers",
+            "direction",
+            "dir",
+            "nord",
+            "sud",
+            "est",
+            "ouest",
+        }
+        station_tokens = {
+            token
+            for alias in (
+                name_aliases(station.name)
+                | name_aliases(station.osm_name)
+            )
+            for token in alias.split()
+            if len(token) >= 4 and token not in ignored_tokens
+        }
+        if not station_tokens:
+            return False
+
+        for priced in projections:
+            if priced is projection:
+                continue
+            if priced.station.system_type != "open":
+                continue
+            if self._lookup_open(priced.station) is None:
+                continue
+            if not (
+                self._station_identity_keys(priced.station)
+                & used_station_keys
+            ):
+                continue
+            if abs(priced.route_km - projection.route_km) > 0.5:
+                continue
+            if haversine_km(
+                (priced.station.lon, priced.station.lat),
+                (station.lon, station.lat),
+            ) > 0.25:
+                continue
+            priced_tokens = {
+                token
+                for alias in (
+                    name_aliases(priced.station.name)
+                    | name_aliases(priced.station.osm_name)
+                )
+                for token in alias.split()
+                if len(token) >= 4 and token not in ignored_tokens
+            }
+            if station_tokens & priced_tokens:
+                return True
+
+        return False
 
     def _closed_proposals_for_range(
         self,
@@ -2719,6 +2810,11 @@ class TollPricingService:
                 )
             )
             for match in accepted_closed:
+                overhang_budget_km = (
+                    self.MAX_OFFICIAL_BOUNDARY_OVERHANG_KM
+                    if match.record.source_id is not None
+                    else 0.5
+                )
                 if (
                     match.span_end_km
                     <= toll_range.start_km + 0.01
@@ -2731,7 +2827,9 @@ class TollPricingService:
                     candidates: list[tuple[float, float]] = []
                     start_gap = match.span_start_km - start_km
                     if (
-                        0.01 < start_gap <= 0.5
+                        0.01
+                        < start_gap
+                        <= overhang_budget_km
                         and match.span_start_km <= end_km + 0.01
                     ):
                         candidates.append(
@@ -2740,7 +2838,9 @@ class TollPricingService:
 
                     end_gap = end_km - match.span_end_km
                     if (
-                        0.01 < end_gap <= 0.5
+                        0.01
+                        < end_gap
+                        <= overhang_budget_km
                         and match.span_end_km >= start_km - 0.01
                     ):
                         candidates.append(

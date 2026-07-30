@@ -1,0 +1,7 @@
+name,osm_name,operator,lat,lon,type,source
+LE MONTET OUEST,Le Montet Ouest,ALIAE,46.3891633,3.0331607,mainline,OpenStreetMap-2026
+LE MONTET EST,Le Montet Est,ALIAE,46.4173525,3.1072282,mainline,OpenStreetMap-2026
+MONTBEUGNY OUEST,Montbeugny Ouest,ALIAE,46.5043758,3.4261736,mainline,OpenStreetMap-2026
+MONTBEUGNY EST,Montbeugny Est,ALIAE,46.5163715,3.4689789,mainline,OpenStreetMap-2026
+MOLINET OUEST,Molinet Ouest,ALIAE,46.4562950,3.9042445,mainline,OpenStreetMap-2026
+MOLINET EST,Molinet Est,ALIAE,46.4632386,3.9773172,mainline,OpenStreetMap-2026

@@ -217,8 +217,38 @@ les mêmes installations physiques, aux mêmes positions, avec le même opérate
 le même prix et la même distance officielle.
 
 Un dépassement de balisage OSM peut être absorbé sans coût supplémentaire
-uniquement lorsqu'il mesure au maximum 500 m, touche directement une borne
-exacte et ne contient aucun autre événement de paiement.
+uniquement lorsqu'il touche directement une borne exacte et ne contient aucun
+autre événement de paiement. Le budget reste de 500 m pour une ancienne matrice
+non sourcée. Il peut atteindre 5 km pour une cellule officielle datée : cette
+extension ne s'applique qu'au fragment contigu à la borne, jamais à un corridor
+isolé.
+
+## Péages ouverts adjacents et alias physiques
+
+Un tarif ouvert daté peut déclarer qu'il s'ajoute au système fermé adjacent.
+C'est notamment le cas d'un ouvrage d'art concédé séparément. Dans cette
+situation, une entrée ou une sortie fermée située au même point ne supprime pas
+la charge ouverte. Cette propriété est portée par la donnée tarifaire sourcée,
+pas déduite d'un nom de route.
+
+À l'inverse, plusieurs lignes du registre national peuvent désigner la même
+barrière ouverte : point tarifé, points directionnels et gare physique. Un
+alias sans tarif ne bloque plus un événement ouvert déjà sélectionné lorsque
+les deux points sont à moins de 250 m, à moins de 500 m sur le tracé et
+partagent un mot géographique significatif. La proximité seule ne suffit pas.
+
+## Réseaux officiels 2026 intégrés
+
+Le catalogue daté contient les cellules classe 1 publiées pour APRR et AREA,
+ainsi que les cellules Sanef et SAPN déjà importées. Les matrices ciblées
+ESCOTA A51 et ALIAÉ A79 complètent les systèmes dont la géométrie était
+identifiée par l'audit national.
+
+Les six portiques ALIAÉ de l'A79 sont enregistrés comme bornes physiques. Une
+cellule de flux libre ne devient exacte que lorsque les deux portiques officiels
+sont projetés dans le bon ordre et que la matrice 2026 contient ce voyage.
+L'A79 n'est donc jamais tarifée à partir de sa seule référence routière ou de
+sa longueur.
 
 ## Matrices fermées officielles datées et alias géographiques
 

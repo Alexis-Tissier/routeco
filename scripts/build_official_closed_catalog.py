@@ -27,12 +27,28 @@ FIELDS = [
 
 INPUTS = [
     (
+        OFFICIAL_DIR / "closed_prices_aprr_2026.csv",
+        "aprr-class1-2026",
+    ),
+    (
         OFFICIAL_DIR / "closed_prices_sanef_2026.csv",
         "sanef-class1-2026",
     ),
     (
         OFFICIAL_DIR / "closed_prices_sapn_2026.csv",
         "sapn-class1-2026",
+    ),
+    (
+        OFFICIAL_DIR / "closed_prices_area_2026.csv",
+        "area-class1-2026",
+    ),
+    (
+        OFFICIAL_DIR / "closed_prices_escota_2026.csv",
+        "escota-class1-2026",
+    ),
+    (
+        OFFICIAL_DIR / "closed_prices_aliae_2026.csv",
+        "aliae-class1-2026",
     ),
 ]
 
@@ -62,6 +78,26 @@ EXPECTED_CELLS = {
         "POISSY / ORGEVAL N°7 à MANTES-SUD N°12",
         "INCARVILLE N°19 / A154",
     ): 7.50,
+    (
+        "AREA",
+        "AIGUEBELETTE",
+        "ST QUENTIN FAL. BARRIERE",
+    ): 11.00,
+    (
+        "AREA",
+        "VOREPPE BARRIERE",
+        "VOIRON",
+    ): 2.50,
+    (
+        "ESCOTA",
+        "SISTERON-NORD",
+        "AIX (A51)",
+    ): 14.00,
+    (
+        "ALIAE",
+        "LE MONTET OUEST",
+        "MOLINET EST",
+    ): 4.20,
 }
 
 
@@ -118,22 +154,6 @@ def build() -> int:
     rows: list[dict[str, str]] = []
     for path, source_id in INPUTS:
         rows.extend(_source_rows(path, source_id))
-
-    rows.append(
-        {
-            "operator": "APRR",
-            "name_from": "FLEURY-EN-BIERE",
-            "name_to": "URY",
-            "vehicle_class": "1",
-            "price": "2.00",
-            "distance": "34.07",
-            "effective_from": EFFECTIVE_FROM,
-            "effective_to": EFFECTIVE_TO,
-            "season_start": "",
-            "season_end": "",
-            "source_id": "aprr-class1-2026",
-        }
-    )
 
     indexed = {
         (

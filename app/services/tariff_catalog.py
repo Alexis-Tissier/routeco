@@ -30,6 +30,7 @@ class OpenTariffRecord:
     season_start: tuple[int, int] | None
     season_end: tuple[int, int] | None
     source_id: str
+    additive_to_closed: bool = False
 
     def applies_on(self, day: date) -> bool:
         return _applies_on(
@@ -96,6 +97,17 @@ def _parse_month_day(value: object) -> tuple[int, int] | None:
 def _parse_optional_float(value: object) -> float | None:
     text = str(value or "").strip()
     return float(text.replace(",", ".")) if text else None
+
+
+def _parse_bool(value: object) -> bool:
+    text = str(value or "").strip().casefold()
+    if not text:
+        return False
+    if text in {"1", "true", "yes", "oui"}:
+        return True
+    if text in {"0", "false", "no", "non"}:
+        return False
+    raise ValueError(f"Booléen invalide : {value!r}")
 
 
 def _applies_on(
@@ -175,6 +187,9 @@ def load_open_tariff_records(
                         season_start=_parse_month_day(row.get("season_start")),
                         season_end=_parse_month_day(row.get("season_end")),
                         source_id=source_id,
+                        additive_to_closed=_parse_bool(
+                            row.get("additive_to_closed")
+                        ),
                     )
                 except (KeyError, TypeError, ValueError) as exc:
                     raise ValueError(

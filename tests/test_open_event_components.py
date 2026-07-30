@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import json
+from datetime import date
 from pathlib import Path
 
 from app.services.tolls import (
@@ -9,6 +11,7 @@ from app.services.tolls import (
     StationProjection,
     TollPricingService,
     TollRange,
+    TollStation,
     TollStateInterval,
 )
 
@@ -104,6 +107,164 @@ def test_open_twin_of_closed_exit_is_absorbed(tmp_path: Path) -> None:
         StationProjection(open_exit, 31.7, 0.0, 2),
         [closed],
     )
+
+
+def test_dated_additive_open_event_is_not_absorbed_by_closed_exit(
+    tmp_path: Path,
+) -> None:
+    official = tmp_path / "official"
+    official.mkdir()
+    _write_csv(
+        tmp_path / "stations.csv",
+        ["name", "osm_name", "operator", "lat", "lon", "type"],
+        [
+            {"name": "ENTRY", "osm_name": "Entry", "operator": "NET", "lat": "45.0", "lon": "0.0", "type": "closed"},
+            {"name": "BRIDGE", "osm_name": "Bridge", "operator": "OFFICIAL", "lat": "45.0", "lon": "0.4", "type": "mainline"},
+        ],
+    )
+    _write_csv(
+        tmp_path / "closed_prices.csv",
+        ["operator", "name_from", "name_to", "distance", "price1"],
+        [{"operator": "NET", "name_from": "ENTRY", "name_to": "BRIDGE", "distance": "31.5", "price1": "5.00"}],
+    )
+    _write_csv(
+        tmp_path / "open_prices.csv",
+        ["operator", "name", "distance", "price1"],
+        [],
+    )
+    (official / "tariff_sources.json").write_text(
+        json.dumps(
+            {
+                "sources": [
+                    {
+                        "source_id": "bridge-2026",
+                        "publisher": "Test",
+                        "title": "Bridge",
+                        "url": "https://example.test/bridge",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (official / "dated_open_tariffs_2026.csv").write_text(
+        "operator,name,vehicle_class,price,effective_from,effective_to,"
+        "season_start,season_end,source_id,additive_to_closed\n"
+        "BRIDGE-NET,BRIDGE,1,3.00,2026-01-01,2026-12-31,,,"
+        "bridge-2026,true\n",
+        encoding="utf-8",
+    )
+    service = TollPricingService(
+        tmp_path,
+        pricing_date=date(2026, 7, 30),
+    )
+    entry = next(
+        station for station in service.stations
+        if station.name == "ENTRY"
+    )
+    closed_exit = next(
+        station for station in service.stations
+        if station.name == "BRIDGE"
+        and station.system_type != "open"
+    )
+    open_exit = next(
+        station for station in service.stations
+        if station.name == "BRIDGE"
+        and station.system_type == "open"
+    )
+    toll_range = TollRange(0, 2, 0.0, 40.0, 40.0)
+    closed = ClosedMatch(
+        0,
+        toll_range,
+        ClosedPrice(5.0, 31.5, "NET"),
+        StationProjection(entry, 0.0, 0.0, 1),
+        StationProjection(closed_exit, 31.5, 0.0, 2),
+        31.5,
+        False,
+    )
+
+    assert not service._open_projection_absorbed_by_closed_matches(
+        StationProjection(open_exit, 31.7, 0.0, 2),
+        [closed],
+    )
+
+
+def test_directional_mainline_alias_does_not_block_priced_open_event(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path,
+        [
+            {"name": "PEAGE DE THENON", "osm_name": "Péage de Thenon", "operator": "ASF", "lat": "45.15136", "lon": "1.16759", "type": "open"},
+            {"name": "Thenon vers Brives", "osm_name": "Thenon vers Brives", "operator": "OFFICIAL", "lat": "45.15133", "lon": "1.16724", "type": "mainline"},
+        ],
+        [],
+        [{"operator": "ASF", "name": "PEAGE DE THENON", "distance": "", "price1": "8.60"}],
+    )
+    priced = next(
+        station for station in service.stations
+        if station.name == "PEAGE DE THENON"
+    )
+    alias = next(
+        station for station in service.stations
+        if station.name == "Thenon vers Brives"
+    )
+    projections = [
+        StationProjection(priced, 32.0, 0.01, 1),
+        StationProjection(alias, 32.1, 0.01, 1),
+    ]
+
+    unresolved = service._unpriced_billing_events_in_range(
+        projections,
+        TollRange(0, 2, 0.0, 61.2, 61.2),
+        [],
+        [],
+        set(service._station_identity_keys(priced)),
+    )
+
+    assert unresolved == []
+
+
+def test_official_closed_boundary_absorbs_event_free_osm_overhang(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, [], [], [])
+    entry_station = TollStation(
+        "ENTRY", "NET", 45.0, 0.0, "closed"
+    )
+    exit_station = TollStation(
+        "EXIT", "NET", 45.0, 0.4, "closed"
+    )
+    toll_range = TollRange(0, 3, 0.0, 35.0, 35.0)
+    match = ClosedMatch(
+        0,
+        toll_range,
+        ClosedPrice(
+            5.0,
+            31.0,
+            "NET",
+            source_id="official-2026",
+        ),
+        StationProjection(entry_station, 4.0, 0.0, 1),
+        StationProjection(exit_station, 35.0, 0.0, 3),
+        31.0,
+        False,
+    )
+
+    resolved = service._closed_boundary_overhang_spans(
+        ranges=[toll_range],
+        toll_state_intervals=[
+            TollStateInterval(
+                0, 3, 0.0, 35.0, 35.0, "ALL", "toll"
+            )
+        ],
+        projections=[],
+        accepted_closed=[match],
+        road_class_link_details=[],
+        used_station_keys=set(),
+    )
+
+    assert resolved == [(0.0, 4.0)]
 
 
 def test_open_event_resolves_detailed_residual_component(tmp_path: Path) -> None:
