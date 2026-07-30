@@ -134,3 +134,17 @@ Chaque validation écrit également un manifeste `missing-tariffs-*` regroupant
 les intervalles, gares et corridors à examiner. Ce manifeste est une file de
 diagnostic : il ne transforme jamais automatiquement un candidat en tarif
 officiel.
+
+<!-- ROUTECO_V034_TARIFF_CATALOG -->
+## Classification des intervalles et tarifs datés
+
+Le manifeste classe chaque intervalle non résolu selon une cause probable.
+Cette classification organise la vérification ; elle ne transforme jamais
+seule une estimation en tarif exact.
+
+Les tarifs datés sont séparés des anciens CSV statiques. Chaque ligne contient
+une période d'effet, une éventuelle saison annuelle, la classe du véhicule et
+un identifiant présent dans le registre des sources officielles.
+
+Une donnée tarifaire spécifique à une installation est autorisée. Une règle de
+code spécifique à une ville ou à un trajet reste interdite.

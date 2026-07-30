@@ -65,7 +65,12 @@ def test_manifest_aggregates_station_and_corridor_candidates() -> None:
         == "missing_open_tariff"
     )
     assert len(manifest["corridor_review_candidates"]) == 1
+    assert manifest["summary"]["cause_counts"] == {
+        "missing_open_tariff": 1
+    }
+    assert len(manifest["verification_queue"]) == 1
 
     markdown = render_missing_toll_manifest(manifest)
     assert "Portique Alpha" in markdown
     assert "10.0→20.0 km" in markdown
+    assert "missing_open_tariff" in markdown

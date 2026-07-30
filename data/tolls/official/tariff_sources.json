@@ -1,0 +1,13 @@
+{
+  "sources": [
+    {
+      "source_id": "cevm-viaduc-millau-2026",
+      "publisher": "Compagnie Eiffage du Viaduc de Millau",
+      "title": "Tarifs du péage au 1er février 2026",
+      "url": "https://www.leviaducdemillau.com/accueil-viaduc-de-millau/tarifs-du-peage.html",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    }
+  ]
+}

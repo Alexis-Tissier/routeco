@@ -1,0 +1,3 @@
+operator,name,vehicle_class,price,effective_from,effective_to,season_start,season_end,source_id
+CEVM,GARES DE PEAGE DE SAINT GERMAIN,1,11.30,2026-02-01,2027-01-31,09-16,06-14,cevm-viaduc-millau-2026
+CEVM,GARES DE PEAGE DE SAINT GERMAIN,1,13.80,2026-02-01,2027-01-31,06-15,09-15,cevm-viaduc-millau-2026

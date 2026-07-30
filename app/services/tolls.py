@@ -5,10 +5,17 @@ import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from app.services.geo import haversine_km, point_segment_projection_km, polyline_distance_km
+from app.services.tariff_catalog import (
+    OpenTariffRecord,
+    TariffSource,
+    load_open_tariff_records,
+    load_tariff_sources,
+)
 
 
 def normalize_name(value: str) -> str:
@@ -215,6 +222,14 @@ class TollPlan:
             or self.unresolved_km <= 0.05
         )
         return distance_complete and not self.has_unresolved_events
+# ROUTECO_V034_DATED_TARIFFS
+@dataclass(frozen=True, slots=True)
+class OpenTariffSelection:
+    operator: str
+    price: float
+    source_id: str | None
+    kind: str
+
 class TollPricingService:
     """Price French tolls from local OpenTollData matrices.
 
@@ -241,18 +256,37 @@ class TollPricingService:
     OSM_BOUNDARY_FRAGMENT_KM = 10.0
     OSM_BOUNDARY_EVENT_GAP_KM = 25.0
 
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(
+        self,
+        data_dir: Path,
+        pricing_date: date | None = None,
+    ) -> None:
         self.data_dir = data_dir
+        self.pricing_date = pricing_date or date.today()
         self.stations: list[TollStation] = []
         self.closed_prices: dict[tuple[str, str, str], ClosedPrice] = {}
         self.closed_prices_any: dict[tuple[str, str], list[ClosedPrice]] = {}
         self.open_prices: dict[tuple[str, str], float] = {}
         self.open_prices_any: dict[str, list[tuple[str, float]]] = {}
+        self.tariff_sources: dict[str, TariffSource] = {}
+        self.dated_open_tariffs: dict[
+            tuple[str, str], list[OpenTariffRecord]
+        ] = {}
+        self.dated_open_tariffs_any: dict[
+            str, list[OpenTariffRecord]
+        ] = {}
         self._load()
 
     @property
     def ready(self) -> bool:
-        return bool(self.stations and (self.closed_prices or self.open_prices))
+        return bool(
+            self.stations
+            and (
+                self.closed_prices
+                or self.open_prices
+                or self.dated_open_tariffs
+            )
+        )
 
     @staticmethod
     def _parse_float(value: str | None) -> float | None:
@@ -270,6 +304,26 @@ class TollPricingService:
         closed_files.extend(sorted((self.data_dir / "official").glob("closed_prices*.csv")))
         open_files = sorted(self.data_dir.glob("open_prices*.csv"))
         open_files.extend(sorted((self.data_dir / "official").glob("open_prices*.csv")))
+        dated_open_files = sorted(
+            self.data_dir.glob("dated_open_tariffs*.csv")
+        )
+        dated_open_files.extend(
+            sorted(
+                (self.data_dir / "official").glob(
+                    "dated_open_tariffs*.csv"
+                )
+            )
+        )
+        source_files = sorted(
+            self.data_dir.glob("tariff_sources*.json")
+        )
+        source_files.extend(
+            sorted(
+                (self.data_dir / "official").glob(
+                    "tariff_sources*.json"
+                )
+            )
+        )
 
         seen_stations: set[tuple[str, int, int, str]] = set()
         for stations_file in station_files:
@@ -344,12 +398,134 @@ class TollPricingService:
                     except (KeyError, TypeError, ValueError):
                         continue
 
+        self.tariff_sources = load_tariff_sources(source_files)
+        dated_records = load_open_tariff_records(
+            dated_open_files,
+            self.tariff_sources,
+        )
+        for record in dated_records:
+            if record.vehicle_class != 1:
+                continue
+            for alias in name_aliases(record.name):
+                self.dated_open_tariffs.setdefault(
+                    (record.operator, alias), []
+                ).append(record)
+                self.dated_open_tariffs_any.setdefault(
+                    alias, []
+                ).append(record)
+
         # Open-system prices and station coordinates often come from different
         # sources. Build explicit open-station twins only when a station name
         # unambiguously matches an open-toll tariff. This keeps the production
         # algorithm data-driven: no journey, city pair or route name is encoded
         # here.
         self._materialize_open_stations()
+
+    def _select_dated_open_tariff(
+        self,
+        station: TollStation,
+    ) -> OpenTariffSelection | None:
+        aliases = name_aliases(station.name) | name_aliases(station.osm_name)
+        records: list[OpenTariffRecord] = []
+        for alias in aliases:
+            records.extend(
+                self.dated_open_tariffs.get((station.operator, alias), [])
+            )
+
+        applicable = [
+            record
+            for record in records
+            if record.vehicle_class == 1
+            and record.applies_on(self.pricing_date)
+        ]
+        if not applicable:
+            for alias in aliases:
+                applicable.extend(
+                    record
+                    for record in self.dated_open_tariffs_any.get(alias, [])
+                    if record.vehicle_class == 1
+                    and record.applies_on(self.pricing_date)
+                )
+
+        unique = {
+            (record.operator, round(record.price, 2), record.source_id): record
+            for record in applicable
+        }
+        if not unique:
+            return None
+        preferred = [
+            record
+            for record in unique.values()
+            if station.operator and record.operator == station.operator
+        ]
+        candidates = preferred or list(unique.values())
+        values = {
+            (round(record.price, 2), record.source_id)
+            for record in candidates
+        }
+        if len(values) != 1:
+            return None
+        record = sorted(
+            candidates,
+            key=lambda item: (item.operator, item.source_id, item.price),
+        )[0]
+        return OpenTariffSelection(
+            operator=record.operator,
+            price=record.price,
+            source_id=record.source_id,
+            kind="dated",
+        )
+
+    def _select_fixed_open_tariff(
+        self,
+        station: TollStation,
+    ) -> OpenTariffSelection | None:
+        aliases = name_aliases(station.name) | name_aliases(station.osm_name)
+        direct = {
+            self.open_prices[(station.operator, name)]
+            for name in aliases
+            if (station.operator, name) in self.open_prices
+        }
+        if len(direct) == 1:
+            return OpenTariffSelection(
+                operator=station.operator,
+                price=next(iter(direct)),
+                source_id=None,
+                kind="fixed",
+            )
+        candidates = {
+            (operator, price)
+            for name in aliases
+            for operator, price in self.open_prices_any.get(name, [])
+        }
+        prices = {price for _, price in candidates}
+        if len(prices) != 1:
+            return None
+        preferred = [
+            item for item in candidates if item[0] == station.operator
+        ]
+        operator, price = (
+            sorted(preferred)[0] if preferred else sorted(candidates)[0]
+        )
+        return OpenTariffSelection(
+            operator=operator,
+            price=price,
+            source_id=None,
+            kind="fixed",
+        )
+
+    def _lookup_open_selection(
+        self,
+        station: TollStation,
+    ) -> OpenTariffSelection | None:
+        return (
+            self._select_dated_open_tariff(station)
+            or self._select_fixed_open_tariff(station)
+        )
+
+    def _lookup_open_source(self, station: TollStation) -> str | None:
+        selection = self._lookup_open_selection(station)
+        return selection.source_id if selection is not None else None
 
     def _materialize_open_stations(self) -> None:
         existing = {
@@ -365,25 +541,9 @@ class TollPricingService:
         for station in list(self.stations):
             if station.system_type == "open":
                 continue
-            aliases = name_aliases(station.name) | name_aliases(station.osm_name)
-            matches: set[tuple[str, float]] = set()
-            for alias in aliases:
-                direct = self.open_prices.get((station.operator, alias))
-                if direct is not None:
-                    matches.add((station.operator, direct))
-                matches.update(self.open_prices_any.get(alias, []))
-            values = {(operator, price) for operator, price in matches if price >= 0}
-            if not values:
+            selection = self._lookup_open_selection(station)
+            if selection is None or selection.price < 0:
                 continue
-            preferred = [item for item in values if item[0] == station.operator]
-            if preferred:
-                operator, _ = sorted(preferred)[0]
-            else:
-                operators = {operator for operator, _ in values if operator}
-                prices = {price for _, price in values}
-                if len(operators) != 1 or len(prices) != 1:
-                    continue
-                operator = next(iter(operators))
             key = (
                 normalize_name(station.name),
                 round(station.lat * 10000),
@@ -397,11 +557,13 @@ class TollPricingService:
                 TollStation(
                     name=station.name,
                     osm_name=station.osm_name,
-                    operator=operator or station.operator,
+                    operator=selection.operator or station.operator,
                     lat=station.lat,
                     lon=station.lon,
                     system_type="open",
-                    physical_type=station.physical_type or station.system_type,
+                    physical_type=(
+                        station.physical_type or station.system_type
+                    ),
                 )
             )
         self.stations.extend(additions)
@@ -3282,22 +3444,8 @@ class TollPricingService:
         return None
 
     def _lookup_open(self, station: TollStation) -> float | None:
-        aliases = name_aliases(station.name) | name_aliases(station.osm_name)
-        direct = {
-            self.open_prices[(station.operator, name)]
-            for name in aliases
-            if (station.operator, name) in self.open_prices
-        }
-        if len(direct) == 1:
-            return next(iter(direct))
-        candidates = {
-            price
-            for name in aliases
-            for _, price in self.open_prices_any.get(name, [])
-        }
-        if len(candidates) == 1:
-            return next(iter(candidates))
-        return None
+        selection = self._lookup_open_selection(station)
+        return selection.price if selection is not None else None
 
     @staticmethod
     def _dedupe_names(names: list[str]) -> list[str]:

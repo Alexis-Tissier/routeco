@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import Counter
 from typing import Any
+
+from app.services.toll_gap_classifier import (
+    CAUSE_ACTION,
+    CAUSE_PRIORITY,
+    classify_unresolved_interval,
+)
+
+# ROUTECO_V034_GAP_CLASSIFIER
 
 
 def _key(value: str) -> str:
@@ -56,10 +65,11 @@ def build_missing_toll_manifest(
         dict[str, Any],
     ] = {}
     corridor_groups: dict[
-        tuple[str, str],
+        tuple[str, str, str],
         dict[str, Any],
     ] = {}
     affected_routes: set[tuple[str, str]] = set()
+    cause_counts: Counter[str] = Counter()
 
     for scenario in validation_payload.get("results", []):
         scenario_id = str(scenario.get("id") or "")
@@ -134,6 +144,11 @@ def build_missing_toll_manifest(
                         )
                     ),
                 }
+                cause = classify_unresolved_interval(occurrence)
+                occurrence["cause"] = cause
+                occurrence["priority"] = CAUSE_PRIORITY[cause]
+                occurrence["recommended_action"] = CAUSE_ACTION[cause]
+                cause_counts[cause] += 1
                 intervals.append(occurrence)
 
                 for station in nearby:
@@ -249,13 +264,27 @@ def build_missing_toll_manifest(
                         if str(item.get("name") or "")
                     }
                 )
+                if start_labels or end_labels:
+                    start_key = "|".join(
+                        _key(item) for item in start_labels
+                    )
+                    end_key = "|".join(
+                        _key(item) for item in end_labels
+                    )
+                else:
+                    start_key = f"{scenario_id}:{route_id}"
+                    end_key = f"{start_km:.1f}:{end_km:.1f}"
                 corridor_key = (
-                    "|".join(_key(item) for item in start_labels),
-                    "|".join(_key(item) for item in end_labels),
+                    cause,
+                    start_key,
+                    end_key,
                 )
                 corridor = corridor_groups.setdefault(
                     corridor_key,
                     {
+                        "cause": cause,
+                        "priority": CAUSE_PRIORITY[cause],
+                        "recommended_action": CAUSE_ACTION[cause],
                         "start_candidates": start_labels,
                         "end_candidates": end_labels,
                         "occurrences": 0,
@@ -301,6 +330,28 @@ def build_missing_toll_manifest(
         ),
     )
 
+    verification_queue = sorted(
+        [
+            {
+                "priority": item["priority"],
+                "cause": item["cause"],
+                "recommended_action": item["recommended_action"],
+                "scenario_id": item["scenario_id"],
+                "route_id": item["route_id"],
+                "route_start_km": item["route_start_km"],
+                "route_end_km": item["route_end_km"],
+                "unresolved_km": item["unresolved_km"],
+            }
+            for item in intervals
+        ],
+        key=lambda item: (
+            int(item["priority"]),
+            -float(item["unresolved_km"]),
+            item["scenario_id"],
+            item["route_id"],
+        ),
+    )
+
     return {
         "generated_at": validation_payload.get(
             "generated_at"
@@ -318,7 +369,9 @@ def build_missing_toll_manifest(
             "corridor_review_candidates": len(
                 corridors
             ),
+            "cause_counts": dict(sorted(cause_counts.items())),
         },
+        "verification_queue": verification_queue,
         "station_review_candidates": station_candidates,
         "corridor_review_candidates": corridors,
         "unresolved_intervals": intervals,
@@ -342,9 +395,37 @@ def render_missing_toll_manifest(
         f"- Gares/portiques à examiner : **{summary['station_review_candidates']}**",
         f"- Corridors à examiner : **{summary['corridor_review_candidates']}**",
         "",
-        "## Gares et portiques à examiner",
+        "### Causes probables",
         "",
     ]
+    for cause, count in summary.get("cause_counts", {}).items():
+        lines.append(f"- `{cause}` : **{count}**")
+    if not summary.get("cause_counts"):
+        lines.append("- Aucun intervalle non résolu.")
+    lines.extend(
+        [
+            "",
+            "## File de vérification",
+            "",
+        ]
+    )
+    for item in manifest.get("verification_queue", []):
+        lines.append(
+            f"- P{item['priority']} `{item['cause']}` — "
+            f"{item['scenario_id']} / {item['route_id']} — "
+            f"{item['route_start_km']:.1f}→"
+            f"{item['route_end_km']:.1f} km : "
+            f"{item['recommended_action']}"
+        )
+    if not manifest.get("verification_queue"):
+        lines.append("- Aucune vérification en attente.")
+    lines.extend(
+        [
+            "",
+            "## Gares et portiques à examiner",
+            "",
+        ]
+    )
 
     candidates = manifest.get(
         "station_review_candidates",
