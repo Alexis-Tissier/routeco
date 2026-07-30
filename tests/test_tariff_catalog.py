@@ -8,11 +8,14 @@ from pathlib import Path
 import pytest
 
 from app.services.tariff_catalog import (
+    ClosedTariffRecord,
     OpenTariffRecord,
+    load_closed_tariff_records,
     load_open_tariff_records,
+    load_physical_tariff_aliases,
     load_tariff_sources,
 )
-from app.services.tolls import TollPricingService
+from app.services.tolls import TollPricingService, TollStation
 
 
 def test_recurring_seasons_support_calendar_wraparound() -> None:
@@ -158,3 +161,243 @@ def test_unknown_source_id_is_rejected(tmp_path: Path) -> None:
     sources = load_tariff_sources([registry])
     with pytest.raises(ValueError, match="source_id inconnu"):
         load_open_tariff_records([records], sources)
+
+
+def _write_closed_catalog(
+    root: Path,
+    *,
+    effective_from: str = "2026-02-01",
+    effective_to: str = "2027-01-31",
+) -> None:
+    official = root / "official"
+    official.mkdir(parents=True)
+    for filename, header in (
+        (
+            root / "stations.csv",
+            "name,osm_name,operator,lat,lon,type\n",
+        ),
+        (
+            root / "closed_prices.csv",
+            (
+                "operator,name_from,name_to,distance,price1\n"
+                "TEST,TARIFF ALPHA,OMEGA,11.0,9.90\n"
+            ),
+        ),
+        (
+            root / "open_prices.csv",
+            "operator,name,distance,price1\n",
+        ),
+    ):
+        filename.write_text(header, encoding="utf-8")
+    (official / "tariff_sources.json").write_text(
+        json.dumps(
+            {
+                "sources": [
+                    {
+                        "source_id": "official-closed",
+                        "publisher": "Test",
+                        "title": "Matrice officielle",
+                        "url": "https://example.test/closed",
+                        "effective_from": effective_from,
+                        "effective_to": effective_to,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (official / "dated_closed_tariffs_2026.csv").write_text(
+        "operator,name_from,name_to,vehicle_class,price,distance,"
+        "effective_from,effective_to,season_start,season_end,source_id\n"
+        f"TEST,TARIFF ALPHA,OMEGA,1,2.00,34.07,{effective_from},"
+        f"{effective_to},,,official-closed\n",
+        encoding="utf-8",
+    )
+    (official / "physical_tariff_aliases.csv").write_text(
+        "operator,physical_name,tariff_name,lat,lon,max_distance_km,"
+        "source_id\n"
+        "TEST,PHYSICAL ALPHA,TARIFF ALPHA,48.0,2.0,0.8,"
+        "official-closed\n",
+        encoding="utf-8",
+    )
+
+
+def test_closed_tariff_loader_preserves_dates_distance_and_source(
+    tmp_path: Path,
+) -> None:
+    _write_closed_catalog(tmp_path)
+    sources = load_tariff_sources(
+        [tmp_path / "official" / "tariff_sources.json"]
+    )
+    records = load_closed_tariff_records(
+        [tmp_path / "official" / "dated_closed_tariffs_2026.csv"],
+        sources,
+    )
+
+    assert records == [
+        ClosedTariffRecord(
+            operator="TEST",
+            name_from="TARIFF ALPHA",
+            name_to="OMEGA",
+            vehicle_class=1,
+            price=2.0,
+            distance_km=34.07,
+            effective_from=date(2026, 2, 1),
+            effective_to=date(2027, 1, 31),
+            season_start=None,
+            season_end=None,
+            source_id="official-closed",
+        )
+    ]
+    assert records[0].applies_on(date(2026, 7, 30))
+    assert not records[0].applies_on(date(2028, 1, 1))
+
+
+def test_applicable_official_closed_cell_beats_legacy_record(
+    tmp_path: Path,
+) -> None:
+    _write_closed_catalog(tmp_path)
+    service = TollPricingService(
+        tmp_path,
+        pricing_date=date(2026, 7, 30),
+    )
+    entry = TollStation(
+        "PHYSICAL ALPHA",
+        "OFFICIAL",
+        48.0,
+        2.0,
+        "closed",
+    )
+    exit_ = TollStation(
+        "OMEGA",
+        "TEST",
+        48.1,
+        2.1,
+        "closed",
+    )
+
+    selected = service._lookup_closed(entry, exit_)
+
+    assert selected is not None
+    assert selected.price == 2.0
+    assert selected.source_id == "official-closed"
+
+
+def test_geographic_alias_is_not_applied_to_distant_homonym(
+    tmp_path: Path,
+) -> None:
+    _write_closed_catalog(tmp_path)
+    service = TollPricingService(
+        tmp_path,
+        pricing_date=date(2026, 7, 30),
+    )
+    nearby = TollStation(
+        "PHYSICAL ALPHA",
+        "OFFICIAL",
+        48.0,
+        2.0,
+        "closed",
+    )
+    distant = TollStation(
+        "PHYSICAL ALPHA",
+        "OFFICIAL",
+        43.0,
+        7.0,
+        "closed",
+    )
+    exit_ = TollStation(
+        "OMEGA",
+        "TEST",
+        48.1,
+        2.1,
+        "closed",
+    )
+
+    assert service._lookup_closed(nearby, exit_) is not None
+    assert service._lookup_closed(distant, exit_) is None
+
+
+def test_alias_with_unknown_source_is_rejected(tmp_path: Path) -> None:
+    _write_closed_catalog(tmp_path)
+    sources = load_tariff_sources(
+        [tmp_path / "official" / "tariff_sources.json"]
+    )
+    aliases = tmp_path / "official" / "physical_tariff_aliases.csv"
+    aliases.write_text(
+        "operator,physical_name,tariff_name,lat,lon,max_distance_km,"
+        "source_id\n"
+        "TEST,ALPHA,TARIFF ALPHA,48.0,2.0,0.8,missing\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="source_id inconnu"):
+        load_physical_tariff_aliases([aliases], sources)
+
+
+def test_production_catalog_uses_verified_2026_closed_cells() -> None:
+    service = TollPricingService(
+        Path("data/tolls"),
+        pricing_date=date(2026, 7, 30),
+    )
+    cases = [
+        (
+            TollStation(
+                "Fleury-En-Biere",
+                "APRR",
+                48.4285335,
+                2.5392307,
+                "mainline",
+            ),
+            TollStation(
+                "Ury",
+                "APRR",
+                48.3386468,
+                2.5954078,
+                "closed",
+            ),
+            2.0,
+            "aprr-class1-2026",
+        ),
+        (
+            TollStation(
+                "Vallee de la Somme",
+                "OFFICIAL",
+                49.8769621,
+                2.8398291,
+                "closed",
+            ),
+            TollStation(
+                "Fontaine Notre-Dame",
+                "OFFICIAL",
+                50.1756716,
+                3.1921790,
+                "closed",
+            ),
+            3.4,
+            "sanef-class1-2026",
+        ),
+        (
+            TollStation(
+                "Buchelay",
+                "OFFICIAL",
+                48.9836349,
+                1.6811606,
+                "mainline",
+            ),
+            TollStation(
+                "Incarville",
+                "OFFICIAL",
+                49.2463003,
+                1.1836769,
+                "mainline",
+            ),
+            7.5,
+            "sapn-class1-2026",
+        ),
+    ]
+
+    for entry, exit_, price, source_id in cases:
+        selected = service._lookup_closed(entry, exit_)
+        assert selected is not None
+        assert selected.price == price
+        assert selected.source_id == source_id

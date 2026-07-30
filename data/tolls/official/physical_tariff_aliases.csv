@@ -1,0 +1,7 @@
+operator,physical_name,tariff_name,lat,lon,max_distance_km,source_id
+SANEF,Chamant,PARIS / ROISSY (péage de Chamant),49.2157943,2.6277637,0.8,sanef-class1-2026
+SANEF,Senlis-Chamant,PARIS / ROISSY (péage de Chamant),49.2156450,2.6269079,0.8,sanef-class1-2026
+SANEF,Saint Witz,SURVILLIERS / SAINT-WITZ N°7,49.0848207,2.5509795,0.8,sanef-class1-2026
+SANEF,Vallee de la Somme,PÉRONNE / VALLEE DE LA SOMME N°13,49.8769621,2.8398291,0.8,sanef-class1-2026
+SANEF,Fontaine Notre-Dame,CAMBRAI N°14,50.1756716,3.1921790,0.8,sanef-cambrai-exit14-2025
+SAPN,Buchelay,POISSY / ORGEVAL N°7 à MANTES-SUD N°12,48.9836349,1.6811606,0.8,sapn-class1-2026

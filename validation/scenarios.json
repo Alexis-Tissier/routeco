@@ -120,8 +120,8 @@
       "exact"
     ],
     "expected_fastest_toll_eur": {
-      "min": 15.0,
-      "max": 17.5
+      "min": 18.0,
+      "max": 18.5
     }
   },
   {

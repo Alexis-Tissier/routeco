@@ -12,8 +12,11 @@ from typing import Any
 from app.services.geo import haversine_km, point_segment_projection_km, polyline_distance_km
 from app.services.tariff_catalog import (
     OpenTariffRecord,
+    PhysicalTariffAlias,
     TariffSource,
+    load_closed_tariff_records,
     load_open_tariff_records,
+    load_physical_tariff_aliases,
     load_tariff_sources,
 )
 
@@ -134,6 +137,9 @@ class ClosedPrice:
     price: float
     distance_km: float | None
     operator: str
+    source_id: str | None = None
+    effective_from: date | None = None
+    effective_to: date | None = None
 
 
 @dataclass(slots=True)
@@ -266,9 +272,18 @@ class TollPricingService:
         self.stations: list[TollStation] = []
         self.closed_prices: dict[tuple[str, str, str], ClosedPrice] = {}
         self.closed_prices_any: dict[tuple[str, str], list[ClosedPrice]] = {}
+        self.dated_closed_prices: dict[
+            tuple[str, str, str], list[ClosedPrice]
+        ] = {}
+        self.dated_closed_prices_any: dict[
+            tuple[str, str], list[ClosedPrice]
+        ] = {}
         self.open_prices: dict[tuple[str, str], float] = {}
         self.open_prices_any: dict[str, list[tuple[str, float]]] = {}
         self.tariff_sources: dict[str, TariffSource] = {}
+        self.physical_tariff_aliases: list[
+            PhysicalTariffAlias
+        ] = []
         self.dated_open_tariffs: dict[
             tuple[str, str], list[OpenTariffRecord]
         ] = {}
@@ -283,6 +298,7 @@ class TollPricingService:
             self.stations
             and (
                 self.closed_prices
+                or self.dated_closed_prices
                 or self.open_prices
                 or self.dated_open_tariffs
             )
@@ -321,6 +337,26 @@ class TollPricingService:
             sorted(
                 (self.data_dir / "official").glob(
                     "tariff_sources*.json"
+                )
+            )
+        )
+        dated_closed_files = sorted(
+            self.data_dir.glob("dated_closed_tariffs*.csv")
+        )
+        dated_closed_files.extend(
+            sorted(
+                (self.data_dir / "official").glob(
+                    "dated_closed_tariffs*.csv"
+                )
+            )
+        )
+        physical_alias_files = sorted(
+            self.data_dir.glob("physical_tariff_aliases*.csv")
+        )
+        physical_alias_files.extend(
+            sorted(
+                (self.data_dir / "official").glob(
+                    "physical_tariff_aliases*.csv"
                 )
             )
         )
@@ -399,6 +435,59 @@ class TollPricingService:
                         continue
 
         self.tariff_sources = load_tariff_sources(source_files)
+        dated_closed_records = load_closed_tariff_records(
+            dated_closed_files,
+            self.tariff_sources,
+        )
+        for tariff in dated_closed_records:
+            if (
+                tariff.vehicle_class != 1
+                or not tariff.applies_on(self.pricing_date)
+            ):
+                continue
+            record = ClosedPrice(
+                price=tariff.price,
+                distance_km=tariff.distance_km,
+                operator=tariff.operator,
+                source_id=tariff.source_id,
+                effective_from=tariff.effective_from,
+                effective_to=tariff.effective_to,
+            )
+            aliases_a = name_aliases(tariff.name_from)
+            aliases_b = name_aliases(tariff.name_to)
+            for alias_a in aliases_a:
+                for alias_b in aliases_b:
+                    if (
+                        not alias_a
+                        or not alias_b
+                        or alias_a == alias_b
+                    ):
+                        continue
+                    direct = self.dated_closed_prices.setdefault(
+                        (
+                            tariff.operator,
+                            alias_a,
+                            alias_b,
+                        ),
+                        [],
+                    )
+                    if record not in direct:
+                        direct.append(record)
+                    any_operator = (
+                        self.dated_closed_prices_any.setdefault(
+                            (alias_a, alias_b),
+                            [],
+                        )
+                    )
+                    if record not in any_operator:
+                        any_operator.append(record)
+
+        self.physical_tariff_aliases = (
+            load_physical_tariff_aliases(
+                physical_alias_files,
+                self.tariff_sources,
+            )
+        )
         dated_records = load_open_tariff_records(
             dated_open_files,
             self.tariff_sources,
@@ -2351,7 +2440,9 @@ class TollPricingService:
             else:
                 groups.append([match])
 
-        def score(item: ClosedMatch) -> tuple[float, float, float]:
+        def score(
+            item: ClosedMatch,
+        ) -> tuple[int, int, float, float, float]:
             boundary_gap = (
                 abs(item.span_start_km - interval_start_km)
                 + abs(item.span_end_km - interval_end_km)
@@ -2362,6 +2453,13 @@ class TollPricingService:
                 - max(item.span_start_km, interval_start_km),
             )
             return (
+                -int(item.record.source_id is not None),
+                -int(
+                    self._closed_record_distance_is_supporting_evidence(
+                        item.record,
+                        item.span_km,
+                    )
+                ),
                 boundary_gap,
                 -overlap,
                 item.entry.lateral_km + item.exit.lateral_km,
@@ -3477,6 +3575,62 @@ class TollPricingService:
         return quote
 
     # ROUTECO_V034_MATRIX_SELECTION_HOTFIX
+    @classmethod
+    def _official_closed_match_supersedes(
+        cls,
+        candidate: ClosedMatch,
+        nested: ClosedMatch,
+    ) -> bool:
+        """Return whether one official journey replaces a nested partial one.
+
+        A longer fare is not better merely because its projected span is
+        longer. It may dominate only when it is sourced, physically contains
+        the partial journey, uses a compatible operator and shares the same
+        entry or the same exit. Those conditions identify two tariff cells for
+        the same closed-system journey without relying on route or city names.
+        """
+        if candidate is nested or candidate.record.source_id is None:
+            return False
+
+        candidate_operator = (candidate.record.operator or "").upper()
+        nested_operator = (nested.record.operator or "").upper()
+        if (
+            candidate_operator
+            and nested_operator
+            and candidate_operator != nested_operator
+        ):
+            return False
+
+        if (
+            candidate.span_start_km > nested.span_start_km + 0.5
+            or candidate.span_end_km < nested.span_end_km - 0.5
+        ):
+            return False
+
+        extends_before = (
+            candidate.span_start_km
+            < nested.span_start_km - 1.0
+        )
+        extends_after = (
+            candidate.span_end_km
+            > nested.span_end_km + 1.0
+        )
+        same_entry = (
+            extends_after
+            and cls._same_physical_closed_projection(
+                candidate.entry,
+                nested.entry,
+            )
+        )
+        same_exit = (
+            extends_before
+            and cls._same_physical_closed_projection(
+                candidate.exit,
+                nested.exit,
+            )
+        )
+        return same_entry or same_exit
+
     def _select_closed_matches(
         self,
         proposals: list[ClosedMatch],
@@ -3489,6 +3643,24 @@ class TollPricingService:
         ]
         if not candidates:
             return []
+
+        # A sourced maximal cell for the same physical journey replaces its
+        # nested partial cell before the coverage optimiser runs. Otherwise a
+        # partial matrix can win simply because it was generated from a longer
+        # local OSM range, leaving the rest estimated or causing both fares to
+        # be considered separately.
+        candidates = [
+            item
+            for item in candidates
+            if not any(
+                self._official_closed_match_supersedes(
+                    other,
+                    item,
+                )
+                for other in candidates
+                if other is not item
+            )
+        ]
 
         def potential(item: ClosedMatch) -> float:
             return min(
@@ -3513,6 +3685,7 @@ class TollPricingService:
                     - item.toll_range.distance_km
                 ),
                 -item_mainline_score(item),
+                -int(item.record.source_id is not None),
                 -int(item.record.distance_km is not None),
                 item.entry.lateral_km
                 + item.exit.lateral_km,
@@ -3566,6 +3739,7 @@ class TollPricingService:
             -1e12,
             -1,
             -1,
+            -1,
             -10_000,
             -1e12,
         )
@@ -3580,6 +3754,7 @@ class TollPricingService:
             float,
             int,
             float,
+            int,
             int,
             int,
             int,
@@ -3601,6 +3776,7 @@ class TollPricingService:
 
             span_fit = 0.0
             mainline_boundaries = 0
+            official_source_evidence = 0
             matrix_distance_evidence = 0
             for range_index, items in grouped.items():
                 first = min(
@@ -3626,6 +3802,10 @@ class TollPricingService:
                 mainline_boundaries += int(
                     last.exit.station.is_mainline_barrier
                 )
+                official_source_evidence += sum(
+                    item.record.source_id is not None
+                    for item in items
+                )
                 matrix_distance_evidence += sum(
                     item.record.distance_km is not None
                     for item in items
@@ -3636,6 +3816,7 @@ class TollPricingService:
                 full_ranges,
                 round(span_fit, 6),
                 mainline_boundaries,
+                official_source_evidence,
                 matrix_distance_evidence,
                 -len(accepted),
                 -lateral_sum,
@@ -4394,13 +4575,99 @@ class TollPricingService:
             return None
         return best[1], best[2], best[3]
 
-    def _lookup_closed(self, entry: TollStation, exit_: TollStation) -> ClosedPrice | None:
-        aliases_a = name_aliases(entry.name) | name_aliases(entry.osm_name)
-        aliases_b = name_aliases(exit_.name) | name_aliases(exit_.osm_name)
-        operators = [entry.operator, exit_.operator]
+    def _validated_tariff_aliases(
+        self,
+        station: TollStation,
+    ) -> list[PhysicalTariffAlias]:
+        station_aliases = (
+            name_aliases(station.name)
+            | name_aliases(station.osm_name)
+        )
+        output: list[PhysicalTariffAlias] = []
+        for alias in self.physical_tariff_aliases:
+            if not (
+                station_aliases
+                & name_aliases(alias.physical_name)
+            ):
+                continue
+            if (
+                station.operator
+                and station.operator != "OFFICIAL"
+                and station.operator != alias.operator
+            ):
+                continue
+            distance_km = haversine_km(
+                (station.lon, station.lat),
+                (alias.lon, alias.lat),
+            )
+            if distance_km > alias.max_distance_km:
+                continue
+            output.append(alias)
+        return output
+
+    def _closed_tariff_aliases(
+        self,
+        station: TollStation,
+    ) -> set[str]:
+        aliases = (
+            name_aliases(station.name)
+            | name_aliases(station.osm_name)
+        )
+        for mapping in self._validated_tariff_aliases(station):
+            aliases.update(name_aliases(mapping.tariff_name))
+        return aliases
+
+    def _closed_tariff_operators(
+        self,
+        station: TollStation,
+    ) -> list[str]:
+        operators = [station.operator]
+        operators.extend(
+            mapping.operator
+            for mapping in self._validated_tariff_aliases(station)
+        )
+        return list(dict.fromkeys(item for item in operators if item))
+
+    @staticmethod
+    def _closed_record_distance_is_supporting_evidence(
+        record: ClosedPrice,
+        projected_span_km: float,
+    ) -> bool:
+        """Return whether distance can strengthen an already proven match.
+
+        A distance is supporting evidence only when it belongs to a sourced
+        official cell and agrees with the measured span. A mismatch never
+        rejects the cell here: simplified polylines can shorten projections,
+        while topology and physical boundary identity remain valid evidence.
+        """
+        if (
+            record.source_id is None
+            or record.distance_km is None
+            or projected_span_km <= 0.0
+        ):
+            return False
+        tolerance_km = max(5.0, projected_span_km * 0.18)
+        return (
+            abs(record.distance_km - projected_span_km)
+            <= tolerance_km
+        )
+
+    def _lookup_closed(
+        self,
+        entry: TollStation,
+        exit_: TollStation,
+    ) -> ClosedPrice | None:
+        aliases_a = self._closed_tariff_aliases(entry)
+        aliases_b = self._closed_tariff_aliases(exit_)
+        operators = list(
+            dict.fromkeys(
+                self._closed_tariff_operators(entry)
+                + self._closed_tariff_operators(exit_)
+            )
+        )
         preferred = set(operators)
 
-        def collect(
+        def collect_dated(
             from_aliases: set[str],
             to_aliases: set[str],
         ) -> tuple[list[ClosedPrice], list[ClosedPrice]]:
@@ -4408,6 +4675,32 @@ class TollPricingService:
             for operator in operators:
                 if not operator:
                     continue
+                for from_alias in from_aliases:
+                    for to_alias in to_aliases:
+                        by_operator.extend(
+                            self.dated_closed_prices.get(
+                                (operator, from_alias, to_alias),
+                                [],
+                            )
+                        )
+
+            any_operator: list[ClosedPrice] = []
+            for from_alias in from_aliases:
+                for to_alias in to_aliases:
+                    any_operator.extend(
+                        self.dated_closed_prices_any.get(
+                            (from_alias, to_alias),
+                            [],
+                        )
+                    )
+            return by_operator, any_operator
+
+        def collect_legacy(
+            from_aliases: set[str],
+            to_aliases: set[str],
+        ) -> tuple[list[ClosedPrice], list[ClosedPrice]]:
+            by_operator: list[ClosedPrice] = []
+            for operator in operators:
                 for from_alias in from_aliases:
                     for to_alias in to_aliases:
                         record = self.closed_prices.get(
@@ -4427,45 +4720,60 @@ class TollPricingService:
                     )
             return by_operator, any_operator
 
-        # An explicitly published fare in the travelled direction always wins.
-        direct_operator, direct_any = collect(aliases_a, aliases_b)
-        if direct_operator:
-            return self._unique_record(
-                direct_operator,
-                preferred_operators=preferred,
-            )
-        if direct_any:
-            return self._unique_record(
-                direct_any,
-                preferred_operators=preferred,
-            )
-
-        # Closed motorway matrices are commonly published as one triangular
-        # table: A→B exists while B→A is omitted even though the class-1 fare is
-        # the same. Use the reverse cell only as a fallback, never over an
-        # explicit directional record. Ambiguous reverse records remain rejected.
-        reverse_operator, reverse_any = collect(aliases_b, aliases_a)
-        if reverse_operator:
-            return self._unique_record(
-                reverse_operator,
-                preferred_operators=preferred,
-            )
-        if reverse_any:
-            return self._unique_record(
-                reverse_any,
-                preferred_operators=preferred,
-            )
+        # Applicable official cells are considered before every historical
+        # record, including a historical directional cell. Within one catalog,
+        # the travelled direction still wins over the triangular reverse cell.
+        for collector in (collect_dated, collect_legacy):
+            for from_aliases, to_aliases in (
+                (aliases_a, aliases_b),
+                (aliases_b, aliases_a),
+            ):
+                by_operator, any_operator = collector(
+                    from_aliases,
+                    to_aliases,
+                )
+                if by_operator:
+                    selected = self._unique_record(
+                        by_operator,
+                        preferred_operators=preferred,
+                    )
+                    if selected is not None:
+                        return selected
+                if any_operator:
+                    selected = self._unique_record(
+                        any_operator,
+                        preferred_operators=preferred,
+                    )
+                    if selected is not None:
+                        return selected
         return None
 
     @staticmethod
     def _unique_record(
         candidates: list[ClosedPrice], preferred_operators: set[str]
     ) -> ClosedPrice | None:
-        unique: dict[tuple[float, float | None, str], ClosedPrice] = {}
+        unique: dict[
+            tuple[float, float | None, str, str | None],
+            ClosedPrice,
+        ] = {}
         for candidate in candidates:
-            unique[(candidate.price, candidate.distance_km, candidate.operator)] = candidate
+            unique[
+                (
+                    candidate.price,
+                    candidate.distance_km,
+                    candidate.operator,
+                    candidate.source_id,
+                )
+            ] = candidate
         if not unique:
             return None
+
+        def record_rank(item: ClosedPrice) -> tuple[int, date, str]:
+            return (
+                int(item.source_id is not None),
+                item.effective_from or date.min,
+                item.source_id or "",
+            )
 
         # The same official price may be present in OpenTollData and in a
         # concessionaire matrix under different operator labels. Collapse those
@@ -4476,7 +4784,10 @@ class TollPricingService:
         if len(by_value) == 1:
             records = next(iter(by_value.values()))
             preferred = [item for item in records if item.operator in preferred_operators]
-            return preferred[0] if preferred else records[0]
+            return max(
+                preferred or records,
+                key=record_rank,
+            )
 
         preferred = [
             candidate
@@ -4485,7 +4796,7 @@ class TollPricingService:
         ]
         preferred_values = {(item.price, item.distance_km) for item in preferred}
         if len(preferred_values) == 1 and preferred:
-            return preferred[0]
+            return max(preferred, key=record_rank)
         return None
 
     def _lookup_open(self, station: TollStation) -> float | None:

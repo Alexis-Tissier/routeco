@@ -1,6 +1,42 @@
 {
   "sources": [
     {
+      "source_id": "aprr-class1-2026",
+      "publisher": "APRR",
+      "title": "Réseau APRR - Tarifs de péage classes 1 à 5",
+      "url": "https://voyage.aprr.fr/sites/default/files/2026-02/TARIFS_APRR.pdf",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "sanef-class1-2026",
+      "publisher": "Sanef",
+      "title": "Tarifs de péage 2026 - classe 1",
+      "url": "https://www.autoroutes.sanef.com/sites/default/files/2026-01/2026_02-Grille-Sanef.pdf",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "sapn-class1-2026",
+      "publisher": "SAPN",
+      "title": "Tarifs de péage 2026 - classe 1",
+      "url": "https://www.autoroutes.sanef.com/sites/default/files/2026-01/2026_02-Grille-SAPN.pdf",
+      "effective_from": "2026-02-01",
+      "effective_to": "2027-01-31",
+      "retrieved_at": "2026-07-30"
+    },
+    {
+      "source_id": "sanef-cambrai-exit14-2025",
+      "publisher": "Sanef",
+      "title": "Cambrai n°14 - Fontaine Notre Dame",
+      "url": "https://www.autoroutes.sanef.com/fr/actualite/mise-en-service-aires-covoiturage-Cambrai",
+      "effective_from": "2025-05-07",
+      "effective_to": null,
+      "retrieved_at": "2026-07-30"
+    },
+    {
       "source_id": "cevm-viaduc-millau-2026",
       "publisher": "Compagnie Eiffage du Viaduc de Millau",
       "title": "Tarifs du péage au 1er février 2026",

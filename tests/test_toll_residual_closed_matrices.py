@@ -259,6 +259,13 @@ def test_unique_residual_matrix_may_share_chain_boundary(
     assert selected is not None
     assert selected.record.price == 2.0
     assert selected.exit.station.display_name == "Ury"
+    assert (
+        service._closed_record_distance_is_supporting_evidence(
+            selected.record,
+            selected.span_km,
+        )
+        is False
+    )
 
 
 def test_non_equivalent_residual_matrices_are_not_selected(
@@ -390,3 +397,117 @@ def test_exact_chain_allows_exit_then_same_entry() -> None:
     ]
 
     assert TollPricingService._segments_are_integral(segments)
+
+
+def test_official_long_matrix_replaces_nested_partial_journey() -> None:
+    service = object.__new__(TollPricingService)
+    partial_range = TollRange(0, 1, 54.3, 96.4, 42.1)
+    later_range = TollRange(1, 2, 87.4, 112.1, 24.7)
+    entry = _projection(
+        "GROUP ENTRY",
+        "TEST",
+        54.3,
+        lon=0.543,
+    )
+    intermediate = _projection(
+        "INTERMEDIATE EXIT",
+        "TEST",
+        96.4,
+        lon=0.964,
+    )
+    final_exit = _projection(
+        "FINAL EXIT",
+        "TEST",
+        103.6,
+        lon=1.036,
+    )
+    partial = ClosedMatch(
+        range_index=0,
+        toll_range=partial_range,
+        record=ClosedPrice(
+            price=5.40,
+            distance_km=None,
+            operator="TEST",
+            source_id="official-2026",
+        ),
+        entry=entry,
+        exit=intermediate,
+        coverage_km=42.1,
+        full_range=True,
+    )
+    complete = ClosedMatch(
+        range_index=1,
+        toll_range=later_range,
+        record=ClosedPrice(
+            price=7.50,
+            distance_km=None,
+            operator="TEST",
+            source_id="official-2026",
+        ),
+        entry=entry,
+        exit=final_exit,
+        coverage_km=24.7,
+        full_range=True,
+    )
+
+    selected = service._select_closed_matches(
+        [partial, complete]
+    )
+
+    assert selected == [complete]
+
+
+def test_unsourced_long_matrix_does_not_dominate_by_span_alone() -> None:
+    service = object.__new__(TollPricingService)
+    partial_range = TollRange(0, 1, 0.0, 40.0, 40.0)
+    later_range = TollRange(1, 2, 30.0, 55.0, 25.0)
+    entry = _projection(
+        "ENTRY",
+        "TEST",
+        0.0,
+        lon=0.0,
+    )
+    intermediate = _projection(
+        "INTERMEDIATE",
+        "TEST",
+        40.0,
+        lon=0.4,
+    )
+    final_exit = _projection(
+        "FINAL",
+        "TEST",
+        50.0,
+        lon=0.5,
+    )
+    partial = ClosedMatch(
+        range_index=0,
+        toll_range=partial_range,
+        record=ClosedPrice(
+            price=4.0,
+            distance_km=None,
+            operator="TEST",
+        ),
+        entry=entry,
+        exit=intermediate,
+        coverage_km=40.0,
+        full_range=True,
+    )
+    unsourced_long = ClosedMatch(
+        range_index=1,
+        toll_range=later_range,
+        record=ClosedPrice(
+            price=6.0,
+            distance_km=50.0,
+            operator="TEST",
+        ),
+        entry=entry,
+        exit=final_exit,
+        coverage_km=25.0,
+        full_range=True,
+    )
+
+    selected = service._select_closed_matches(
+        [partial, unsourced_long]
+    )
+
+    assert selected == [partial]

@@ -219,3 +219,36 @@ le même prix et la même distance officielle.
 Un dépassement de balisage OSM peut être absorbé sans coût supplémentaire
 uniquement lorsqu'il mesure au maximum 500 m, touche directement une borne
 exacte et ne contient aucun autre événement de paiement.
+
+## Matrices fermées officielles datées et alias géographiques
+
+Les cellules fermées datées sont chargées séparément des anciennes matrices.
+Elles conservent l'opérateur, les deux libellés tarifaires, la classe, le prix,
+la distance éventuelle, la période d'effet, la saison éventuelle et
+l'identifiant de la source officielle.
+
+À date de trajet égale, une cellule officielle applicable est examinée avant
+une cellule historique sans provenance. Une contradiction entre plusieurs
+cellules officielles reste une ambiguïté : la priorité de source ne permet pas
+de choisir arbitrairement un prix.
+
+Les correspondances entre un nom physique et un libellé de grille sont
+enregistrées dans un fichier distinct. Chaque alias contient des coordonnées et
+une distance maximale. Il ne s'applique qu'à une gare portant le nom physique,
+géographiquement proche du point validé et compatible avec l'opérateur. Un
+homonyme situé dans une autre région ne reçoit donc jamais l'alias.
+
+La distance tarifaire peut renforcer une interprétation déjà prouvée lorsqu'elle
+est sourcée et cohérente. Elle ne suffit jamais à rendre une matrice exacte et
+un écart important ne rejette jamais, à lui seul, une chaîne fermée dont les
+bornes physiques, l'ordre, la continuité et l'absence d'événement inexpliqué
+sont déjà établis. Cette règle protège les géométries simplifiées utilisées par
+les tests et certains candidats GraphHopper.
+
+Lorsqu'une cellule officielle plus longue contient une cellule partielle, elle
+ne la remplace que si les deux interprétations utilisent un opérateur compatible
+et partagent physiquement la même entrée ou la même sortie. Cette dominance est
+appliquée avant l'optimisation de couverture afin qu'une plage OSM locale plus
+longue ne favorise pas artificiellement la cellule partielle. La provenance,
+les bornes physiques et l'ordre du trajet constituent la preuve ; la longueur
+projetée seule ne suffit jamais.
