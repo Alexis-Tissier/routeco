@@ -675,14 +675,15 @@ function routecoApplyMapIconButtons() {
     if (!field || !button || field.dataset.mapIconified === 'true') return;
 
     const row = document.createElement('div');
-    row.className = 'input-action-row';
+    row.className = 'input-action-row segmented-location-field';
 
     const input = controller.input;
     input.parentElement?.insertBefore(row, input);
     row.appendChild(input);
     row.appendChild(button);
 
-    button.classList.add('map-icon-button');
+    input.classList.add('segmented-location-input');
+    button.classList.add('map-icon-button', 'segmented-location-button');
     button.title = `Choisir ${label} sur la carte`;
     button.setAttribute('aria-label', `Choisir ${label} sur la carte`);
     button.innerHTML = '<span aria-hidden="true">◎</span>';

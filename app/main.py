@@ -21,7 +21,7 @@ from app.services.pareto import (
 from app.services.routing import GraphHopperClient
 from app.services.tolls import TollPricingService
 
-app = FastAPI(title="Routeco", version="0.4.3")
+app = FastAPI(title="Routeco", version="0.4.4")
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
 geocoder = LocalGeocoder(

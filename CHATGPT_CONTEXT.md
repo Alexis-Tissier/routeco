@@ -6,7 +6,8 @@ Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
 `CHANGELOG-v4.0-performance-confidence.md`,
 `CHANGELOG-v4.1-instant-repricing.md`,
 `CHANGELOG-v4.2-waypoints-addresses.md`,
-`CHANGELOG-v4.3-ui-polish.md` et le dernier rapport dans
+`CHANGELOG-v4.3-ui-polish.md`,
+`CHANGELOG-v4.4-segmented-location-controls.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -35,8 +36,9 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.4.3**.
-- Point de départ de la migration v23 : dépôt Routeco 0.4.2 propre.
+- Version préparée : **0.4.4**.
+- Point de départ de la migration v25 :
+  `3389d9f03c068c67cc5dfba053c257442ac3aaec`.
 - Tests : **188**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
@@ -79,9 +81,9 @@ Le profil initial reste une Twingo 2 essence :
 - une saisie ressemblant à une adresse privilégie la BAN, tandis qu'un
   simple nom de ville privilégie le centre de commune ;
 - départ, arrêt et arrivée peuvent être positionnés précisément sur la carte ;
-- les actions secondaires de la colonne de gauche sont désormais compactes :
-  icône carte dans les champs, bouton + discret près de l'inversion et
-  réglages véhicule / carburant repliables ;
+- les actions secondaires de la colonne de gauche sont compactes : le bouton
+  carte forme un segment collé au champ, le bouton + reste au-dessus de
+  l'inversion et les réglages véhicule / carburant sont repliables ;
 - les résultats du moteur de péage sont mis en cache par géométrie et taux
   d'estimation, pour rendre les recalculs de carburant quasi instantanés ;
 - deux demandes identiques simultanées partagent un seul calcul lourd ;

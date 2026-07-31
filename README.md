@@ -1,4 +1,4 @@
-# Détour / Routeco 0.4.3
+# Détour / Routeco 0.4.4
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -35,8 +35,8 @@ Fonctionnel :
 - carte OpenStreetMap interactive, sélection des tracés et export GPS ;
 - arrêt intermédiaire facultatif, adresses BAN prioritaires et choix exact
   d'un point directement sur la carte ;
-- colonne de gauche allégée : icônes discrètes pour la carte, bouton +
-  compact pour l'arrêt et bloc véhicule / carburant repliable ;
+- colonne de gauche allégée : boutons carte collés aux champs, bouton +
+  compact au-dessus de l'inversion et bloc véhicule / carburant repliable ;
 - cache de géométries : carburant, filtres et estimation des péages se
   recalculent sans relancer GraphHopper ;
 - cache de tarification : changer le carburant, les consommations ou les
