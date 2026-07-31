@@ -4,7 +4,8 @@ Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
 `CHANGELOG-v3.8-national-geocoding-interface.md`,
 `CHANGELOG-v3.9-route-diversity.md`,
 `CHANGELOG-v4.0-performance-confidence.md`,
-`CHANGELOG-v4.1-instant-repricing.md` et le dernier rapport dans
+`CHANGELOG-v4.1-instant-repricing.md`,
+`CHANGELOG-v4.2-waypoints-addresses.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -33,10 +34,10 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.4.1**.
-- Point de départ de la migration v18 :
-  `36d0299d5d0a86063f8ad591d37232c2315b6198`.
-- Tests : **180**.
+- Version préparée : **0.4.2**.
+- Point de départ de la migration v22 :
+  `1476017f448b63b161604cd086511cdff05ab4d5`.
+- Tests : **186**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 
@@ -73,6 +74,11 @@ Le profil initial reste une Twingo 2 essence :
 - jusqu'à cinq rôles utiles ; les trajets autoroutier et court ne sont pas
   supprimés uniquement parce qu'ils ne franchissent pas le seuil d'économie.
 - les géométries GraphHopper sont mises en cache par couple départ-arrivée ;
+- jusqu'à trois étapes sont acceptées par l'API ; l'interface en expose une
+  facultative et la liste ordonnée des points appartient à la clé de cache ;
+- une saisie ressemblant à une adresse privilégie la BAN, tandis qu'un
+  simple nom de ville privilégie le centre de commune ;
+- départ, arrêt et arrivée peuvent être positionnés précisément sur la carte ;
 - les résultats du moteur de péage sont mis en cache par géométrie et taux
   d'estimation, pour rendre les recalculs de carburant quasi instantanés ;
 - deux demandes identiques simultanées partagent un seul calcul lourd ;

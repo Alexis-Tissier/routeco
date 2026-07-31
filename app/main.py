@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import itertools
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,7 +21,7 @@ from app.services.pareto import (
 from app.services.routing import GraphHopperClient
 from app.services.tolls import TollPricingService
 
-app = FastAPI(title="Routeco", version="0.4.1")
+app = FastAPI(title="Routeco", version="0.4.2")
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
 geocoder = LocalGeocoder(
@@ -113,12 +115,23 @@ def resolve_address(q: str = Query(min_length=2, max_length=160)) -> dict:
 
 @app.post("/api/routes", response_model=RouteResponse)
 async def calculate_routes(request: RouteRequest) -> RouteResponse:
-    if request.start == request.end:
+    points = [request.start, *request.via, request.end]
+    if any(first == second for first, second in itertools.pairwise(points)):
         raise HTTPException(
-            status_code=400, detail="Le départ et l'arrivée doivent être différents."
+            status_code=400,
+            detail="Deux points consécutifs du trajet doivent être différents.",
         )
 
-    engine_result = await routing.candidates(request.start, request.end)
+    # Conserver l'appel historique à deux arguments lorsqu'aucune étape n'est
+    # demandée maintient la compatibilité avec les outils et doubles de test.
+    if request.via:
+        engine_result = await routing.candidates(
+            request.start,
+            request.end,
+            request.via,
+        )
+    else:
+        engine_result = await routing.candidates(request.start, request.end)
     results: list[RouteResult] = []
     fallback_rate = (
         request.toll_estimate_rate

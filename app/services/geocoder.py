@@ -27,7 +27,7 @@ class AmbiguousLocationError(ValueError):
     choices: list[GeocodeResult]
 
     def __str__(self) -> str:
-        return f"Plusieurs communes correspondent à « {self.query} »."
+        return f"Plusieurs lieux correspondent à « {self.query} »."
 
 
 class LocationNotFoundError(ValueError):
@@ -56,20 +56,48 @@ class LocalGeocoder:
         except sqlite3.Error:
             return 0
 
-    def search(self, query: str, limit: int = 7) -> list[GeocodeResult]:
+    @staticmethod
+    def _looks_like_address(query: str) -> bool:
+        normalized = normalize_location(query)
+        if re.search(r"\b\d{1,5}\b", normalized):
+            return True
+        street_words = {
+            "allee",
+            "avenue",
+            "boulevard",
+            "chemin",
+            "cours",
+            "impasse",
+            "place",
+            "quai",
+            "route",
+            "rue",
+            "square",
+            "voie",
+        }
+        return bool(street_words.intersection(normalized.split()))
+
+    def search(self, query: str, limit: int = 10) -> list[GeocodeResult]:
         clean = " ".join(query.strip().split())
         if len(clean) < 2:
             return []
 
-        communes = self._search_communes(clean, max(limit * 4, 20))
+        communes = self._search_communes(clean, max(limit * 4, 30))
         exact_communes = [
             result for result in communes if self._matches_commune_query(clean, result)
         ]
-        if exact_communes:
-            return exact_communes[:limit]
+        other_communes = [result for result in communes if result not in exact_communes]
+        addresses = self._search_ban(clean, max(limit * 3, 20))
 
-        addresses = self._search_ban(clean, max(limit * 2, 10))
-        combined = self._deduplicate([*addresses, *communes])
+        # Une saisie contenant un numéro ou un type de voie doit proposer les
+        # adresses BAN avant le centre de la commune. Un simple nom de ville
+        # conserve au contraire la commune comme premier choix.
+        if self._looks_like_address(clean):
+            ordered = [*addresses, *exact_communes, *other_communes]
+        else:
+            ordered = [*exact_communes, *addresses, *other_communes]
+
+        combined = self._deduplicate(ordered)
         if combined:
             return combined[:limit]
         return self._search_demo(clean, limit)
@@ -83,8 +111,7 @@ class LocalGeocoder:
         commune_matches = [
             result
             for result in results
-            if result.kind == "municipality"
-            and self._matches_commune_query(clean, result)
+            if result.kind == "municipality" and self._matches_commune_query(clean, result)
         ]
         unique_communes = self._deduplicate(commune_matches)
         if len(unique_communes) == 1:
@@ -249,7 +276,4 @@ class LocalGeocoder:
             if normalized in normalize_location(place["label"])
             or normalized in normalize_location(place["city"])
         ]
-        return [
-            GeocodeResult(**place, source="demo", kind="demo")
-            for place in matches[:limit]
-        ]
+        return [GeocodeResult(**place, source="demo", kind="demo") for place in matches[:limit]]

@@ -451,6 +451,10 @@ case "${1:-status}" in
     ensure_python
     exec .venv/bin/python -m scripts.verify_runtime_cache
     ;;
+  verify-waypoint)
+    ensure_python
+    exec .venv/bin/python -m scripts.verify_waypoint
+    ;;
   update-communes)
     ensure_python
     exec .venv/bin/python scripts/update_communes.py --output "$COMMUNES_DB"
@@ -475,6 +479,7 @@ Usage : ./scripts/routeco.sh COMMANDE
   verify-geocoding vérifie la couverture nationale et les homonymes
   verify-diversity vérifie les choix autoroutier et direct sur un trajet régional
   verify-cache   vérifie la réutilisation des tracés lors d'un recalcul économique
+  verify-waypoint vérifie un trajet réel avec arrêt intermédiaire imposé
   update-communes actualise l'index local de toutes les communes françaises
 EOF
     exit 2

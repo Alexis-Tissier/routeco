@@ -4,6 +4,7 @@ const state = {
   routes: [],
   selectedRoute: null,
   mapExpanded: false,
+  viaEnabled: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -41,8 +42,9 @@ function escapeHtml(value) {
 }
 
 function sourceLabel(place) {
-  if (place.source === 'commune') return 'Commune française';
-  if (place.source === 'ban') return 'Adresse · Base Adresse Nationale';
+  if (place.source === 'commune') return 'Centre de commune';
+  if (place.source === 'ban') return 'Adresse précise · Base Adresse Nationale';
+  if (place.source === 'map') return 'Point précis choisi sur la carte';
   return 'Lieu de démonstration';
 }
 
@@ -195,6 +197,49 @@ function setupAutocomplete(inputSelector, hiddenSelector, boxSelector) {
   };
 }
 
+
+function installWaypointField() {
+  const endInput = $('#end');
+  const endField = endInput?.closest('.field, .location-field, .form-field')
+    || endInput?.parentElement;
+  const endSuggestions = $('#end-suggestions');
+  if (!endInput || !endField || !endField.parentElement) {
+    throw new Error('Structure du formulaire de trajet introuvable.');
+  }
+
+  const viaField = document.createElement('div');
+  viaField.id = 'via-field';
+  viaField.className = `${endField.className} waypoint-field`;
+  viaField.hidden = true;
+  viaField.innerHTML = `
+    <label for="via">Arrêt facultatif</label>
+    <div class="waypoint-input-row">
+      <input id="via" type="text" autocomplete="off"
+             class="${escapeHtml(endInput.className)}"
+             placeholder="Ville, code postal ou adresse complète"
+             aria-autocomplete="list" aria-expanded="false"
+             aria-controls="via-suggestions">
+      <button type="button" id="remove-via" class="remove-via"
+              aria-label="Supprimer l'arrêt">Supprimer</button>
+    </div>
+    <input id="via-coords" type="hidden">
+    <div id="via-suggestions"
+         class="${escapeHtml(endSuggestions?.className || 'suggestions')}"
+         role="listbox"></div>
+  `;
+
+  const addButton = document.createElement('button');
+  addButton.type = 'button';
+  addButton.id = 'add-via';
+  addButton.className = 'add-via';
+  addButton.textContent = '+ Ajouter un arrêt';
+
+  endField.parentElement.insertBefore(addButton, endField);
+  endField.parentElement.insertBefore(viaField, endField);
+}
+
+installWaypointField();
+
 const startAutocomplete = setupAutocomplete(
   '#start',
   '#start-coords',
@@ -205,6 +250,75 @@ const endAutocomplete = setupAutocomplete(
   '#end-coords',
   '#end-suggestions',
 );
+
+const viaAutocomplete = setupAutocomplete(
+  '#via',
+  '#via-coords',
+  '#via-suggestions',
+);
+
+[startAutocomplete, viaAutocomplete, endAutocomplete].forEach((controller) => {
+  controller.input.placeholder = 'Ville, code postal ou adresse complète';
+});
+
+function locationField(controller) {
+  return controller.input.closest('.field, .location-field, .form-field')
+    || controller.input.parentElement;
+}
+
+function beginMapPick(controller, label) {
+  showFormMessage(`Clique sur la carte pour placer ${label.toLowerCase()}.`);
+  document.querySelector('.map-card')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  });
+  const started = window.RoutecoMap?.pickPoint?.(({ lat, lon }) => {
+    controller.select({
+      lat,
+      lon,
+      label: `Point précis · ${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+      source: 'map',
+      kind: 'map',
+    });
+    showFormMessage(`${label} placé précisément sur la carte.`);
+  });
+  if (!started) {
+    showFormMessage('La carte interactive n’est pas encore prête.');
+  }
+}
+
+function addMapButton(controller, label) {
+  const field = locationField(controller);
+  if (!field) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'map-pick';
+  button.textContent = 'Choisir sur la carte';
+  button.addEventListener('click', () => beginMapPick(controller, label));
+  const suggestions = field.querySelector('[id$="-suggestions"]');
+  field.insertBefore(button, suggestions || null);
+}
+
+addMapButton(startAutocomplete, 'Le départ');
+addMapButton(viaAutocomplete, 'L’arrêt');
+addMapButton(endAutocomplete, 'L’arrivée');
+
+$('#add-via').addEventListener('click', () => {
+  state.viaEnabled = true;
+  $('#via-field').hidden = false;
+  $('#add-via').hidden = true;
+  $('#via').focus();
+});
+
+$('#remove-via').addEventListener('click', () => {
+  state.viaEnabled = false;
+  $('#via').value = '';
+  $('#via-coords').value = '';
+  $('#via-field').hidden = true;
+  $('#add-via').hidden = false;
+  viaAutocomplete.close();
+  showFormMessage();
+});
 
 function showFormMessage(message = '') {
   const element = $('#form-message');
@@ -398,14 +512,20 @@ async function calculate(event) {
   button.disabled = true;
   button.querySelector('span:first-child').textContent = 'Calcul en cours…';
   try {
-    const [start, end] = await Promise.all([
+    const viaRequested = state.viaEnabled && $('#via').value.trim();
+    const [start, via, end] = await Promise.all([
       resolveAddress(startAutocomplete),
+      viaRequested
+        ? resolveAddress(viaAutocomplete)
+        : Promise.resolve(null),
       resolveAddress(endAutocomplete),
     ]);
     const payload = {
       start,
       end,
+      via: via ? [via] : [],
       start_label: $('#start').value,
+      via_labels: via ? [$('#via').value] : [],
       end_label: $('#end').value,
       fuel_type: 'SP95-E10',
       fuel_price: Number($('#fuel-price').value),
@@ -426,9 +546,14 @@ async function calculate(event) {
       throw new Error(error.detail || 'Calcul impossible');
     }
     const data = await response.json();
-    $('#map-title').textContent = (
-      `${$('#start').value.split(/[,(]/)[0].trim()} → ${$('#end').value.split(/[,(]/)[0].trim()}`
-    );
+    const titlePoints = [
+      $('#start').value,
+      via ? $('#via').value : '',
+      $('#end').value,
+    ]
+      .filter(Boolean)
+      .map((value) => value.split(/[,(]/)[0].trim());
+    $('#map-title').textContent = titlePoints.join(' → ');
     renderResults(data);
   } catch (error) {
     showFormMessage(error.message);

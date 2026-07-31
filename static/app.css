@@ -154,3 +154,122 @@ h2 { margin:6px 0 0; font-size:24px; letter-spacing:-.03em; }
 .toll-segment i { font-style:normal; text-transform:uppercase; letter-spacing:.04em; font-size:7px; font-weight:800; padding:3px 5px; border-radius:999px; }
 .toll-segment i.exact { color:var(--green); background:rgba(46,125,91,.10); }
 .toll-segment i.estimated { color:#a06c1b; background:rgba(160,108,27,.10); }
+
+/* Routeco 0.4.2 — arrêt intermédiaire et sélection précise */
+.route-inputs > .route-field:has(#start) {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.route-inputs > .swap {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.route-inputs > .route-field:has(#end) {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.add-via,
+.waypoint-field {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.add-via,
+.map-pick,
+.remove-via {
+  border: 1px solid rgba(70, 90, 75, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.add-via {
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border-style: dashed;
+}
+
+.map-pick {
+  margin-top: 7px;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+.route-field:has(.map-pick) .suggestions {
+  top: 108px;
+}
+
+.waypoint-field[hidden],
+.add-via[hidden] {
+  display: none !important;
+}
+
+.waypoint-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.waypoint-input-row input {
+  min-width: 0;
+  flex: 1;
+}
+
+.remove-via {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+.point-picking,
+.point-picking * {
+  cursor: crosshair !important;
+}
+
+@media (max-width: 700px) {
+  .route-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .route-inputs > .route-field:has(#start),
+  .route-inputs > .route-field:has(#end),
+  .route-inputs > .swap,
+  .add-via,
+  .waypoint-field {
+    grid-column: 1;
+  }
+
+  .route-inputs > .route-field:has(#start) {
+    grid-row: 1;
+  }
+
+  .route-inputs > .swap {
+    grid-row: 2;
+    justify-self: start;
+    transform: rotate(90deg);
+  }
+
+  .route-inputs > .route-field:has(#end) {
+    grid-row: 3;
+  }
+
+  .add-via,
+  .waypoint-field {
+    grid-row: 4;
+  }
+
+  .waypoint-input-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remove-via {
+    align-self: flex-start;
+  }
+}

@@ -1,4 +1,4 @@
-# Détour / Routeco 0.4.1
+# Détour / Routeco 0.4.2
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -33,6 +33,8 @@ Fonctionnel :
 - sections payantes multiples ;
 - rapports de validation Markdown et JSON ;
 - carte OpenStreetMap interactive, sélection des tracés et export GPS ;
+- arrêt intermédiaire facultatif, adresses BAN prioritaires et choix exact
+  d'un point directement sur la carte ;
 - cache de géométries : carburant, filtres et estimation des péages se
   recalculent sans relancer GraphHopper ;
 - cache de tarification : changer le carburant, les consommations ou les
@@ -135,7 +137,7 @@ Les petites matrices normalisées de `data/tolls/*.csv` sont versionnées afin q
 ./.venv/bin/python -m pytest -q
 ```
 
-La version 0.4.1 contient **180 tests automatiques**.
+La version 0.4.2 contient **186 tests automatiques**.
 
 Une GitHub Action exécute également les tests à chaque push et pull request.
 

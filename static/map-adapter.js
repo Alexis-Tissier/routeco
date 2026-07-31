@@ -91,6 +91,21 @@
   }
 
   window.RoutecoMap = {
+    pickPoint(callback) {
+      const instance = ensureMap();
+      if (!instance || typeof callback !== 'function') return false;
+      const container = instance.getContainer();
+      container.classList.add('point-picking');
+
+      instance.once('click', (event) => {
+        container.classList.remove('point-picking');
+        callback({
+          lat: Number(event.latlng.lat),
+          lon: Number(event.latlng.lng),
+        });
+      });
+      return true;
+    },
     render(routes, selectedRoute) {
       renderMap(routes, selectedRoute);
     },

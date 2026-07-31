@@ -13,7 +13,9 @@ class Coordinate(BaseModel):
 class RouteRequest(BaseModel):
     start: Coordinate
     end: Coordinate
+    via: list[Coordinate] = Field(default_factory=list, max_length=3)
     start_label: str = "Départ"
+    via_labels: list[str] = Field(default_factory=list, max_length=3)
     end_label: str = "Arrivée"
     fuel_type: Literal["SP95-E10", "SP98"] = "SP95-E10"
     fuel_price: float = Field(default=1.82, gt=0, le=5)
@@ -28,6 +30,11 @@ class RouteRequest(BaseModel):
     @classmethod
     def clean_label(cls, value: str) -> str:
         return value.strip()[:160] or "Adresse"
+
+    @field_validator("via_labels")
+    @classmethod
+    def clean_via_labels(cls, values: list[str]) -> list[str]:
+        return [value.strip()[:160] or f"Arrêt {index + 1}" for index, value in enumerate(values)]
 
 
 class GeocodeResult(BaseModel):
