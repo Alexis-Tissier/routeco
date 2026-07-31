@@ -19,7 +19,7 @@ from app.services.pareto import (
 from app.services.routing import GraphHopperClient
 from app.services.tolls import TollPricingService
 
-app = FastAPI(title="Routeco", version="0.4.0")
+app = FastAPI(title="Routeco", version="0.4.1")
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
 geocoder = LocalGeocoder(
@@ -67,6 +67,7 @@ def public_config() -> dict:
         },
         "toll_estimate_eur_per_km": settings.toll_estimate_eur_per_km,
         "routing_cache": routing.cache_info(),
+        "toll_quote_cache": tolls.quote_cache_info(),
     }
 
 
@@ -85,6 +86,7 @@ async def health() -> dict:
         "map_mode": "openstreetmap",
         "map_interactive": True,
         "routing_cache": routing.cache_info(),
+        "toll_quote_cache": tolls.quote_cache_info(),
     }
 
 

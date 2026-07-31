@@ -3,7 +3,8 @@
 Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
 `CHANGELOG-v3.8-national-geocoding-interface.md`,
 `CHANGELOG-v3.9-route-diversity.md`,
-`CHANGELOG-v4.0-performance-confidence.md` et le dernier rapport dans
+`CHANGELOG-v4.0-performance-confidence.md`,
+`CHANGELOG-v4.1-instant-repricing.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -32,10 +33,10 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.4.0**.
-- Point de départ de la migration v12 :
-  `e456447128f1f9c32dfc424ebfba2de143602640`.
-- Tests : **178**.
+- Version préparée : **0.4.1**.
+- Point de départ de la migration v18 :
+  `36d0299d5d0a86063f8ad591d37232c2315b6198`.
+- Tests : **180**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 
@@ -72,6 +73,8 @@ Le profil initial reste une Twingo 2 essence :
 - jusqu'à cinq rôles utiles ; les trajets autoroutier et court ne sont pas
   supprimés uniquement parce qu'ils ne franchissent pas le seuil d'économie.
 - les géométries GraphHopper sont mises en cache par couple départ-arrivée ;
+- les résultats du moteur de péage sont mis en cache par géométrie et taux
+  d'estimation, pour rendre les recalculs de carburant quasi instantanés ;
 - deux demandes identiques simultanées partagent un seul calcul lourd ;
 - le prix du carburant, les filtres et le taux d'estimation des péages sont
   recalculés sans modifier les tracés ;

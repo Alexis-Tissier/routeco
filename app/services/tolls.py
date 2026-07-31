@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import copy
 import csv
+import hashlib
 import itertools
+import json
 import math
 import re
 import unicodedata
 from bisect import bisect_right
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -272,6 +276,7 @@ class TollPricingService:
     # without promoting a synthetic value to an official tariff.
     FALLBACK_LOW_FACTOR = 0.75
     FALLBACK_HIGH_FACTOR = 1.30
+    QUOTE_CACHE_MAX_ENTRIES = 96
     STATION_GRID_DEGREES = 0.05
     MINOR_RESIDUAL_KM = 5.0
     MINOR_RESIDUAL_EUR = 1.0
@@ -313,6 +318,9 @@ class TollPricingService:
         self.dated_open_tariffs_any: dict[str, list[OpenTariffRecord]] = {}
         self._station_grid: dict[tuple[int, int], list[int]] = {}
         self._station_grid_count = 0
+        self._quote_cache: OrderedDict[str, TollQuote] = OrderedDict()
+        self._quote_cache_hits = 0
+        self._quote_cache_misses = 0
         self._load()
 
     @property
@@ -658,7 +666,131 @@ class TollPricingService:
         high = exact_cost + unresolved_km * rate * cls.FALLBACK_HIGH_FACTOR
         return round(central, 2), round(low, 2), round(high, 2)
 
+    @staticmethod
+    def _quote_cache_signature(candidate: dict[str, Any]) -> str:
+        """Return a stable signature for the physical route pricing inputs."""
+        payload = {
+            "geometry": candidate.get("geometry", []),
+            "tolled_km": candidate.get("tolled_km", 0.0),
+            "demo_toll": candidate.get("demo_toll"),
+            "toll_ranges": candidate.get("toll_ranges", []),
+            "toll_state_intervals": candidate.get("toll_state_intervals", []),
+            "road_class_link_details": candidate.get("road_class_link_details", []),
+            "street_name_details": candidate.get("street_name_details", []),
+            "street_ref_details": candidate.get("street_ref_details", []),
+        }
+        encoded = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    @classmethod
+    def _reprice_cached_quote(
+        cls,
+        quote: TollQuote,
+        fallback_eur_per_km: float,
+    ) -> TollQuote:
+        """Reprice only unresolved kilometres without rerunning geometry."""
+        output = copy.deepcopy(quote)
+        estimated_segments = [
+            segment
+            for segment in output.segments
+            if segment.confidence == "estimated"
+            and segment.distance_km is not None
+            and segment.distance_km > 0
+        ]
+        if not estimated_segments:
+            return output
+
+        exact_cost = sum(
+            segment.cost for segment in output.segments if segment.confidence == "exact"
+        )
+        unresolved_km = sum(float(segment.distance_km or 0.0) for segment in estimated_segments)
+        total, low, high = cls._estimated_cost_range(
+            unresolved_km,
+            fallback_eur_per_km,
+            exact_cost=exact_cost,
+        )
+        output.cost = total
+        output.cost_low = low
+        output.cost_high = high
+
+        for segment in estimated_segments:
+            distance_km = float(segment.distance_km or 0.0)
+            segment.cost = round(distance_km * fallback_eur_per_km, 2)
+            segment.cost_low = round(
+                distance_km * fallback_eur_per_km * cls.FALLBACK_LOW_FACTOR,
+                2,
+            )
+            segment.cost_high = round(
+                distance_km * fallback_eur_per_km * cls.FALLBACK_HIGH_FACTOR,
+                2,
+            )
+
+        message = (
+            "Tarif partiellement apparié ; le solde réel reste sans tarif officiel."
+            if exact_cost > 0
+            else "Tronçon payant réel détecté, mais aucun tarif officiel fiable n'est associé."
+        )
+        if "fragments OSM" in output.message:
+            message += " Les fragments OSM sans événement tarifaire ont été exclus."
+        output.message = (
+            f"{message} Solde estimé à {fallback_eur_per_km:.3f} €/km, "
+            f"fourchette totale {low:.2f}–{high:.2f} €."
+        )
+        return output
+
+    def _ensure_quote_cache(self) -> None:
+        """Initialize cache lazily for lightweight subclasses used by tests/tools."""
+        if not hasattr(self, "_quote_cache"):
+            self._quote_cache = OrderedDict()
+            self._quote_cache_hits = 0
+            self._quote_cache_misses = 0
+
+    def clear_quote_cache(self) -> None:
+        self._ensure_quote_cache()
+        self._quote_cache.clear()
+
+    def quote_cache_info(self) -> dict[str, int]:
+        self._ensure_quote_cache()
+        return {
+            "entries": len(self._quote_cache),
+            "max_entries": self.QUOTE_CACHE_MAX_ENTRIES,
+            "hits": self._quote_cache_hits,
+            "misses": self._quote_cache_misses,
+        }
+
     def quote_candidate(
+        self,
+        candidate: dict[str, Any],
+        *,
+        fallback_eur_per_km: float | None = None,
+    ) -> TollQuote:
+        """Price route geometry once, then reprice cached unresolved kilometres."""
+        self._ensure_quote_cache()
+        signature = self._quote_cache_signature(candidate)
+        rate = self._fallback_rate(fallback_eur_per_km)
+        cached = self._quote_cache.get(signature)
+        if cached is not None:
+            self._quote_cache.move_to_end(signature)
+            self._quote_cache_hits += 1
+            return self._reprice_cached_quote(cached, rate)
+
+        self._quote_cache_misses += 1
+        quote = self._quote_candidate_uncached(
+            candidate,
+            fallback_eur_per_km=fallback_eur_per_km,
+        )
+        self._quote_cache[signature] = copy.deepcopy(quote)
+        self._quote_cache.move_to_end(signature)
+        while len(self._quote_cache) > self.QUOTE_CACHE_MAX_ENTRIES:
+            self._quote_cache.popitem(last=False)
+        return quote
+
+    def _quote_candidate_uncached(
         self,
         candidate: dict[str, Any],
         *,

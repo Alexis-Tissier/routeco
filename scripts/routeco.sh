@@ -10,6 +10,8 @@ LOG_DIR="${ROUTECO_LOG_DIR:-$ROOT/data/logs}"
 BACKEND_PID="$RUNTIME_DIR/backend.pid"
 GRAPHHOPPER_PID="$RUNTIME_DIR/graphhopper.pid"
 GRAPH_CACHE="$ROOT/data/graph-cache"
+GRAPH_PBF_LINK="$ROOT/data/france-latest.osm.pbf"
+OSM_PBF_SOURCE="${ROUTECO_OSM_PBF:-$GRAPH_PBF_LINK}"
 GRAPH_PROFILE_MODEL="$ROOT/infra/graphhopper/custom_models/routeco_car.json"
 GRAPH_PROFILE_MARKER="$GRAPH_CACHE/.routeco-profile-sha256"
 DATA_DIR="${ROUTECO_DATA_DIR:-$ROOT/data}"
@@ -110,6 +112,32 @@ write_graph_profile_marker() {
   graph_profile_fingerprint > "$GRAPH_PROFILE_MARKER"
 }
 
+ensure_osm_pbf() {
+  if [[ "$OSM_PBF_SOURCE" == "$GRAPH_PBF_LINK" ]]; then
+    if [[ ! -f "$GRAPH_PBF_LINK" ]]; then
+      echo "Fichier OSM France absent : $GRAPH_PBF_LINK" >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  if [[ ! -f "$OSM_PBF_SOURCE" ]]; then
+    echo "Fichier OSM externe absent : $OSM_PBF_SOURCE" >&2
+    echo "Vérifie que la partition est montée avant de démarrer Routeco." >&2
+    return 1
+  fi
+
+  mkdir -p "$(dirname "$GRAPH_PBF_LINK")"
+  if [[ -L "$GRAPH_PBF_LINK" ]]; then
+    rm -f "$GRAPH_PBF_LINK"
+  elif [[ -e "$GRAPH_PBF_LINK" ]]; then
+    echo "Un fichier local existe encore à la place du lien OSM :" >&2
+    echo "  $GRAPH_PBF_LINK" >&2
+    return 1
+  fi
+  ln -s "$OSM_PBF_SOURCE" "$GRAPH_PBF_LINK"
+}
+
 ensure_graph_cache_compatible() {
   if graph_cache_matches_profile; then
     return 0
@@ -122,6 +150,7 @@ ensure_graph_cache_compatible() {
 
 start_graphhopper() {
   local mode="${1:-runtime}"
+  ensure_osm_pbf
   ensure_graph_cache_compatible
   if curl -fsS http://127.0.0.1:8989/info >/dev/null 2>&1; then
     echo "GraphHopper est déjà opérationnel sur le port 8989."
@@ -301,7 +330,7 @@ status() {
 }
 
 doctor() {
-  local memory_kb cpu_count disk_kb cache_size
+  local memory_kb cpu_count disk_kb cache_size pbf_size pbf_disk_kb
   memory_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)"
   cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
   disk_kb="$(df -Pk "$ROOT" | awk 'NR == 2 {print $4}')"
@@ -309,15 +338,26 @@ doctor() {
   if [[ -d "$GRAPH_CACHE" ]]; then
     cache_size="$(du -sh "$GRAPH_CACHE" 2>/dev/null | awk '{print $1}')"
   fi
+  pbf_size="absent"
+  pbf_disk_kb=0
+  if [[ -f "$OSM_PBF_SOURCE" ]]; then
+    pbf_size="$(du -sh "$OSM_PBF_SOURCE" 2>/dev/null | awk '{print $1}')"
+    pbf_disk_kb="$(df -Pk "$OSM_PBF_SOURCE" | awk 'NR == 2 {print $4}')"
+  fi
 
   echo "Diagnostic ressources Routeco"
   echo "CPU                     : ${cpu_count} cœur(s)"
   echo "RAM                     : $((memory_kb / 1024)) Mio"
   echo "Disque libre            : $((disk_kb / 1024 / 1024)) Gio"
   echo "Cache GraphHopper       : $cache_size"
+  echo "Source OSM France       : $pbf_size · $OSM_PBF_SOURCE"
+  if (( pbf_disk_kb > 0 )); then
+    echo "Disque libre source OSM : $((pbf_disk_kb / 1024 / 1024)) Gio"
+  fi
   echo "Heap GraphHopper runtime: ${GRAPHHOPPER_RAM:-8g}"
   echo "Calculs simultanés      : ${ROUTECO_MAX_CONCURRENT_CALCULATIONS:-1}"
   echo "Cache de trajets        : ${ROUTECO_ROUTING_CACHE_ENTRIES:-8} entrée(s), ${ROUTECO_ROUTING_CACHE_TTL:-1800} s"
+  echo "Cache de péages         : 96 tarifications de géométrie"
 
   local warnings=0
   if (( memory_kb < 10 * 1024 * 1024 )); then

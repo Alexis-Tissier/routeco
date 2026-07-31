@@ -23,6 +23,7 @@ def route_response(
                 "duration_minutes": 180,
                 "distance_km": 300.0,
                 "fuel_cost": fuel_cost,
+                "toll_cost": 18.40,
                 "geometry": [[2.13, 48.80], [5.04, 47.32]],
             }
         ],
@@ -39,9 +40,14 @@ def client_for(*, mutate_geometry: bool = False) -> httpx.Client:
                 200,
                 json={
                     "routing_cache": {
-                        "hits": 1,
+                        "hits": 1 if calls > 1 else 0,
                         "estimated_bytes": 1024,
-                    }
+                    },
+                    "toll_quote_cache": {
+                        "hits": 4 if calls > 1 else 0,
+                        "misses": 4,
+                        "entries": 4,
+                    },
                 },
                 request=request,
             )
