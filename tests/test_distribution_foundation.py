@@ -52,7 +52,7 @@ def test_data_release_can_be_built_and_installed_locally(tmp_path: Path) -> None
 def test_download_site_contains_domain_release_links_and_capture() -> None:
     assert Path("site/CNAME").read_text(encoding="utf-8").strip() == ("detour.alexis-tissier.fr")
     html = Path("site/index.html").read_text(encoding="utf-8")
-    assert "github.com/Alexis-Tissier/routeco/releases/latest" in html
+    assert "github.com/Alexis-Tissier/detour/releases/latest" in html
     assert "assets/detour-app.webp" in html
     assert "<strong>Détour</strong>" in html
     assert "<small>Optimiseur de trajet</small>" in html
