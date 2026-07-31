@@ -41,7 +41,7 @@ Dans la nouvelle conversation, donner le dépôt GitHub et demander :
 
 ```text
 Analyse entièrement le dépôt Alexis-Tissier/detour. Lis d'abord
-CHATGPT_CONTEXT.md, README.md, CHANGELOG-v3.3.md et le dernier rapport dans
+CHATGPT_CONTEXT.md, README.md, docs/changelog/CHANGELOG-v3.3.md et le dernier rapport dans
 docs/validation/. Reprends le développement à partir de cet état sans ajouter
 de règles spécifiques à des villes.
 ```

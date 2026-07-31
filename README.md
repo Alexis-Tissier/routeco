@@ -1,4 +1,4 @@
-# Détour 0.4.6
+# Détour 0.4.7
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -52,7 +52,7 @@ Encore incomplet :
 - certains profils longue distance GraphHopper peuvent atteindre la limite de nœuds ;
 - le déploiement VPS n'est pas encore finalisé.
 
-Le fichier [`CHATGPT_CONTEXT.md`](CHATGPT_CONTEXT.md) contient l'état exact du projet pour reprendre le développement dans une nouvelle conversation.
+Le fichier [`docs/development/CHATGPT_CONTEXT.md`](CHATGPT_CONTEXT.md) contient l'état exact du projet pour reprendre le développement dans une nouvelle conversation.
 
 ## Distribution desktop préparée
 
@@ -77,6 +77,24 @@ La page publique est préparée dans `site/` pour :
 `https://detour.alexis-tissier.fr`.
 
 Voir [`docs/distribution/DESKTOP.md`](docs/distribution/DESKTOP.md).
+
+## Première application Linux
+
+La première version réellement lançable est construite avec :
+
+```bash
+bash scripts/build_desktop_linux.sh
+```
+
+Elle produit un AppImage et une archive tar.gz autonomes. Au premier lancement,
+Détour télécharge le pack France depuis la release `data-france-v1`, le vérifie
+par SHA-256 et conserve ensuite les données localement.
+
+Pour l'installer dans le menu des applications Linux :
+
+```bash
+bash scripts/install_desktop_linux.sh
+```
 
 ## Installation locale
 
@@ -163,7 +181,7 @@ Les petites matrices normalisées de `data/tolls/*.csv` sont versionnées afin q
 ./.venv/bin/python -m pytest -q
 ```
 
-La version 0.4.6 contient **193 tests automatiques**.
+La version 0.4.6 contient **197 tests automatiques**.
 
 Une GitHub Action exécute également les tests à chaque push et pull request.
 

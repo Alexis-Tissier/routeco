@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Détour</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17211d; background: #f7f6f1; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: radial-gradient(circle at 78% 14%, rgba(239,90,53,.14), transparent 33%), radial-gradient(circle at 18% 80%, rgba(105,182,129,.10), transparent 32%), #f7f6f1; }
+    main { width: min(620px, calc(100vw - 42px)); padding: 42px; border: 1px solid #dce3dd; border-radius: 28px; background: rgba(255,255,255,.94); box-shadow: 0 34px 90px rgba(23,33,29,.12); }
+    .brand { display: flex; align-items: center; gap: 16px; }
+    .logo { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 17px; background: #ef5a35; color: white; font-size: 30px; font-weight: 800; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: -.03em; }
+    .subtitle { margin: 5px 0 0; color: #748079; font-size: 14px; }
+    .status { margin-top: 42px; }
+    h2 { margin: 0 0 8px; font-size: 21px; }
+    #detail { min-height: 23px; margin: 0; color: #6d7972; }
+    .bar { overflow: hidden; height: 10px; margin-top: 24px; border-radius: 999px; background: #edf0ed; }
+    #progress { width: 8%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ef5a35, #f28b5f); transition: width .24s ease; }
+    #progress.indeterminate { animation: pulse 1.35s ease-in-out infinite alternate; }
+    .foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 26px; color: #87918b; font-size: 12px; }
+    button { border: 1px solid #dce3dd; border-radius: 12px; padding: 10px 13px; background: white; color: #46534c; font: inherit; font-weight: 700; cursor: pointer; }
+    #error { display: none; margin-top: 20px; padding: 14px; border-radius: 14px; color: #8b2d1d; background: #fff0eb; white-space: pre-wrap; }
+    @keyframes pulse { from { width: 10%; margin-left: 0; } to { width: 55%; margin-left: 45%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">
+      <div class="logo">D</div>
+      <div><h1>Détour</h1><p class="subtitle">Le bon détour, au bon prix.</p></div>
+    </div>
+    <section class="status">
+      <h2 id="message">Préparation de l'application</h2>
+      <p id="detail">Vérification des composants locaux…</p>
+      <div class="bar"><div id="progress" class="indeterminate"></div></div>
+      <pre id="error"></pre>
+    </section>
+    <div class="foot">
+      <span>Le pack France n'est téléchargé qu'au premier lancement.</span>
+      <button id="folder" type="button">Dossier des données</button>
+    </div>
+  </main>
+  <script>
+    const message = document.getElementById("message");
+    const detail = document.getElementById("detail");
+    const progress = document.getElementById("progress");
+    const error = document.getElementById("error");
+    window.detourDesktop.onStatus((payload) => {
+      message.textContent = payload.message || "Préparation";
+      detail.textContent = payload.detail || "";
+      if (typeof payload.progress === "number") {
+        progress.classList.remove("indeterminate");
+        progress.style.width = `${Math.max(2, Math.min(100, payload.progress))}%`;
+        progress.style.marginLeft = "0";
+      } else {
+        progress.classList.add("indeterminate");
+        progress.style.width = "";
+        progress.style.marginLeft = "";
+      }
+    });
+    window.detourDesktop.onError((value) => {
+      error.style.display = "block";
+      error.textContent = value;
+      progress.classList.remove("indeterminate");
+      progress.style.width = "100%";
+    });
+    document.getElementById("folder").addEventListener("click", () => window.detourDesktop.openDataFolder());
+  </script>
+</body>
+</html>

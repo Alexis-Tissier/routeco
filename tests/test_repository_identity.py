@@ -6,7 +6,7 @@ from pathlib import Path
 def tracked_text() -> str:
     roots = [
         Path("README.md"),
-        Path("CHATGPT_CONTEXT.md"),
+        Path("docs/development/CHATGPT_CONTEXT.md"),
         Path("site"),
         Path("scripts"),
         Path("docs"),

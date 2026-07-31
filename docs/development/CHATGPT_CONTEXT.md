@@ -1,15 +1,15 @@
 # Contexte de reprise — Détour / Routeco
 
-Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
-`CHANGELOG-v3.8-national-geocoding-interface.md`,
-`CHANGELOG-v3.9-route-diversity.md`,
-`CHANGELOG-v4.0-performance-confidence.md`,
-`CHANGELOG-v4.1-instant-repricing.md`,
-`CHANGELOG-v4.2-waypoints-addresses.md`,
-`CHANGELOG-v4.3-ui-polish.md`,
-`CHANGELOG-v4.4-segmented-location-controls.md`,
-`CHANGELOG-v4.5-distribution-foundation.md`,
-`CHANGELOG-v4.6-repository-rename.md` et le dernier rapport dans
+Lire aussi `README.md`, `docs/changelog/CHANGELOG-v3.7-fastest-time-baseline.md`,
+`docs/changelog/CHANGELOG-v3.8-national-geocoding-interface.md`,
+`docs/changelog/CHANGELOG-v3.9-route-diversity.md`,
+`docs/changelog/CHANGELOG-v4.0-performance-confidence.md`,
+`docs/changelog/CHANGELOG-v4.1-instant-repricing.md`,
+`docs/changelog/CHANGELOG-v4.2-waypoints-addresses.md`,
+`docs/changelog/CHANGELOG-v4.3-ui-polish.md`,
+`docs/changelog/CHANGELOG-v4.4-segmented-location-controls.md`,
+`docs/changelog/CHANGELOG-v4.5-distribution-foundation.md`,
+`docs/changelog/CHANGELOG-v4.6-repository-rename.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -38,9 +38,9 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.4.6**.
+- Version préparée : **0.4.7**.
 - Point de départ de la migration v26 : dépôt Détour 0.4.4 propre.
-- Tests : **193**.
+- Tests : **197**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 

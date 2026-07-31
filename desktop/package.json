@@ -1,0 +1,59 @@
+{
+  "name": "detour-desktop",
+  "version": "0.4.7",
+  "description": "Application desktop Détour",
+  "author": "Alexis Tissier",
+  "license": "MIT",
+  "main": "main.cjs",
+  "scripts": {
+    "dist:linux": "electron-builder --linux AppImage tar.gz --publish never"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "fr.alexistissier.detour",
+    "productName": "Détour",
+    "asar": true,
+    "directories": {
+      "output": "../dist/desktop",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "loading.html",
+      "assets/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../build/desktop/python/detour-backend",
+        "to": "backend"
+      },
+      {
+        "from": "../build/desktop/runtime/graphhopper-web-11.0.jar",
+        "to": "graphhopper/graphhopper-web-11.0.jar"
+      },
+      {
+        "from": "../build/desktop/runtime/jre",
+        "to": "jre"
+      },
+      {
+        "from": "../infra/graphhopper",
+        "to": "infra/graphhopper"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Utility;Maps",
+      "icon": "assets/icon.png",
+      "artifactName": "Detour-${version}-linux-${arch}.${ext}",
+      "executableName": "detour"
+    }
+  }
+}

@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-rm -f CHANGELOG-v1.4.md CHANGELOG-v1.5.md CHANGELOG-v1.6.md \
-  CHANGELOG-v1.7.md CHANGELOG-v1.8.md CHANGELOG-v1.9.md CHANGELOG-v2.0.md
+rm -f docs/changelog/CHANGELOG-v1.4.md docs/changelog/CHANGELOG-v1.5.md docs/changelog/CHANGELOG-v1.6.md \
+  docs/changelog/CHANGELOG-v1.7.md docs/changelog/CHANGELOG-v1.8.md docs/changelog/CHANGELOG-v1.9.md docs/changelog/CHANGELOG-v2.0.md
 rm -rf routeco.egg-info .pytest_cache
 find . -type d -name __pycache__ -prune -exec rm -rf {} +
 chmod +x scripts/*.sh scripts/*.py

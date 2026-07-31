@@ -39,3 +39,14 @@ data/tmp/
 !data/tolls/*.csv
 .routeco-backups/
 scripts/debug_routeco_paris_rouen_link.py
+
+# Construction desktop locale
+.desktop-cache/
+build/desktop/
+dist/desktop/
+desktop/node_modules/
+*.AppImage
+
+# Fichiers générés localement
+**/__pycache__/
+routeco_agg_info/
