@@ -7,7 +7,8 @@ Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
 `CHANGELOG-v4.1-instant-repricing.md`,
 `CHANGELOG-v4.2-waypoints-addresses.md`,
 `CHANGELOG-v4.3-ui-polish.md`,
-`CHANGELOG-v4.4-segmented-location-controls.md` et le dernier rapport dans
+`CHANGELOG-v4.4-segmented-location-controls.md`,
+`CHANGELOG-v4.5-distribution-foundation.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -36,10 +37,9 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.4.4**.
-- Point de départ de la migration v25 :
-  `3389d9f03c068c67cc5dfba053c257442ac3aaec`.
-- Tests : **188**.
+- Version préparée : **0.4.5**.
+- Point de départ de la migration v26 : dépôt Détour 0.4.4 propre.
+- Tests : **191**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 
@@ -151,3 +151,18 @@ correctement une réponse ambiguë avec plusieurs choix.
 ./scripts/routeco.sh verify-fastest
 ./.venv/bin/python -m pytest -q
 ```
+
+## Distribution desktop
+
+- nom public retenu : **Détour** ;
+- page GitHub Pages : `detour.alexis-tissier.fr` ;
+- installateurs futurs : Windows, Linux et macOS ;
+- les données France sont téléchargées une fois au premier lancement ;
+- aucun API de routage distant n'est requis pour calculer les trajets ;
+- les packs de données sont publiés sur GitHub Releases et fractionnés sous
+  2 Gio lorsque nécessaire ;
+- le PBF brut n'est pas destiné aux utilisateurs finaux ;
+- la carte de fond reste en ligne, tandis que le routage, les adresses et les
+  péages restent locaux après installation ;
+- les contrôles Leaflet + / − sont placés en bas à gauche pour ne plus recouvrir
+  le cartouche du trajet.

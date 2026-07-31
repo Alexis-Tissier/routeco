@@ -2,7 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - audit/v0.3.4-toll-engine-checkpoint
   pull_request:
 
 jobs:

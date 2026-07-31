@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Détour compare le temps, le carburant et les péages pour trouver le bon trajet au bon prix.">
+  <title>Détour — Le bon détour, au bon prix</title>
+  <link rel="icon" href="assets/detour-logo.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Accueil Détour">
+      <img src="assets/detour-logo.svg" alt="">
+      <span><strong>Détour</strong><small>Optimiseur de trajet</small></span>
+    </a>
+    <a class="github-link" href="https://github.com/Alexis-Tissier/routeco">GitHub</a>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">APPLICATION DESKTOP</p>
+        <h1>Le bon détour,<br>au bon prix.</h1>
+        <p class="lead">
+          Comparez le temps, le carburant et les péages. Les calculs restent
+          sur votre ordinateur après le téléchargement initial des données France.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/Alexis-Tissier/routeco/releases/latest">
+            Télécharger la dernière version
+          </a>
+          <a class="button secondary" href="#telecharger">Voir les systèmes</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <img src="assets/detour-app.webp" alt="Interface de Détour comparant deux itinéraires entre Versailles et Metz">
+      </div>
+    </section>
+
+    <section class="section" id="telecharger">
+      <p class="eyebrow">TÉLÉCHARGER</p>
+      <h2>Choisissez votre système</h2>
+      <p class="section-intro">
+        L'installateur est léger. Au premier lancement, Détour télécharge une
+        seule fois le pack routier France depuis GitHub Releases et le conserve localement.
+      </p>
+      <div class="downloads">
+        <article>
+          <span class="platform">Windows</span>
+          <strong>Windows 10 / 11 · 64 bits</strong>
+          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière Release</a>
+        </article>
+        <article>
+          <span class="platform">Linux</span>
+          <strong>AppImage · x86_64</strong>
+          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière Release</a>
+        </article>
+        <article>
+          <span class="platform">macOS</span>
+          <strong>Apple Silicon et Intel</strong>
+          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière Release</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section features">
+      <div>
+        <p class="eyebrow">LOCAL PAR CONCEPTION</p>
+        <h2>Une installation, puis les données restent sur votre PC.</h2>
+      </div>
+      <div class="feature-grid">
+        <article><strong>Calcul local</strong><p>GraphHopper, les adresses et les péages restent sur l'ordinateur.</p></article>
+        <article><strong>Sans abonnement</strong><p>Aucune API commerciale obligatoire pour calculer un trajet.</p></article>
+        <article><strong>Mises à jour séparées</strong><p>L'application et les données France peuvent évoluer indépendamment.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Alexis Tissier</span>
+    <span>Données cartographiques © OpenStreetMap</span>
+  </footer>
+</body>
+</html>

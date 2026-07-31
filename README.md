@@ -1,4 +1,4 @@
-# Détour / Routeco 0.4.4
+# Détour 0.4.5
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -53,6 +53,30 @@ Encore incomplet :
 - le déploiement VPS n'est pas encore finalisé.
 
 Le fichier [`CHATGPT_CONTEXT.md`](CHATGPT_CONTEXT.md) contient l'état exact du projet pour reprendre le développement dans une nouvelle conversation.
+
+## Distribution desktop préparée
+
+La cible publique est **Détour**, distribuée pour Windows, Linux et macOS.
+L'installateur restera léger : au premier lancement, l'application téléchargera
+une seule fois le pack de données France depuis GitHub Releases, le vérifiera
+par SHA-256 puis le conservera sur l'ordinateur.
+
+Les outils préparés dans cette version sont :
+
+```bash
+./.venv/bin/python scripts/build_data_release.py --version 1
+bash scripts/publish_data_release.sh dist/data-release/data-france-v1
+./.venv/bin/python scripts/install_release_data.py \
+  https://github.com/Alexis-Tissier/routeco/releases/download/data-france-v1/detour-data-france-v1.json
+```
+
+Le pack peut être fractionné automatiquement en fichiers de 1 900 Mio maximum,
+compatibles avec la limite par fichier de GitHub Releases.
+
+La page publique est préparée dans `site/` pour :
+`https://detour.alexis-tissier.fr`.
+
+Voir [`docs/distribution/DESKTOP.md`](docs/distribution/DESKTOP.md).
 
 ## Installation locale
 
@@ -139,7 +163,7 @@ Les petites matrices normalisées de `data/tolls/*.csv` sont versionnées afin q
 ./.venv/bin/python -m pytest -q
 ```
 
-La version 0.4.3 contient **188 tests automatiques**.
+La version 0.4.5 contient **191 tests automatiques**.
 
 Une GitHub Action exécute également les tests à chaque push et pull request.
 

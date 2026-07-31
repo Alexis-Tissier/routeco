@@ -1,0 +1,15 @@
+{
+  "name": "Détour",
+  "short_name": "Détour",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f1",
+  "theme_color": "#ef5a35",
+  "icons": [
+    {
+      "src": "assets/detour-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

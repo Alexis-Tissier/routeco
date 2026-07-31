@@ -8,7 +8,7 @@
   function ensureMap() {
     if (map || !window.L) return map;
     map = L.map('route-map', {
-      zoomControl: true,
+      zoomControl: false,
       preferCanvas: true,
       minZoom: 4,
     });
@@ -16,6 +16,7 @@
       maxZoom: 19,
       attribution: '© OpenStreetMap',
     }).addTo(map);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
     map.setView([46.6, 2.4], 6);
     return map;
   }
