@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
   <title id="title">Détour</title>
-  <rect x="18" y="18" width="220" height="220" rx="56" fill="#ef5a35"/>
-  <path d="M88 58h34c31 0 55 6 71 19 20 16 31 39 31 69 0 30-11 53-31 69-16 13-40 19-71 19H88V58Z" fill="#fff"/>
-  <path d="M122 94v68h3c20 0 35-4 45-13 11-8 16-21 16-37s-5-29-16-37c-10-8-25-13-45-13h-3Z" fill="#ef5a35"/>
+  <rect x="28" y="28" width="456" height="456" rx="118" fill="#ef5a35"/>
+  <path d="M168 139h91c88 0 145 45 145 117s-57 117-145 117h-91V139Zm84 67v100h15c43 0 69-18 69-50s-26-50-69-50h-15Z" fill="#fff"/>
 </svg>
