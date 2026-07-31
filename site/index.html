@@ -29,18 +29,14 @@
 
     <nav class="desktop-nav" aria-label="Navigation principale">
       <a href="#produit">Produit</a>
-      <a href="#demo">Démo</a>
+      <a href="#apercu">Aperçu</a>
       <a href="#confidentialite">Confidentialité</a>
       <a href="#telecharger">Télécharger</a>
     </nav>
 
     <div class="header-actions">
-      <a class="ghost-button compact" href="https://github.com/Alexis-Tissier/routeco" target="_blank" rel="noreferrer">
-        GitHub
-      </a>
-      <a class="primary-button compact" href="https://github.com/Alexis-Tissier/routeco/releases/latest">
-        Télécharger
-      </a>
+      <a class="ghost-button compact" href="https://github.com/Alexis-Tissier/routeco" target="_blank" rel="noreferrer">GitHub</a>
+      <a class="primary-button compact" href="https://github.com/Alexis-Tissier/routeco/releases/latest">Télécharger</a>
     </div>
   </header>
 
@@ -78,7 +74,7 @@
           <div class="window-bar">
             <div class="traffic"><span></span><span></span><span></span></div>
             <div class="window-title">Détour</div>
-            <div class="window-state">Trajets locaux</div>
+            <div class="window-state">Aperçu</div>
           </div>
           <img src="assets/detour-app.webp" alt="Interface de Détour comparant des itinéraires entre Versailles et Metz">
         </div>
@@ -86,24 +82,11 @@
         <div class="floating-card floating-local">
           <span class="floating-mark">D</span>
           <div>
-            <strong>100 % local</strong>
-            <small>Graphes, péages et calculs sur votre ordinateur</small>
+            <strong>Calcul local</strong>
+            <small>Graphes, péages et alternatives calculés sur votre ordinateur</small>
           </div>
         </div>
-
-        <div class="floating-card floating-pack">
-          <span>Pack France</span>
-          <strong>Téléchargé une fois</strong>
-          <small>puis réutilisé à chaque lancement</small>
-        </div>
       </div>
-    </section>
-
-    <section class="proof-strip" aria-label="Principes de Détour">
-      <div>TRAJETS PERTINENTS</div>
-      <div>CALCUL LOCAL</div>
-      <div>PÉAGES EXPLIQUÉS</div>
-      <div>DONNÉES FRANCE HORS LIGNE</div>
     </section>
 
     <section class="section-shell section-block" id="produit">
@@ -122,22 +105,15 @@
           <div class="feature-kicker">01 — La promesse</div>
           <h3>Le bon trajet n'est pas toujours le plus court ni le moins cher.</h3>
           <p>
-            Détour met côte à côte durée, carburant, péages, kilomètres d'autoroute et alternatives.
-            L'objectif est simple : rendre visible le véritable compromis, pas seulement la route la plus rapide.
+            Détour rend immédiatement visibles les arbitrages utiles entre durée, carburant,
+            péages et kilomètres d'autoroute. L'objectif est simple : faire gagner du temps dans
+            la décision, pas seulement proposer une route brute parmi d'autres.
           </p>
-          <div class="mini-dashboard">
-            <div class="mini-metrics">
-              <div><span>Référence rapide</span><strong>5 h 52</strong></div>
-              <div><span>Compromis</span><strong class="positive">−18,36 €</strong></div>
-              <div><span>Données</span><strong>France locale</strong></div>
-            </div>
-            <div class="mini-pills">
-              <span>Trajet rapide</span>
-              <span>Moins cher</span>
-              <span>Moins de km</span>
-              <span>Péages estimés ou exacts</span>
-            </div>
-          </div>
+          <ul class="summary-list">
+            <li>Alternatives pertinentes réellement comparées</li>
+            <li>Carburant et péages réunis dans le coût total</li>
+            <li>Trajets présentés de façon claire, sans surcharge</li>
+          </ul>
         </article>
 
         <article class="feature-card">
@@ -170,10 +146,10 @@
       </div>
     </section>
 
-    <section class="section-shell demo-section" id="demo">
+    <section class="section-shell demo-section" id="apercu">
       <div class="demo-layout">
         <div class="demo-copy">
-          <div class="eyebrow"><span></span> Aperçu de l'interface</div>
+          <div class="eyebrow"><span></span> Aperçu</div>
           <h2>Une interface claire,<br><em>centrée sur la décision.</em></h2>
           <p>
             La carte, les alternatives et les paramètres restent lisibles dans le même écran.
