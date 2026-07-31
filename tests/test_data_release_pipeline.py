@@ -40,3 +40,5 @@ def test_data_release_is_never_marked_as_latest_application_release() -> None:
     assert "--latest=false" in content
     assert "MAX_ASSET_BYTES" in content
     assert "--target" in content
+    assert "isLatest" not in content
+    assert "isPrerelease" in content

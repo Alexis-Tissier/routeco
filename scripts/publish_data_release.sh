@@ -70,5 +70,5 @@ fi
 gh release upload "$TAG" "${ASSETS[@]}" --clobber
 
 echo "Publication terminée :"
-gh release view "$TAG" --json tagName,name,url,isLatest,assets \
-  --jq '{tag: .tagName, nom: .name, url: .url, derniere_version: .isLatest, fichiers: [.assets[].name]}'
+gh release view "$TAG" --json tagName,name,url,isPrerelease,assets \
+  --jq '{tag: .tagName, nom: .name, url: .url, prerelease: .isPrerelease, fichiers: [.assets[].name]}'
