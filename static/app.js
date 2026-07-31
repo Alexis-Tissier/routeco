@@ -611,3 +611,196 @@ document.addEventListener('click', (event) => {
 });
 
 health();
+function routecoNearestField(input) {
+  return (
+    input?.closest('.field, .location-field, .form-field, .route-field') ||
+    input?.parentElement ||
+    null
+  );
+}
+
+function routecoNearestBlock(node) {
+  return (
+    node?.closest(
+      '.field, .form-field, .panel, .card, .vehicle-card, .route-card, .settings-card'
+    ) ||
+    node?.parentElement ||
+    null
+  );
+}
+
+function routecoCommonAncestor(first, second) {
+  if (!first || !second) return null;
+  const chain = [];
+  let current = first;
+  while (current) {
+    chain.push(current);
+    current = current.parentElement;
+  }
+  current = second;
+  while (current) {
+    if (chain.includes(current)) return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function routecoVehicleBlock(motorway, road, fuel) {
+  let current = motorway?.parentElement;
+  while (current) {
+    const inputCount = current.querySelectorAll('input').length;
+    if (
+      current.contains(road) &&
+      !current.contains(fuel) &&
+      inputCount >= 2 &&
+      inputCount <= 6
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return routecoCommonAncestor(motorway, road);
+}
+
+function routecoApplyMapIconButtons() {
+  const controllers = [
+    [startAutocomplete, 'le départ'],
+    [viaAutocomplete, 'l’arrêt'],
+    [endAutocomplete, 'l’arrivée'],
+  ];
+
+  controllers.forEach(([controller, label]) => {
+    const field = routecoNearestField(controller?.input);
+    const button = field?.querySelector('.map-pick');
+    if (!field || !button || field.dataset.mapIconified === 'true') return;
+
+    const row = document.createElement('div');
+    row.className = 'input-action-row';
+
+    const input = controller.input;
+    input.parentElement?.insertBefore(row, input);
+    row.appendChild(input);
+    row.appendChild(button);
+
+    button.classList.add('map-icon-button');
+    button.title = `Choisir ${label} sur la carte`;
+    button.setAttribute('aria-label', `Choisir ${label} sur la carte`);
+    button.innerHTML = '<span aria-hidden="true">◎</span>';
+
+    field.dataset.mapIconified = 'true';
+  });
+}
+
+function routecoRefreshViaToggle() {
+  const mini = document.querySelector('#via-toggle-mini');
+  const viaField = document.querySelector('#via-field');
+  if (!mini || !viaField) return;
+  mini.hidden = !viaField.hidden;
+}
+
+function routecoInstallMiniViaToggle() {
+  const addViaButton = document.querySelector('#add-via');
+  const swapButton = document.querySelector('.route-inputs > .swap, .swap');
+  if (!addViaButton || !swapButton) return;
+  if (document.querySelector('#via-toggle-mini')) {
+    routecoRefreshViaToggle();
+    return;
+  }
+
+  const stack = document.createElement('div');
+  stack.className = 'swap-stack';
+  swapButton.parentElement?.insertBefore(stack, swapButton);
+  stack.appendChild(swapButton);
+
+  const mini = document.createElement('button');
+  mini.type = 'button';
+  mini.id = 'via-toggle-mini';
+  mini.className = 'via-toggle-mini';
+  mini.title = 'Ajouter un arrêt';
+  mini.setAttribute('aria-label', 'Ajouter un arrêt');
+  mini.innerHTML = '<span aria-hidden="true">+</span>';
+
+  stack.insertBefore(mini, swapButton);
+  addViaButton.hidden = true;
+  addViaButton.setAttribute('aria-hidden', 'true');
+
+  mini.addEventListener('click', () => addViaButton.click());
+  addViaButton.addEventListener('click', () => setTimeout(routecoRefreshViaToggle, 0));
+  document
+    .querySelector('#remove-via')
+    ?.addEventListener('click', () => setTimeout(routecoRefreshViaToggle, 0));
+
+  routecoRefreshViaToggle();
+}
+
+function routecoInstallCompactSettings() {
+  const motorway = document.querySelector('#motorway-consumption');
+  const road = document.querySelector('#road-consumption');
+  const fuel = document.querySelector('#fuel-price');
+  const toll = document.querySelector('#toll-estimate-rate');
+
+  if (!motorway || !road || !fuel || !toll) return;
+  if (document.querySelector('#compact-settings')) return;
+
+  const vehicleBlock = routecoVehicleBlock(motorway, road, fuel);
+  const fuelBlock = routecoNearestBlock(fuel);
+  const tollBlock = routecoNearestBlock(toll);
+  const anchorParent =
+    vehicleBlock?.parentElement || fuelBlock?.parentElement || tollBlock?.parentElement;
+  if (!vehicleBlock || !fuelBlock || !tollBlock || !anchorParent) return;
+
+  const details = document.createElement('details');
+  details.id = 'compact-settings';
+  details.className = 'compact-settings';
+
+  const summary = document.createElement('summary');
+  summary.className = 'compact-settings-summary';
+
+  const title = document.createElement('div');
+  title.className = 'compact-settings-title';
+  title.textContent = 'Véhicule & carburant';
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'compact-settings-subtitle';
+
+  const body = document.createElement('div');
+  body.className = 'compact-settings-body';
+
+  function updateSummary() {
+    const vehicleName =
+      vehicleBlock.querySelector('h2, h3, h4, strong, .title')?.textContent?.trim() ||
+      'Véhicule';
+    subtitle.textContent =
+      `${vehicleName} · ${String(motorway.value).trim()} / ${String(road.value).trim()} L/100 · `
+      + `${String(fuel.value).trim()} €/L`;
+  }
+
+  [motorway, road, fuel, toll].forEach((input) =>
+    input.addEventListener('input', updateSummary)
+  );
+  updateSummary();
+
+  summary.appendChild(title);
+  summary.appendChild(subtitle);
+  details.appendChild(summary);
+  details.appendChild(body);
+
+  const blocks = [];
+  [vehicleBlock, fuelBlock, tollBlock].forEach((candidate) => {
+    if (!candidate) return;
+    if (blocks.some((block) => block === candidate || block.contains(candidate))) return;
+    if (blocks.some((block) => candidate.contains(block))) return;
+    blocks.push(candidate);
+  });
+
+  anchorParent.insertBefore(details, vehicleBlock);
+  blocks.forEach((block) => body.appendChild(block));
+}
+
+function routecoApplyUiPolish() {
+  routecoApplyMapIconButtons();
+  routecoInstallMiniViaToggle();
+  routecoInstallCompactSettings();
+}
+
+routecoApplyUiPolish();
