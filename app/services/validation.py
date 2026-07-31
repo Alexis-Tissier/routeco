@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,8 @@ class ValidatedRoute:
     toll_message: str
     toll_segments: list[dict[str, Any]] = field(default_factory=list)
     toll_diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    toll_cost_low: float = 0.0
+    toll_cost_high: float = 0.0
 
 
 @dataclass(slots=True)
@@ -49,6 +52,8 @@ class ScenarioResult:
     routing_seconds: float = 0.0
     toll_pricing_seconds: float = 0.0
     native_alternatives_skipped: bool = False
+    cache_hit: bool = False
+    profile_metrics: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def errors(self) -> int:
@@ -83,6 +88,7 @@ async def validate_scenario(
     fuel_price: float = 1.82,
     motorway_consumption: float = 6.5,
     road_consumption: float = 5.5,
+    toll_estimate_rate: float | None = None,
     strict: bool = False,
     enforce_gold: bool = False,
 ) -> ScenarioResult:
@@ -94,7 +100,9 @@ async def validate_scenario(
     toll_pricing_started = time.perf_counter()
 
     if engine_result.engine != "graphhopper":
-        issues.append(ValidationIssue("error", "GraphHopper indisponible : scénario calculé en démo."))
+        issues.append(
+            ValidationIssue("error", "GraphHopper indisponible : scénario calculé en démo.")
+        )
     if engine_result.retried_profiles:
         issues.append(
             ValidationIssue(
@@ -115,7 +123,13 @@ async def validate_scenario(
         )
 
     for candidate in engine_result.candidates:
-        quote = tolls.quote_candidate(candidate)
+        if toll_estimate_rate is None:
+            quote = tolls.quote_candidate(candidate)
+        else:
+            quote = tolls.quote_candidate(
+                candidate,
+                fallback_eur_per_km=toll_estimate_rate,
+            )
         costs = calculate_costs(
             candidate["motorway_km"],
             candidate["road_km"],
@@ -218,24 +232,18 @@ async def validate_scenario(
                     continue
                 start_km = float(start_km)
                 end_km = float(end_km)
-                duplicate_entry = (
-                    bool(entry_label and entry_label in seen_entry_labels)
-                    or bool(
-                        entry_key
-                        and any(
-                            abs(start_km - position) <= 1.0
-                            for position in seen_entry_positions.get(entry_key, [])
-                        )
+                duplicate_entry = bool(entry_label and entry_label in seen_entry_labels) or bool(
+                    entry_key
+                    and any(
+                        abs(start_km - position) <= 1.0
+                        for position in seen_entry_positions.get(entry_key, [])
                     )
                 )
-                duplicate_exit = (
-                    bool(exit_label and exit_label in seen_exit_labels)
-                    or bool(
-                        exit_key
-                        and any(
-                            abs(end_km - position) <= 1.0
-                            for position in seen_exit_positions.get(exit_key, [])
-                        )
+                duplicate_exit = bool(exit_label and exit_label in seen_exit_labels) or bool(
+                    exit_key
+                    and any(
+                        abs(end_km - position) <= 1.0
+                        for position in seen_exit_positions.get(exit_key, [])
                     )
                 )
                 if duplicate_entry:
@@ -305,6 +313,8 @@ async def validate_scenario(
                 toll_message=quote.message,
                 toll_segments=segments,
                 toll_diagnostics=list(quote.diagnostics),
+                toll_cost_low=float(quote.cost if quote.cost_low is None else quote.cost_low),
+                toll_cost_high=float(quote.cost if quote.cost_high is None else quote.cost_high),
             )
         )
 
@@ -382,9 +392,9 @@ async def validate_scenario(
             time.perf_counter() - toll_pricing_started,
             3,
         ),
-        native_alternatives_skipped=(
-            engine_result.native_alternatives_skipped
-        ),
+        native_alternatives_skipped=(engine_result.native_alternatives_skipped),
+        cache_hit=engine_result.cache_hit,
+        profile_metrics=list(engine_result.profile_metrics),
     )
 
 
@@ -392,9 +402,52 @@ def load_scenarios(path: Path) -> list[dict[str, Any]]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _percentile(values: list[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(float(value) for value in values)
+    index = max(
+        0,
+        min(
+            len(ordered) - 1,
+            math.ceil((len(ordered) - 1) * percentile),
+        ),
+    )
+    return round(ordered[index], 3)
+
+
+def _profile_metric_summary(
+    results: list[ScenarioResult],
+) -> list[dict[str, Any]]:
+    by_name: dict[str, list[dict[str, Any]]] = {}
+    for result in results:
+        for metric in result.profile_metrics:
+            by_name.setdefault(str(metric.get("name") or "unknown"), []).append(metric)
+    output: list[dict[str, Any]] = []
+    for name, metrics in sorted(by_name.items()):
+        durations = [
+            float(metric.get("seconds") or 0.0) + float(metric.get("fallback_seconds") or 0.0)
+            for metric in metrics
+        ]
+        output.append(
+            {
+                "name": name,
+                "runs": len(metrics),
+                "p50_seconds": _percentile(durations, 0.50),
+                "p95_seconds": _percentile(durations, 0.95),
+                "max_seconds": round(max(durations, default=0.0), 3),
+                "failures": sum(metric.get("status") == "failed" for metric in metrics),
+                "recoveries": sum(metric.get("status") == "recovered" for metric in metrics),
+                "candidates": sum(int(metric.get("candidates") or 0) for metric in metrics),
+            }
+        )
+    return output
+
+
 def report_payload(results: list[ScenarioResult], *, strict: bool) -> dict[str, Any]:
+    routing_durations = [result.routing_seconds for result in results]
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "strict": strict,
         "summary": {
             "scenarios": len(results),
@@ -409,7 +462,8 @@ def report_payload(results: list[ScenarioResult], *, strict: bool) -> dict[str, 
             ),
             "estimated_minor": sum(
                 route.toll_confidence == "estimated" and not is_material_estimate(route)
-                for result in results for route in result.routes
+                for result in results
+                for route in result.routes
             ),
             "none": sum(
                 route.toll_confidence == "none" for result in results for route in result.routes
@@ -421,36 +475,36 @@ def report_payload(results: list[ScenarioResult], *, strict: bool) -> dict[str, 
                 3,
             ),
             "routing_average_seconds": round(
-                (
-                    sum(result.routing_seconds for result in results)
-                    / len(results)
-                )
+                (sum(result.routing_seconds for result in results) / len(results))
                 if results
                 else 0.0,
                 3,
             ),
             "routing_max_seconds": round(
                 max(
-                    (
-                        result.routing_seconds
-                        for result in results
-                    ),
+                    (result.routing_seconds for result in results),
                     default=0.0,
                 ),
                 3,
             ),
+            "routing_p50_seconds": _percentile(
+                routing_durations,
+                0.50,
+            ),
+            "routing_p95_seconds": _percentile(
+                routing_durations,
+                0.95,
+            ),
+            "routing_cache_hits": sum(result.cache_hit for result in results),
             "toll_pricing_seconds": round(
-                sum(
-                    result.toll_pricing_seconds
-                    for result in results
-                ),
+                sum(result.toll_pricing_seconds for result in results),
                 3,
             ),
             "native_alternatives_skipped": sum(
-                result.native_alternatives_skipped
-                for result in results
+                result.native_alternatives_skipped for result in results
             ),
         },
+        "profile_metrics": _profile_metric_summary(results),
         "results": [
             {
                 "id": result.id,
@@ -462,9 +516,9 @@ def report_payload(results: list[ScenarioResult], *, strict: bool) -> dict[str, 
                 "failed_profiles": result.failed_profiles,
                 "routing_seconds": result.routing_seconds,
                 "toll_pricing_seconds": result.toll_pricing_seconds,
-                "native_alternatives_skipped": (
-                    result.native_alternatives_skipped
-                ),
+                "native_alternatives_skipped": (result.native_alternatives_skipped),
+                "cache_hit": result.cache_hit,
+                "profile_metrics": result.profile_metrics,
                 "routes": [asdict(route) for route in result.routes],
             }
             for result in results
@@ -492,8 +546,11 @@ def render_markdown(payload: dict[str, Any]) -> str:
         (
             f"- Temps de routage cumulé : **{summary.get('routing_seconds', 0.0):.1f} s** "
             f"(moyenne {summary.get('routing_average_seconds', 0.0):.1f} s, "
+            f"p50 {summary.get('routing_p50_seconds', 0.0):.1f} s, "
+            f"p95 {summary.get('routing_p95_seconds', 0.0):.1f} s, "
             f"maximum {summary.get('routing_max_seconds', 0.0):.1f} s)"
         ),
+        f"- Résultats servis depuis le cache : **{summary.get('routing_cache_hits', 0)}**",
         f"- Temps de calcul des péages : **{summary.get('toll_pricing_seconds', 0.0):.2f} s**",
         (
             "- Variantes natives annulées car déjà redondantes : "
@@ -501,12 +558,40 @@ def render_markdown(payload: dict[str, Any]) -> str:
         ),
         f"- Erreurs : **{summary['errors']}**",
         f"- Avertissements : **{summary['warnings']}**",
-        "",
-        "## Vue d'ensemble",
-        "",
-        "| Scénario | Routes | Routage | Plus rapide | Péage rapide | Exact / estimé / aucun | État |",
-        "|---|---:|---:|---:|---:|---:|---|",
     ]
+
+    if payload.get("profile_metrics"):
+        lines.extend(
+            [
+                "",
+                "## Performances par profil GraphHopper",
+                "",
+                (
+                    "| Profil | Exécutions | p50 | p95 | Maximum | "
+                    "Échecs | Récupérations | Candidats |"
+                ),
+                "|---|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for metric in payload["profile_metrics"]:
+            lines.append(
+                f"| {metric['name']} | {metric['runs']} | "
+                f"{metric['p50_seconds']:.1f} s | {metric['p95_seconds']:.1f} s | "
+                f"{metric['max_seconds']:.1f} s | {metric['failures']} | "
+                f"{metric['recoveries']} | {metric['candidates']} |"
+            )
+    lines.extend(
+        [
+            "",
+            "## Vue d'ensemble",
+            "",
+            (
+                "| Scénario | Routes | Routage | Plus rapide | "
+                "Péage rapide | Exact / estimé / aucun | État |"
+            ),
+            "|---|---:|---:|---:|---:|---:|---|",
+        ]
+    )
 
     for result in payload["results"]:
         routes = result["routes"]
@@ -518,7 +603,11 @@ def render_markdown(payload: dict[str, Any]) -> str:
         }
         errors = sum(issue["level"] == "error" for issue in result["issues"])
         warnings = sum(issue["level"] == "warning" for issue in result["issues"])
-        state = "OK" if not errors and not warnings else (f"ERREUR ×{errors}" if errors else f"À vérifier ×{warnings}")
+        state = (
+            "OK"
+            if not errors and not warnings
+            else (f"ERREUR ×{errors}" if errors else f"À vérifier ×{warnings}")
+        )
         fastest_duration = f"{fastest['duration_minutes']} min" if fastest else "—"
         fastest_toll = f"{fastest['toll_cost']:.2f} €" if fastest else "—"
         routing_seconds = float(result.get("routing_seconds") or 0.0)
@@ -531,7 +620,9 @@ def render_markdown(payload: dict[str, Any]) -> str:
     for result in payload["results"]:
         lines.extend(["", f"## {result['name']}", ""])
         for issue in result["issues"]:
-            marker = "❌" if issue["level"] == "error" else ("ℹ️" if issue["level"] == "info" else "⚠️")
+            marker = (
+                "❌" if issue["level"] == "error" else ("ℹ️" if issue["level"] == "info" else "⚠️")
+            )
             lines.append(f"- {marker} {issue['message']}")
         if not result["issues"]:
             lines.append("- Aucun problème détecté.")
@@ -553,16 +644,18 @@ def render_markdown(payload: dict[str, Any]) -> str:
                 exit_ = segment.get("exit")
                 label = f"{entry} → {exit_}" if exit_ else entry
                 lines.append(
-                    f"  - Péage : {label} — {segment['cost']:.2f} € "
-                    f"({segment['confidence']})."
+                    f"  - Péage : {label} — {segment['cost']:.2f} € ({segment['confidence']})."
                 )
             for diagnostic in route.get("toll_diagnostics", []):
-                states = ", ".join(
-                    f"{item.get('value', '?')}/{item.get('class1_status', '?')} "
-                    f"{item.get('route_start_km', '?')}→"
-                    f"{item.get('route_end_km', '?')} km"
-                    for item in diagnostic.get("toll_states", [])
-                ) or "aucun état transmis"
+                states = (
+                    ", ".join(
+                        f"{item.get('value', '?')}/{item.get('class1_status', '?')} "
+                        f"{item.get('route_start_km', '?')}→"
+                        f"{item.get('route_end_km', '?')} km"
+                        for item in diagnostic.get("toll_states", [])
+                    )
+                    or "aucun état transmis"
+                )
                 lines.append(
                     "  - Diagnostic : intervalle "
                     f"{diagnostic.get('route_start_km', '?')}→"
@@ -578,9 +671,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
                         f"{item.get('lateral_km', '?')} km"
                         for item in stations[:6]
                     )
-                    lines.append(
-                        f"    - Gares/portiques proches : {labels}."
-                    )
+                    lines.append(f"    - Gares/portiques proches : {labels}.")
 
     lines.append("")
     return "\n".join(lines)

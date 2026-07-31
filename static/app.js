@@ -11,6 +11,11 @@ const formatMoney = (value) => new Intl.NumberFormat('fr-FR', {
   style: 'currency',
   currency: 'EUR',
 }).format(value);
+const formatMoneyRange = (low, high) => (
+  Math.abs(Number(high) - Number(low)) < 0.02
+    ? formatMoney(low)
+    : `${formatMoney(low)}–${formatMoney(high)}`
+);
 const formatDuration = (minutes) => (
   `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`
 );
@@ -43,7 +48,15 @@ function sourceLabel(place) {
 
 async function health() {
   try {
-    const data = await fetch('/api/health').then((response) => response.json());
+    const [data, config] = await Promise.all([
+      fetch('/api/health').then((response) => response.json()),
+      fetch('/api/config').then((response) => response.json()),
+    ]);
+    if (Number.isFinite(Number(config.toll_estimate_eur_per_km))) {
+      $('#toll-estimate-rate').value = Number(
+        config.toll_estimate_eur_per_km,
+      ).toFixed(3);
+    }
     const status = $('#status');
     status.className = `status ${data.graphhopper ? 'ready' : 'demo'}`;
     if (!data.graphhopper) {
@@ -236,10 +249,13 @@ function renderTollSegments(route) {
       ? `${escapeHtml(segment.entry)}${segment.exit ? ` → ${escapeHtml(segment.exit)}` : ''}`
       : `Partie estimée${segment.distance_km ? ` · ${Number(segment.distance_km).toFixed(0)} km` : ''}`;
     const badge = segment.confidence === 'exact' ? 'exact' : 'estimated';
+    const amount = segment.confidence === 'exact'
+      ? formatMoney(segment.cost)
+      : formatMoneyRange(segment.cost_low, segment.cost_high);
     return `
       <div class="toll-segment">
         <span>${label}</span>
-        <strong>${formatMoney(segment.cost)}</strong>
+        <strong>${amount}</strong>
         <i class="${badge}">${segment.confidence === 'exact' ? 'exact' : 'estimé'}</i>
       </div>
     `;
@@ -249,6 +265,11 @@ function renderTollSegments(route) {
 
 function candidateSummary(data) {
   const parts = [`${data.candidate_count} calculé${data.candidate_count > 1 ? 's' : ''}`];
+  parts.push(
+    data.cache_hit
+      ? 'tracés réutilisés'
+      : `routage ${Number(data.routing_seconds || 0).toFixed(1)} s`,
+  );
   const filtered = Math.max(0, data.hidden_count - data.merged_count);
   if (filtered) {
     parts.push(`${filtered} hors limite de temps`);
@@ -268,7 +289,20 @@ function renderResults(data) {
     ? `1 référence rapide · ${alternativeCount} alternative${alternativeCount > 1 ? 's' : ''}`
     : 'Le trajet de référence';
   $('#candidate-count').textContent = candidateSummary(data);
-  $('#results').innerHTML = data.routes.map((route, index) => `
+  $('#results').innerHTML = data.routes.map((route, index) => {
+    const estimatedRange = route.toll_confidence === 'estimated'
+      ? `<small class="cost-range">fourchette ${formatMoneyRange(route.total_cost_low, route.total_cost_high)}</small>`
+      : '';
+    const tollAmount = route.toll_confidence === 'estimated'
+      ? formatMoneyRange(route.toll_cost_low, route.toll_cost_high)
+      : formatMoney(route.toll_cost);
+    let saving = '';
+    if (route.savings_low > 0) {
+      saving = `<div class="saving">Au moins ${formatMoney(route.savings_low)} économisés face au plus rapide</div>`;
+    } else if (route.savings > 0) {
+      saving = `<div class="saving estimated-saving">${formatMoney(route.savings)} d’économie centrale, à confirmer avec le péage réel</div>`;
+    }
+    return `
     <article class="route-card ${index === 0 ? 'selected' : ''} ${route.within_limit ? '' : 'outside'}"
              data-id="${escapeHtml(route.id)}" tabindex="0">
       <div class="card-top">
@@ -283,14 +317,15 @@ function renderResults(data) {
       <div class="main-metrics">
         <strong>${formatMoney(route.total_cost)}</strong>
         <span>${formatDuration(route.duration_minutes)}${route.extra_minutes ? ` · +${route.extra_minutes} min` : ''}</span>
+        ${estimatedRange}
       </div>
       <div class="metrics">
         <div class="metric"><span>Carburant</span><strong>${formatMoney(route.fuel_cost)}</strong></div>
-        <div class="metric"><span>Péages</span><strong>${formatMoney(route.toll_cost)}</strong></div>
+        <div class="metric"><span>Péages</span><strong>${tollAmount}</strong></div>
         <div class="metric"><span>Autoroute</span><strong>${route.motorway_km.toFixed(0)} km</strong></div>
         <div class="metric"><span>Autres routes</span><strong>${route.road_km.toFixed(0)} km</strong></div>
       </div>
-      ${route.savings > 0 ? `<div class="saving">${formatMoney(route.savings)} économisés face au plus rapide</div>` : ''}
+      ${saving}
       ${route.toll_confidence === 'exact'
         ? `<div class="toll-exact">${escapeHtml(route.toll_message || 'Tarif de péage exact classe 1.')}</div>`
         : route.toll_confidence === 'estimated'
@@ -298,7 +333,8 @@ function renderResults(data) {
           : ''}
       ${renderTollSegments(route)}
     </article>
-  `).join('');
+  `;
+  }).join('');
   document.querySelectorAll('.route-card').forEach((card) => {
     card.addEventListener('click', () => selectRoute(card.dataset.id));
     card.addEventListener('keydown', (event) => {
@@ -378,6 +414,7 @@ async function calculate(event) {
       show_all: state.showAll,
       motorway_consumption: Number($('#motorway-consumption').value),
       road_consumption: Number($('#road-consumption').value),
+      toll_estimate_rate: Number($('#toll-estimate-rate').value),
     };
     const response = await fetch('/api/routes', {
       method: 'POST',

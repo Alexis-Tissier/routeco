@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import json
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,6 +28,9 @@ class EngineResult:
     failed_profiles: list[str] = field(default_factory=list)
     routing_seconds: float = 0.0
     native_alternatives_skipped: bool = False
+    cache_hit: bool = False
+    cache_age_seconds: float = 0.0
+    profile_metrics: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -34,6 +39,7 @@ class ProfileResult:
     candidates: list[dict]
     attempts: int
     last_error: str = ""
+    elapsed_seconds: float = 0.0
 
     @property
     def retried(self) -> bool:
@@ -66,24 +72,177 @@ class GraphHopperClient:
         "toll",
     )
 
-    def __init__(self, base_url: str, timeout_seconds: float = 180.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        timeout_seconds: float = 180.0,
+        *,
+        cache_ttl_seconds: int = 1800,
+        cache_max_entries: int = 8,
+        max_concurrent_calculations: int = 1,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout_seconds
+        self.cache_ttl_seconds = max(0, int(cache_ttl_seconds))
+        self.cache_max_entries = max(0, int(cache_max_entries))
+        self.max_concurrent_calculations = max(
+            1,
+            int(max_concurrent_calculations),
+        )
+        self._cache: OrderedDict[
+            tuple[float, float, float, float],
+            tuple[float, EngineResult, int],
+        ] = OrderedDict()
+        self._cache_hits = 0
+        self._cache_misses = 0
+        self._cache_waits = 0
+        self._inflight: dict[
+            tuple[float, float, float, float],
+            asyncio.Task[EngineResult],
+        ] = {}
+        self._calculation_semaphore = asyncio.Semaphore(self.max_concurrent_calculations)
+        self._client: httpx.AsyncClient | None = None
+
+    def _http_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                trust_env=False,
+                limits=httpx.Limits(
+                    max_connections=12,
+                    max_keepalive_connections=8,
+                    keepalive_expiry=60.0,
+                ),
+            )
+        return self._client
+
+    async def close(self) -> None:
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+
+    @staticmethod
+    def _cache_key(
+        start: Coordinate,
+        end: Coordinate,
+    ) -> tuple[float, float, float, float]:
+        # Five decimals retain metre-level geocoding while absorbing harmless
+        # floating-point differences between an autocomplete click and a direct
+        # resolution of the same place.
+        return (
+            round(start.lat, 5),
+            round(start.lon, 5),
+            round(end.lat, 5),
+            round(end.lon, 5),
+        )
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
+    def cache_info(self) -> dict[str, int | float]:
+        return {
+            "entries": len(self._cache),
+            "max_entries": self.cache_max_entries,
+            "ttl_seconds": self.cache_ttl_seconds,
+            "estimated_bytes": sum(item[2] for item in self._cache.values()),
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "shared_waits": self._cache_waits,
+            "inflight": len(self._inflight),
+            "max_concurrent_calculations": self.max_concurrent_calculations,
+        }
 
     async def available(self) -> bool:
         try:
             # GraphHopper is a local Routeco dependency. Environment proxies
             # must not intercept localhost health checks or route requests.
-            async with httpx.AsyncClient(
+            response = await self._http_client().get(
+                f"{self.base_url}/info",
                 timeout=2.5,
-                trust_env=False,
-            ) as client:
-                response = await client.get(f"{self.base_url}/info")
-                return response.is_success
+            )
+            return response.is_success
         except httpx.HTTPError:
             return False
 
     async def candidates(self, start: Coordinate, end: Coordinate) -> EngineResult:
+        request_started = time.perf_counter()
+        key = self._cache_key(start, end)
+        now = time.monotonic()
+        cached = self._cache.get(key)
+        if cached is not None:
+            cached_at, cached_result, _estimated_bytes = cached
+            age = max(0.0, now - cached_at)
+            if age <= self.cache_ttl_seconds:
+                self._cache.move_to_end(key)
+                self._cache_hits += 1
+                result = copy.deepcopy(cached_result)
+                result.cache_hit = True
+                result.cache_age_seconds = round(age, 3)
+                result.profile_metrics = []
+                result.routing_seconds = round(
+                    time.perf_counter() - request_started,
+                    3,
+                )
+                return result
+            self._cache.pop(key, None)
+
+        existing = self._inflight.get(key)
+        if existing is not None:
+            self._cache_waits += 1
+            result = copy.deepcopy(await asyncio.shield(existing))
+            result.cache_hit = True
+            result.cache_age_seconds = 0.0
+            result.profile_metrics = []
+            result.routing_seconds = round(
+                time.perf_counter() - request_started,
+                3,
+            )
+            return result
+
+        self._cache_misses += 1
+
+        async def compute() -> EngineResult:
+            async with self._calculation_semaphore:
+                return await self._compute_candidates(start, end)
+
+        task = asyncio.create_task(compute())
+        self._inflight[key] = task
+        try:
+            computed = await asyncio.shield(task)
+        finally:
+            if self._inflight.get(key) is task:
+                self._inflight.pop(key, None)
+
+        if (
+            computed.engine == "graphhopper"
+            and self.cache_ttl_seconds > 0
+            and self.cache_max_entries > 0
+        ):
+            stored = copy.deepcopy(computed)
+            estimated_bytes = len(
+                json.dumps(
+                    stored.candidates,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            )
+            self._cache[key] = (
+                time.monotonic(),
+                stored,
+                estimated_bytes,
+            )
+            self._cache.move_to_end(key)
+            while len(self._cache) > self.cache_max_entries:
+                self._cache.popitem(last=False)
+
+        computed.cache_hit = False
+        computed.cache_age_seconds = 0.0
+        return computed
+
+    async def _compute_candidates(
+        self,
+        start: Coordinate,
+        end: Coordinate,
+    ) -> EngineResult:
         routing_started = time.perf_counter()
         if not await self.available():
             return EngineResult(
@@ -109,18 +268,14 @@ class GraphHopperClient:
             ("free", 0.30, 0.05, 5),
         ]
         profile_tasks = [
-            asyncio.create_task(
-                self._request_profile(start, end, name, motorway, toll, rank)
-            )
+            asyncio.create_task(self._request_profile(start, end, name, motorway, toll, rank))
             for name, motorway, toll, rank in profiles
         ]
         # GraphHopper has a native alternative-route algorithm that is far less
         # prone to the maximum-nodes failures triggered by very aggressive custom
         # models. It provides a robust baseline of genuinely different routes,
         # while the five custom profiles still search for economical variants.
-        native_task = asyncio.create_task(
-            self._request_native_alternatives(start, end)
-        )
+        native_task = asyncio.create_task(self._timed_native_alternatives(start, end))
         try:
             responses = await asyncio.gather(
                 *profile_tasks,
@@ -137,11 +292,35 @@ class GraphHopperClient:
         candidates: list[dict] = []
         retried_profiles: list[str] = []
         failed_profile_results: list[ProfileResult] = []
-        for result in responses:
+        profile_metrics: list[dict[str, Any]] = []
+        for (profile_name, _motorway, _toll, _rank), result in zip(
+            profiles,
+            responses,
+        ):
             if isinstance(result, Exception):
                 logger.warning("Unexpected GraphHopper profile failure: %s", result)
+                profile_metrics.append(
+                    {
+                        "name": profile_name,
+                        "seconds": 0.0,
+                        "attempts": 0,
+                        "candidates": 0,
+                        "status": "failed",
+                        "fallback_seconds": 0.0,
+                    }
+                )
                 continue
             candidates.extend(result.candidates)
+            profile_metrics.append(
+                {
+                    "name": result.name,
+                    "seconds": result.elapsed_seconds,
+                    "attempts": result.attempts,
+                    "candidates": len(result.candidates),
+                    "status": "failed" if result.failed else "ok",
+                    "fallback_seconds": 0.0,
+                }
+            )
             if result.retried:
                 retried_profiles.append(result.name)
             if result.failed:
@@ -160,26 +339,23 @@ class GraphHopperClient:
         # economic option.
         native_alternatives_skipped = False
         distinct_custom = self._deduplicate(candidates)
-        custom_profiles = {
-            str(item.get("profile", ""))
-            for item in candidates
-        }
+        custom_profiles = {str(item.get("profile", "")) for item in candidates}
         role_coverage_complete = (
             "fastest" in custom_profiles
             and "motorway" in custom_profiles
             and bool(custom_profiles & {"balanced", "economy", "free"})
         )
-        if (
-            not native_task.done()
-            and len(distinct_custom) >= 5
-            and role_coverage_complete
-        ):
+        if not native_task.done() and len(distinct_custom) >= 5 and role_coverage_complete:
             native_task.cancel()
             try:
                 await native_task
             except asyncio.CancelledError:
                 pass
-            native_result: list[dict] | Exception = []
+            native_result: tuple[list[dict], float, Exception | None] | BaseException = (
+                [],
+                0.0,
+                None,
+            )
             native_alternatives_skipped = True
         else:
             native_response = await asyncio.gather(
@@ -187,20 +363,42 @@ class GraphHopperClient:
                 return_exceptions=True,
             )
             native_result = native_response[0]
-
         # Native alternatives are usable even when every custom profile fails.
         # Add them before choosing a fallback geometry so a bounded native path can
         # seed segmented recovery instead of silently losing all economic profiles.
-        if isinstance(native_result, Exception):
+        if isinstance(native_result, BaseException):
             # A native alternative-route failure is expected on some very long
             # searches. Do not print it as a warning when custom profiles already
             # produced usable routes; it remains visible at INFO level.
             log_native_failure = logger.info if candidates else logger.warning
-            log_native_failure(
-                "GraphHopper native alternatives unavailable: %s", native_result
-            )
+            log_native_failure("GraphHopper native alternatives unavailable: %s", native_result)
+            native_status = "failed"
+            native_candidates = 0
+            native_seconds = 0.0
         else:
-            candidates.extend(native_result)
+            native_routes, native_seconds, native_error = native_result
+            if native_error is not None:
+                log_native_failure = logger.info if candidates else logger.warning
+                log_native_failure(
+                    "GraphHopper native alternatives unavailable: %s",
+                    native_error,
+                )
+                native_status = "failed"
+                native_candidates = 0
+            else:
+                candidates.extend(native_routes)
+                native_status = "skipped" if native_alternatives_skipped else "ok"
+                native_candidates = len(native_routes)
+        profile_metrics.append(
+            {
+                "name": "native",
+                "seconds": native_seconds,
+                "attempts": 0 if native_alternatives_skipped else 1,
+                "candidates": native_candidates,
+                "status": native_status,
+                "fallback_seconds": 0.0,
+            }
+        )
 
         # A France-wide low-toll search can still hit the server's visited-node
         # ceiling even with landmarks. Re-run only the failed profiles through
@@ -228,7 +426,9 @@ class GraphHopperClient:
                 fastest_geometry = candidate_geometry
         recovered_names: set[str] = set()
         if fastest_geometry and failed_profile_results:
-            profile_by_name = {name: (motorway, toll, rank) for name, motorway, toll, rank in profiles}
+            profile_by_name = {
+                name: (motorway, toll, rank) for name, motorway, toll, rank in profiles
+            }
             fallback_tasks = []
             fallback_names = []
             for result in failed_profile_results:
@@ -238,7 +438,7 @@ class GraphHopperClient:
                 motorway, toll, rank = config
                 fallback_names.append(result.name)
                 fallback_tasks.append(
-                    self._request_segmented_profile(
+                    self._timed_segmented_profile(
                         start,
                         end,
                         result.name,
@@ -249,9 +449,7 @@ class GraphHopperClient:
                     )
                 )
             if fallback_tasks:
-                fallback_responses = await asyncio.gather(
-                    *fallback_tasks, return_exceptions=True
-                )
+                fallback_responses = await asyncio.gather(*fallback_tasks, return_exceptions=True)
                 for name, fallback in zip(fallback_names, fallback_responses):
                     if isinstance(fallback, Exception):
                         logger.warning(
@@ -260,16 +458,26 @@ class GraphHopperClient:
                             fallback,
                         )
                         continue
-                    if fallback:
-                        candidates.extend(fallback)
+                    fallback_candidates, fallback_seconds = fallback
+                    metric = next(
+                        (item for item in profile_metrics if item["name"] == name),
+                        None,
+                    )
+                    if metric is not None:
+                        metric["fallback_seconds"] = fallback_seconds
+                    if fallback_candidates:
+                        candidates.extend(fallback_candidates)
                         recovered_names.add(name)
+                        if metric is not None:
+                            metric["status"] = "recovered"
+                            metric["candidates"] = int(metric["candidates"]) + len(
+                                fallback_candidates
+                            )
                         if name not in retried_profiles:
                             retried_profiles.append(name)
 
         failed_profiles = [
-            result.name
-            for result in failed_profile_results
-            if result.name not in recovered_names
+            result.name for result in failed_profile_results if result.name not in recovered_names
         ]
 
         candidates = self._deduplicate(candidates)
@@ -284,9 +492,8 @@ class GraphHopperClient:
                     time.perf_counter() - routing_started,
                     3,
                 ),
-                native_alternatives_skipped=(
-                    native_alternatives_skipped
-                ),
+                native_alternatives_skipped=(native_alternatives_skipped),
+                profile_metrics=profile_metrics,
             )
 
         message = f"{len(candidates)} itinéraires trouvés."
@@ -302,14 +509,11 @@ class GraphHopperClient:
                 time.perf_counter() - routing_started,
                 3,
             ),
-            native_alternatives_skipped=(
-                native_alternatives_skipped
-            ),
+            native_alternatives_skipped=(native_alternatives_skipped),
+            profile_metrics=profile_metrics,
         )
 
-    async def _request_native_alternatives(
-        self, start: Coordinate, end: Coordinate
-    ) -> list[dict]:
+    async def _request_native_alternatives(self, start: Coordinate, end: Coordinate) -> list[dict]:
         """Ask GraphHopper for native alternatives using its bounded algorithm.
 
         This request deliberately uses the server profile without a request-time
@@ -352,6 +556,26 @@ class GraphHopperClient:
             ) from exc
         return self._paths_to_candidates(payload, "native", 0)
 
+    async def _timed_native_alternatives(
+        self,
+        start: Coordinate,
+        end: Coordinate,
+    ) -> tuple[list[dict], float, Exception | None]:
+        started = time.perf_counter()
+        try:
+            candidates = await self._request_native_alternatives(start, end)
+            return (
+                candidates,
+                round(time.perf_counter() - started, 3),
+                None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return (
+                [],
+                round(time.perf_counter() - started, 3),
+                exc,
+            )
+
     async def _request_profile(
         self,
         start: Coordinate,
@@ -361,15 +585,14 @@ class GraphHopperClient:
         toll_priority: float,
         rank: int,
     ) -> ProfileResult:
+        started = time.perf_counter()
         attempts = (
             self._motorway_retry_plan(motorway_priority)
             if name == "motorway"
             else self._retry_plan(motorway_priority, toll_priority)
         )
         last_error = ""
-        for attempt_number, (motorway, toll, distance_influence) in enumerate(
-            attempts, start=1
-        ):
+        for attempt_number, (motorway, toll, distance_influence) in enumerate(attempts, start=1):
             try:
                 candidates = await self._request_once(
                     start,
@@ -380,7 +603,13 @@ class GraphHopperClient:
                     rank,
                     distance_influence,
                 )
-                return ProfileResult(name, candidates, attempt_number, last_error)
+                return ProfileResult(
+                    name,
+                    candidates,
+                    attempt_number,
+                    last_error,
+                    round(time.perf_counter() - started, 3),
+                )
             except GraphHopperRequestError as exc:
                 last_error = str(exc)
                 if not exc.retryable or attempt_number == len(attempts):
@@ -402,7 +631,13 @@ class GraphHopperClient:
                     attempt_number,
                     exc,
                 )
-        return ProfileResult(name, [], len(attempts), last_error)
+        return ProfileResult(
+            name,
+            [],
+            len(attempts),
+            last_error,
+            round(time.perf_counter() - started, 3),
+        )
 
     @staticmethod
     def _retry_plan(
@@ -443,6 +678,28 @@ class GraphHopperClient:
             (round(max(other_road_priority, 0.84), 3), 1.0, 60.0),
         ]
 
+    async def _timed_segmented_profile(
+        self,
+        start: Coordinate,
+        end: Coordinate,
+        name: str,
+        motorway_priority: float,
+        toll_priority: float,
+        rank: int,
+        baseline_geometry: list[list[float]],
+    ) -> tuple[list[dict], float]:
+        started = time.perf_counter()
+        candidates = await self._request_segmented_profile(
+            start,
+            end,
+            name,
+            motorway_priority,
+            toll_priority,
+            rank,
+            baseline_geometry,
+        )
+        return candidates, round(time.perf_counter() - started, 3)
+
     async def _request_segmented_profile(
         self,
         start: Coordinate,
@@ -478,10 +735,7 @@ class GraphHopperClient:
         for motorway, toll, distance_influence in models:
             for fractions in plans:
                 attempt_index += 1
-                vias = [
-                    self._point_at_fraction(baseline_geometry, value)
-                    for value in fractions
-                ]
+                vias = [self._point_at_fraction(baseline_geometry, value) for value in fractions]
                 points = [[start.lon, start.lat], *vias, [end.lon, end.lat]]
                 body: dict[str, Any] = {
                     "points": points,
@@ -504,9 +758,7 @@ class GraphHopperClient:
                 }
                 try:
                     payload = await self._post_route(body)
-                    routes = self._paths_to_candidates(
-                        payload, f"{name}-seg{attempt_index}", rank
-                    )
+                    routes = self._paths_to_candidates(payload, f"{name}-seg{attempt_index}", rank)
                     if routes:
                         return routes
                 except (GraphHopperRequestError, httpx.HTTPError) as exc:
@@ -522,9 +774,7 @@ class GraphHopperClient:
         return []
 
     @staticmethod
-    def _point_at_fraction(
-        geometry: list[list[float]], fraction: float
-    ) -> list[float]:
+    def _point_at_fraction(geometry: list[list[float]], fraction: float) -> list[float]:
         if len(geometry) < 2:
             return list(geometry[0]) if geometry else [0.0, 0.0]
         fraction = min(1.0, max(0.0, fraction))
@@ -605,24 +855,16 @@ class GraphHopperClient:
         payload = await self._post_route(body)
         return self._paths_to_candidates(payload, name, rank)
 
-    def _paths_to_candidates(
-        self, payload: dict[str, Any], name: str, rank: int
-    ) -> list[dict]:
+    def _paths_to_candidates(self, payload: dict[str, Any], name: str, rank: int) -> list[dict]:
         output: list[dict] = []
         for path_index, path in enumerate(payload.get("paths", [])):
             geometry = path.get("points", {}).get("coordinates", [])
             if len(geometry) < 2:
                 continue
             road_class_details = path.get("details", {}).get("road_class", [])
-            road_class_link_details = path.get("details", {}).get(
-                "road_class_link", []
-            )
-            street_name_details = path.get("details", {}).get(
-                "street_name", []
-            )
-            street_ref_details = path.get("details", {}).get(
-                "street_ref", []
-            )
+            road_class_link_details = path.get("details", {}).get("road_class_link", [])
+            street_name_details = path.get("details", {}).get("street_name", [])
+            street_ref_details = path.get("details", {}).get("street_ref", [])
             toll_details = path.get("details", {}).get("toll", [])
             # ROUTECO_V034_TOLL_STATE_INTERVALS
             # Preserve every GraphHopper toll state. Routeco still derives the
@@ -632,21 +874,15 @@ class GraphHopperClient:
                 geometry,
                 toll_details,
             )
-            motorway_km = self._detail_distance(
-                geometry, road_class_details, {"MOTORWAY"}
-            )
+            motorway_km = self._detail_distance(geometry, road_class_details, {"MOTORWAY"})
             # Routeco prices passenger vehicles (classe 1). GraphHopper's
             # HGV value means "toll for heavy goods vehicles only", not all cars.
             toll_ranges = self._detail_ranges(geometry, toll_details, {"ALL"})
             tolled_km = sum(item["distance_km"] for item in toll_ranges)
-            total_km = float(path.get("distance", 0)) / 1000 or polyline_distance_km(
-                geometry
-            )
+            total_km = float(path.get("distance", 0)) / 1000 or polyline_distance_km(geometry)
             motorway_km = min(total_km, motorway_km)
             route_hash = hashlib.sha1(
-                json.dumps(
-                    geometry[:: max(1, len(geometry) // 25)], separators=(",", ":")
-                ).encode()
+                json.dumps(geometry[:: max(1, len(geometry) // 25)], separators=(",", ":")).encode()
             ).hexdigest()[:12]
             output.append(
                 {
@@ -670,11 +906,10 @@ class GraphHopperClient:
         return output
 
     async def _post_route(self, body: dict[str, Any]) -> dict[str, Any]:
-        async with httpx.AsyncClient(
-            timeout=self.timeout,
-            trust_env=False,
-        ) as client:
-            response = await client.post(f"{self.base_url}/route", json=body)
+        response = await self._http_client().post(
+            f"{self.base_url}/route",
+            json=body,
+        )
         if not response.is_success:
             detail = response.text
             try:
@@ -706,9 +941,7 @@ class GraphHopperClient:
                 start_index + 1,
                 min(len(geometry) - 1, int(detail[1])),
             )
-            distance = polyline_distance_km(
-                geometry[start_index : end_index + 1]
-            )
+            distance = polyline_distance_km(geometry[start_index : end_index + 1])
             if distance <= 0.01:
                 continue
 
@@ -761,9 +994,7 @@ class GraphHopperClient:
                 if start_index <= old_end:
                     previous["distance_km"] = round(
                         polyline_distance_km(
-                            geometry[
-                                previous["start_index"] : previous["end_index"] + 1
-                            ]
+                            geometry[previous["start_index"] : previous["end_index"] + 1]
                         ),
                         3,
                     )
@@ -793,9 +1024,7 @@ class GraphHopperClient:
             start_index = max(0, int(detail[0]))
             end_index = min(len(geometry) - 1, int(detail[1]))
             if end_index > start_index:
-                distance += polyline_distance_km(
-                    geometry[start_index : end_index + 1]
-                )
+                distance += polyline_distance_km(geometry[start_index : end_index + 1])
         return distance
 
     @staticmethod
@@ -806,9 +1035,7 @@ class GraphHopperClient:
                 abs(candidate["distance_km"] - other["distance_km"]) < 1.2
                 and abs(candidate["duration_minutes"] - other["duration_minutes"]) < 3
                 and abs(candidate["motorway_km"] - other["motorway_km"]) < 4
-                and abs(
-                    candidate.get("tolled_km", 0.0) - other.get("tolled_km", 0.0)
-                ) < 2.0
+                and abs(candidate.get("tolled_km", 0.0) - other.get("tolled_km", 0.0)) < 2.0
                 for other in kept
             )
             if not duplicate:

@@ -1,0 +1,21 @@
+[Unit]
+Description=Routeco API
+After=network-online.target routeco-graphhopper.service
+Wants=network-online.target
+Requires=routeco-graphhopper.service
+
+[Service]
+Type=simple
+User=routeco
+Group=routeco
+WorkingDirectory=/opt/routeco
+EnvironmentFile=-/etc/routeco/routeco.env
+ExecStart=/opt/routeco/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

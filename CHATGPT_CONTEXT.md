@@ -2,7 +2,8 @@
 
 Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
 `CHANGELOG-v3.8-national-geocoding-interface.md`,
-`CHANGELOG-v3.9-route-diversity.md` et le dernier rapport dans
+`CHANGELOG-v3.9-route-diversity.md`,
+`CHANGELOG-v4.0-performance-confidence.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -31,10 +32,10 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.3.9**.
-- Point de départ de la migration v11 :
-  `a796cc3c3976e49af8c995034efc22e4868f7b24`.
-- Tests : **167**.
+- Version préparée : **0.4.0**.
+- Point de départ de la migration v12 :
+  `e456447128f1f9c32dfc424ebfba2de143602640`.
+- Tests : **178**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 
@@ -70,6 +71,14 @@ Le profil initial reste une Twingo 2 essence :
   demandé par rapport au meilleur coût déjà rencontré.
 - jusqu'à cinq rôles utiles ; les trajets autoroutier et court ne sont pas
   supprimés uniquement parce qu'ils ne franchissent pas le seuil d'économie.
+- les géométries GraphHopper sont mises en cache par couple départ-arrivée ;
+- deux demandes identiques simultanées partagent un seul calcul lourd ;
+- le prix du carburant, les filtres et le taux d'estimation des péages sont
+  recalculés sans modifier les tracés ;
+- les rapports exposent p50, p95, échecs et récupérations par profil ;
+- les gares de péage sont projetées via un index spatial sans changer les
+  critères géométriques ;
+- un démarrage ordinaire ne reconstruit jamais silencieusement le graphe France.
 
 ## Péages
 
@@ -79,6 +88,8 @@ Les règles restent inchangées :
 - `exact` seulement si tous les événements physiques facturables sont expliqués ;
 - pas de gare réutilisée, doublon, chevauchement ou ordre impossible ;
 - estimation clairement affichée lorsque la matrice officielle manque.
+- la partie inconnue utilise un taux réglable et une fourchette prudente ; cette
+  fourchette ne constitue jamais une preuve tarifaire.
 
 La lacune connue Le Havre ↔ Rouen par A29/A150 reste indépendante de cette
 mise à jour d'interface et de géocodage.
@@ -107,9 +118,10 @@ correctement une réponse ambiguë avec plusieurs choix.
 - logique générique France entière ;
 - aucune API commerciale obligatoire ;
 - données lourdes hors Git ;
-- ne pas reconstruire de nouveau le graphe pour cette v11 ;
+- ne pas reconstruire de nouveau le graphe pour cette v12 ;
 - ne pas modifier la pondération `distance_influence: 0` du profil rapide ;
 - préférer une estimation déclarée à un faux péage exact.
+- limiter le VPS personnel à un calcul lourd simultané.
 
 ## Commandes principales
 
@@ -119,6 +131,7 @@ correctement une réponse ambiguë avec plusieurs choix.
 ./scripts/routeco.sh update-communes
 ./scripts/routeco.sh verify-geocoding
 ./scripts/routeco.sh verify-diversity
+./scripts/routeco.sh verify-cache
 ./scripts/routeco.sh validate-random 50
 ./scripts/routeco.sh validate-gold
 ./scripts/routeco.sh verify-fastest

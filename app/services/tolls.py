@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import csv
+import itertools
 import math
 import re
 import unicodedata
 from bisect import bisect_right
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,10 +31,11 @@ def normalize_name(value: str) -> str:
     text = re.sub(r"\bn[°o]?\s*\d+(?:[.,]\d+)?\b", " ", text)
     text = re.sub(r"\ba\s*\d+[a-z]?\b", " ", text)
     text = re.sub(r"\b(?:entree|sortie|sens\s*[12]|bpv|principale|annexe)\b", " ", text)
-    text = re.sub(r"\bsainte?\b", lambda match: "ste" if match.group(0).startswith("sainte") else "st", text)
+    text = re.sub(
+        r"\bsainte?\b", lambda match: "ste" if match.group(0).startswith("sainte") else "st", text
+    )
     text = re.sub(r"\b(peage|gare|barriere|de|du|des|la|le|les|d)\b", " ", text)
     return re.sub(r"[^a-z0-9]+", " ", text).strip()
-
 
 
 def physical_label_key(value: str) -> str:
@@ -44,9 +46,12 @@ def physical_label_key(value: str) -> str:
     text = re.sub(r"\bn[°o]?\s*\d+(?:[.,]\d+)?\b", " ", text)
     text = re.sub(r"\ba\s*\d+[a-z]?\b", " ", text)
     text = re.sub(r"\b(?:entree|sortie|sens\s*[12]|bpv)\b", " ", text)
-    text = re.sub(r"\bsainte?\b", lambda match: "ste" if match.group(0).startswith("sainte") else "st", text)
+    text = re.sub(
+        r"\bsainte?\b", lambda match: "ste" if match.group(0).startswith("sainte") else "st", text
+    )
     text = re.sub(r"\b(peage|gare|barriere|de|du|des|la|le|les|d)\b", " ", text)
     return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
 
 def name_aliases(value: str) -> set[str]:
     """Build useful aliases without hard-coding a particular journey.
@@ -57,13 +62,15 @@ def name_aliases(value: str) -> set[str]:
     """
     raw = value or ""
     aliases = {normalize_name(raw)}
-    for marker in re.findall(r"\((?:peage|péage|barriere|barrière)\s+(?:de|d['’])?\s*([^)]*)\)", raw, re.I):
+    for marker in re.findall(
+        r"\((?:peage|péage|barriere|barrière)\s+(?:de|d['’])?\s*([^)]*)\)", raw, re.IGNORECASE
+    ):
         aliases.add(normalize_name(marker))
     for part in re.split(r"[/|]", raw):
         aliases.add(normalize_name(part))
     # Matrix groups such as "X à Y" may be represented by either endpoint in
     # the geographic station file. Keep both endpoint aliases.
-    for part in re.split(r"\s+à\s+", raw, flags=re.I):
+    for part in re.split(r"\s+à\s+", raw, flags=re.IGNORECASE):
         aliases.add(normalize_name(part))
     return {alias for alias in aliases if alias}
 
@@ -78,6 +85,14 @@ class TollSegmentQuote:
     confidence: str
     route_start_km: float | None = None
     route_end_km: float | None = None
+    cost_low: float | None = None
+    cost_high: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.cost_low is None:
+            self.cost_low = self.cost
+        if self.cost_high is None:
+            self.cost_high = self.cost
 
 
 @dataclass(slots=True)
@@ -86,8 +101,16 @@ class TollQuote:
     confidence: str
     stations: list[str]
     message: str
+    cost_low: float | None = None
+    cost_high: float | None = None
     segments: list[TollSegmentQuote] = field(default_factory=list)
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.cost_low is None:
+            self.cost_low = self.cost
+        if self.cost_high is None:
+            self.cost_high = self.cost
 
 
 @dataclass(slots=True)
@@ -116,15 +139,16 @@ class TollStation:
         long closed-system journey, a physical mainline barrier is therefore a
         much stronger candidate than a nearby ramp plaza.
         """
+
         def marker_text(value: str) -> str:
             text = unicodedata.normalize("NFKD", value or "")
             text = "".join(char for char in text if not unicodedata.combining(char))
             return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
 
-        if (
-            self.system_type in {"mainline", "barrier"}
-            or self.physical_type in {"mainline", "barrier"}
-        ):
+        if self.system_type in {"mainline", "barrier"} or self.physical_type in {
+            "mainline",
+            "barrier",
+        }:
             return True
         raw = marker_text(self.name)
         osm = marker_text(self.osm_name)
@@ -207,9 +231,7 @@ class TollPlan:
     unresolved_km_by_range: dict[int, float]
     unresolved_event_ranges: set[int]
     ignored_noise_indexes: set[int]
-    toll_state_intervals: list[TollStateInterval] = field(
-        default_factory=list
-    )
+    toll_state_intervals: list[TollStateInterval] = field(default_factory=list)
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -218,17 +240,14 @@ class TollPlan:
 
     @property
     def has_unresolved_events(self) -> bool:
-        return bool(
-            self.unresolved_event_ranges.intersection(self.unresolved_indexes)
-        )
+        return bool(self.unresolved_event_ranges.intersection(self.unresolved_indexes))
 
     @property
     def is_complete(self) -> bool:
-        distance_complete = (
-            not self.unresolved_indexes
-            or self.unresolved_km <= 0.05
-        )
+        distance_complete = not self.unresolved_indexes or self.unresolved_km <= 0.05
         return distance_complete and not self.has_unresolved_events
+
+
 # ROUTECO_V034_DATED_TARIFFS
 @dataclass(frozen=True, slots=True)
 class OpenTariffSelection:
@@ -237,6 +256,7 @@ class OpenTariffSelection:
     source_id: str | None
     kind: str
     additive_to_closed: bool = False
+
 
 class TollPricingService:
     """Price French tolls from local OpenTollData matrices.
@@ -248,6 +268,11 @@ class TollPricingService:
     """
 
     FALLBACK_EUR_PER_KM = 0.105
+    # The range is deliberately conservative: it communicates uncertainty
+    # without promoting a synthetic value to an official tariff.
+    FALLBACK_LOW_FACTOR = 0.75
+    FALLBACK_HIGH_FACTOR = 1.30
+    STATION_GRID_DEGREES = 0.05
     MINOR_RESIDUAL_KM = 5.0
     MINOR_RESIDUAL_EUR = 1.0
     USER_VISIBLE_RESIDUAL_KM = 6.0
@@ -274,28 +299,20 @@ class TollPricingService:
         pricing_date: date | None = None,
     ) -> None:
         self.data_dir = data_dir
-        self.pricing_date = pricing_date or date.today()
+        self.pricing_date = pricing_date or datetime.now(UTC).astimezone().date()
         self.stations: list[TollStation] = []
         self.closed_prices: dict[tuple[str, str, str], ClosedPrice] = {}
         self.closed_prices_any: dict[tuple[str, str], list[ClosedPrice]] = {}
-        self.dated_closed_prices: dict[
-            tuple[str, str, str], list[ClosedPrice]
-        ] = {}
-        self.dated_closed_prices_any: dict[
-            tuple[str, str], list[ClosedPrice]
-        ] = {}
+        self.dated_closed_prices: dict[tuple[str, str, str], list[ClosedPrice]] = {}
+        self.dated_closed_prices_any: dict[tuple[str, str], list[ClosedPrice]] = {}
         self.open_prices: dict[tuple[str, str], float] = {}
         self.open_prices_any: dict[str, list[tuple[str, float]]] = {}
         self.tariff_sources: dict[str, TariffSource] = {}
-        self.physical_tariff_aliases: list[
-            PhysicalTariffAlias
-        ] = []
-        self.dated_open_tariffs: dict[
-            tuple[str, str], list[OpenTariffRecord]
-        ] = {}
-        self.dated_open_tariffs_any: dict[
-            str, list[OpenTariffRecord]
-        ] = {}
+        self.physical_tariff_aliases: list[PhysicalTariffAlias] = []
+        self.dated_open_tariffs: dict[tuple[str, str], list[OpenTariffRecord]] = {}
+        self.dated_open_tariffs_any: dict[str, list[OpenTariffRecord]] = {}
+        self._station_grid: dict[tuple[int, int], list[int]] = {}
+        self._station_grid_count = 0
         self._load()
 
     @property
@@ -326,45 +343,19 @@ class TollPricingService:
         closed_files.extend(sorted((self.data_dir / "official").glob("closed_prices*.csv")))
         open_files = sorted(self.data_dir.glob("open_prices*.csv"))
         open_files.extend(sorted((self.data_dir / "official").glob("open_prices*.csv")))
-        dated_open_files = sorted(
-            self.data_dir.glob("dated_open_tariffs*.csv")
-        )
+        dated_open_files = sorted(self.data_dir.glob("dated_open_tariffs*.csv"))
         dated_open_files.extend(
-            sorted(
-                (self.data_dir / "official").glob(
-                    "dated_open_tariffs*.csv"
-                )
-            )
+            sorted((self.data_dir / "official").glob("dated_open_tariffs*.csv"))
         )
-        source_files = sorted(
-            self.data_dir.glob("tariff_sources*.json")
-        )
-        source_files.extend(
-            sorted(
-                (self.data_dir / "official").glob(
-                    "tariff_sources*.json"
-                )
-            )
-        )
-        dated_closed_files = sorted(
-            self.data_dir.glob("dated_closed_tariffs*.csv")
-        )
+        source_files = sorted(self.data_dir.glob("tariff_sources*.json"))
+        source_files.extend(sorted((self.data_dir / "official").glob("tariff_sources*.json")))
+        dated_closed_files = sorted(self.data_dir.glob("dated_closed_tariffs*.csv"))
         dated_closed_files.extend(
-            sorted(
-                (self.data_dir / "official").glob(
-                    "dated_closed_tariffs*.csv"
-                )
-            )
+            sorted((self.data_dir / "official").glob("dated_closed_tariffs*.csv"))
         )
-        physical_alias_files = sorted(
-            self.data_dir.glob("physical_tariff_aliases*.csv")
-        )
+        physical_alias_files = sorted(self.data_dir.glob("physical_tariff_aliases*.csv"))
         physical_alias_files.extend(
-            sorted(
-                (self.data_dir / "official").glob(
-                    "physical_tariff_aliases*.csv"
-                )
-            )
+            sorted((self.data_dir / "official").glob("physical_tariff_aliases*.csv"))
         )
 
         seen_stations: set[tuple[str, int, int, str]] = set()
@@ -446,10 +437,7 @@ class TollPricingService:
             self.tariff_sources,
         )
         for tariff in dated_closed_records:
-            if (
-                tariff.vehicle_class != 1
-                or not tariff.applies_on(self.pricing_date)
-            ):
+            if tariff.vehicle_class != 1 or not tariff.applies_on(self.pricing_date):
                 continue
             record = ClosedPrice(
                 price=tariff.price,
@@ -463,11 +451,7 @@ class TollPricingService:
             aliases_b = name_aliases(tariff.name_to)
             for alias_a in aliases_a:
                 for alias_b in aliases_b:
-                    if (
-                        not alias_a
-                        or not alias_b
-                        or alias_a == alias_b
-                    ):
+                    if not alias_a or not alias_b or alias_a == alias_b:
                         continue
                     direct = self.dated_closed_prices.setdefault(
                         (
@@ -479,20 +463,16 @@ class TollPricingService:
                     )
                     if record not in direct:
                         direct.append(record)
-                    any_operator = (
-                        self.dated_closed_prices_any.setdefault(
-                            (alias_a, alias_b),
-                            [],
-                        )
+                    any_operator = self.dated_closed_prices_any.setdefault(
+                        (alias_a, alias_b),
+                        [],
                     )
                     if record not in any_operator:
                         any_operator.append(record)
 
-        self.physical_tariff_aliases = (
-            load_physical_tariff_aliases(
-                physical_alias_files,
-                self.tariff_sources,
-            )
+        self.physical_tariff_aliases = load_physical_tariff_aliases(
+            physical_alias_files,
+            self.tariff_sources,
         )
         dated_records = load_open_tariff_records(
             dated_open_files,
@@ -502,12 +482,8 @@ class TollPricingService:
             if record.vehicle_class != 1:
                 continue
             for alias in name_aliases(record.name):
-                self.dated_open_tariffs.setdefault(
-                    (record.operator, alias), []
-                ).append(record)
-                self.dated_open_tariffs_any.setdefault(
-                    alias, []
-                ).append(record)
+                self.dated_open_tariffs.setdefault((record.operator, alias), []).append(record)
+                self.dated_open_tariffs_any.setdefault(alias, []).append(record)
 
         # Open-system prices and station coordinates often come from different
         # sources. Build explicit open-station twins only when a station name
@@ -515,6 +491,7 @@ class TollPricingService:
         # algorithm data-driven: no journey, city pair or route name is encoded
         # here.
         self._materialize_open_stations()
+        self._build_station_grid()
 
     def _select_dated_open_tariff(
         self,
@@ -523,23 +500,19 @@ class TollPricingService:
         aliases = name_aliases(station.name) | name_aliases(station.osm_name)
         records: list[OpenTariffRecord] = []
         for alias in aliases:
-            records.extend(
-                self.dated_open_tariffs.get((station.operator, alias), [])
-            )
+            records.extend(self.dated_open_tariffs.get((station.operator, alias), []))
 
         applicable = [
             record
             for record in records
-            if record.vehicle_class == 1
-            and record.applies_on(self.pricing_date)
+            if record.vehicle_class == 1 and record.applies_on(self.pricing_date)
         ]
         if not applicable:
             for alias in aliases:
                 applicable.extend(
                     record
                     for record in self.dated_open_tariffs_any.get(alias, [])
-                    if record.vehicle_class == 1
-                    and record.applies_on(self.pricing_date)
+                    if record.vehicle_class == 1 and record.applies_on(self.pricing_date)
                 )
 
         unique = {
@@ -554,16 +527,10 @@ class TollPricingService:
             if station.operator and record.operator == station.operator
         ]
         candidates = preferred or list(unique.values())
-        values = {
-            (round(record.price, 2), record.source_id)
-            for record in candidates
-        }
+        values = {(round(record.price, 2), record.source_id) for record in candidates}
         if len(values) != 1:
             return None
-        record = sorted(
-            candidates,
-            key=lambda item: (item.operator, item.source_id, item.price),
-        )[0]
+        record = min(candidates, key=lambda item: (item.operator, item.source_id, item.price))
         return OpenTariffSelection(
             operator=record.operator,
             price=record.price,
@@ -597,12 +564,8 @@ class TollPricingService:
         prices = {price for _, price in candidates}
         if len(prices) != 1:
             return None
-        preferred = [
-            item for item in candidates if item[0] == station.operator
-        ]
-        operator, price = (
-            sorted(preferred)[0] if preferred else sorted(candidates)[0]
-        )
+        preferred = [item for item in candidates if item[0] == station.operator]
+        operator, price = min(preferred) if preferred else min(candidates)
         return OpenTariffSelection(
             operator=operator,
             price=price,
@@ -614,10 +577,7 @@ class TollPricingService:
         self,
         station: TollStation,
     ) -> OpenTariffSelection | None:
-        return (
-            self._select_dated_open_tariff(station)
-            or self._select_fixed_open_tariff(station)
-        )
+        return self._select_dated_open_tariff(station) or self._select_fixed_open_tariff(station)
 
     def _lookup_open_source(self, station: TollStation) -> str | None:
         selection = self._lookup_open_selection(station)
@@ -657,16 +617,58 @@ class TollPricingService:
                     lat=station.lat,
                     lon=station.lon,
                     system_type="open",
-                    physical_type=(
-                        station.physical_type or station.system_type
-                    ),
+                    physical_type=(station.physical_type or station.system_type),
                 )
             )
         self.stations.extend(additions)
 
-    def quote_candidate(self, candidate: dict[str, Any]) -> TollQuote:
+    @classmethod
+    def _station_grid_key(cls, lon: float, lat: float) -> tuple[int, int]:
+        size = cls.STATION_GRID_DEGREES
+        return math.floor(lon / size), math.floor(lat / size)
+
+    def _build_station_grid(self) -> None:
+        grid: dict[tuple[int, int], list[int]] = {}
+        for index, station in enumerate(self.stations):
+            grid.setdefault(
+                self._station_grid_key(station.lon, station.lat),
+                [],
+            ).append(index)
+        self._station_grid = grid
+        self._station_grid_count = len(self.stations)
+
+    @classmethod
+    def _fallback_rate(cls, value: float | None) -> float:
+        if value is None or not math.isfinite(value):
+            return cls.FALLBACK_EUR_PER_KM
+        return min(0.30, max(0.03, float(value)))
+
+    @classmethod
+    def _estimated_cost_range(
+        cls,
+        unresolved_km: float,
+        fallback_eur_per_km: float | None,
+        *,
+        exact_cost: float = 0.0,
+    ) -> tuple[float, float, float]:
+        rate = cls._fallback_rate(fallback_eur_per_km)
+        unresolved_km = max(0.0, float(unresolved_km))
+        central = exact_cost + unresolved_km * rate
+        low = exact_cost + unresolved_km * rate * cls.FALLBACK_LOW_FACTOR
+        high = exact_cost + unresolved_km * rate * cls.FALLBACK_HIGH_FACTOR
+        return round(central, 2), round(low, 2), round(high, 2)
+
+    def quote_candidate(
+        self,
+        candidate: dict[str, Any],
+        *,
+        fallback_eur_per_km: float | None = None,
+    ) -> TollQuote:
         # One canonical adapter keeps every routing metadata field synchronized
         # between the API, validation scripts and diagnostics.
+        optional: dict[str, float] = {}
+        if fallback_eur_per_km is not None:
+            optional["fallback_eur_per_km"] = fallback_eur_per_km
         return self.quote(
             geometry=candidate["geometry"],
             tolled_km=candidate.get("tolled_km", 0.0),
@@ -676,6 +678,7 @@ class TollPricingService:
             street_name_details=candidate.get("street_name_details"),
             street_ref_details=candidate.get("street_ref_details"),
             demo_toll=candidate.get("demo_toll"),
+            **optional,
         )
 
     def quote(
@@ -688,6 +691,7 @@ class TollPricingService:
         toll_state_intervals: list[dict[str, Any]] | None = None,
         street_name_details: list[list] | None = None,
         street_ref_details: list[list] | None = None,
+        fallback_eur_per_km: float | None = None,
     ) -> TollQuote:
         if demo_toll is not None:
             return TollQuote(
@@ -728,16 +732,27 @@ class TollPricingService:
                 toll_state_intervals or [],
                 street_name_details or [],
                 street_ref_details or [],
+                fallback_eur_per_km=fallback_eur_per_km,
             )
             if exact is not None:
                 return exact
 
-        estimate = round(tolled_km * self.FALLBACK_EUR_PER_KM, 2)
+        estimate, estimate_low, estimate_high = self._estimated_cost_range(
+            tolled_km,
+            fallback_eur_per_km,
+        )
+        rate = self._fallback_rate(fallback_eur_per_km)
         return TollQuote(
             estimate,
             "estimated",
             [],
-            "Estimation provisoire à 0,105 €/km payant : aucune paire entrée-sortie fiable.",
+            (
+                f"Estimation provisoire à {rate:.3f} €/km payant "
+                f"(fourchette {estimate_low:.2f}–{estimate_high:.2f} €) : "
+                "aucune paire entrée-sortie fiable."
+            ),
+            cost_low=estimate_low,
+            cost_high=estimate_high,
             segments=[
                 TollSegmentQuote(
                     entry=None,
@@ -746,6 +761,8 @@ class TollPricingService:
                     cost=estimate,
                     distance_km=round(tolled_km, 1),
                     confidence="estimated",
+                    cost_low=estimate_low,
+                    cost_high=estimate_high,
                 )
             ],
         )
@@ -820,21 +837,14 @@ class TollPricingService:
         if not segments and not has_unpriced_event:
             return None
 
-        unresolved_indexes = (
-            list(range(len(ranges)))
-            if has_unpriced_event
-            else []
-        )
+        unresolved_indexes = list(range(len(ranges))) if has_unpriced_event else []
         plan = TollPlan(
             exact_cost=total,
             station_names=names,
             segments=segments,
             ranges=ranges,
             unresolved_indexes=unresolved_indexes,
-            unresolved_km_by_range={
-                index: 0.0
-                for index in unresolved_indexes
-            },
+            unresolved_km_by_range={index: 0.0 for index in unresolved_indexes},
             unresolved_event_ranges=set(unresolved_indexes),
             ignored_noise_indexes=set(),
         )
@@ -854,21 +864,16 @@ class TollPricingService:
 
         physical_coverage = max(
             0.0,
-            min(exit_.route_km, toll_range.end_km)
-            - max(entry.route_km, toll_range.start_km),
+            min(exit_.route_km, toll_range.end_km) - max(entry.route_km, toll_range.start_km),
         )
         start_gap = max(0.0, entry.route_km - toll_range.start_km)
         end_gap = max(0.0, toll_range.end_km - exit_.route_km)
 
-        matrix_consistent = (
-            record.distance_km is not None
-            and abs(record.distance_km - toll_range.distance_km)
-            <= max(30.0, toll_range.distance_km * 0.18)
-        )
-        matrix_resolves_range = (
-            matrix_consistent
-            and physical_coverage
-            >= max(5.0, toll_range.distance_km * 0.60)
+        matrix_consistent = record.distance_km is not None and abs(
+            record.distance_km - toll_range.distance_km
+        ) <= max(30.0, toll_range.distance_km * 0.18)
+        matrix_resolves_range = matrix_consistent and physical_coverage >= max(
+            5.0, toll_range.distance_km * 0.60
         )
 
         boundary_padding = min(start_gap, 25.0) + min(end_gap, 25.0)
@@ -891,8 +896,7 @@ class TollPricingService:
             start_gap <= 25.0
             and end_gap <= 25.0
             and boundary_residual <= self.MINOR_RESIDUAL_KM
-            and boundary_residual * self.FALLBACK_EUR_PER_KM
-            < self.MINOR_RESIDUAL_EUR
+            and boundary_residual * self.FALLBACK_EUR_PER_KM < self.MINOR_RESIDUAL_EUR
             and (
                 record.distance_km is not None
                 or start_gap + end_gap <= distance_less_padding_budget
@@ -941,10 +945,7 @@ class TollPricingService:
             if projection.station.system_type != "open"
             and (
                 projection.lateral_km <= 0.32
-                or (
-                    projection.station.is_mainline_barrier
-                    and projection.lateral_km <= 1.15
-                )
+                or (projection.station.is_mainline_barrier and projection.lateral_km <= 1.15)
             )
         ]
         target_km = max(0.0, toll_range.distance_km)
@@ -978,9 +979,8 @@ class TollPricingService:
                     if tariff_mismatch > max(30.0, target_km * 0.18):
                         continue
 
-                boundary_gap = (
-                    abs(entry.route_km - toll_range.start_km)
-                    + abs(exit_.route_km - toll_range.end_km)
+                boundary_gap = abs(entry.route_km - toll_range.start_km) + abs(
+                    exit_.route_km - toll_range.end_km
                 )
                 target_mismatch = abs(span_km - target_km)
                 plaza_penalty = 0.0
@@ -1016,10 +1016,7 @@ class TollPricingService:
                 item[0],
             ),
         )
-        return [
-            (record, entry, exit_)
-            for _, record, entry, exit_ in ordered[:64]
-        ]
+        return [(record, entry, exit_) for _, record, entry, exit_ in ordered[:64]]
 
     # ROUTECO_V034_BILLING_SEMANTICS_FIX
     def _normalize_closed_proposals(
@@ -1072,16 +1069,10 @@ class TollPricingService:
             blocked = False
             for projection in projections:
                 if not (
-                    toll_range.start_km - 1.5
-                    <= projection.route_km
-                    <= toll_range.end_km + 1.5
+                    toll_range.start_km - 1.5 <= projection.route_km <= toll_range.end_km + 1.5
                 ):
                     continue
-                if (
-                    item.span_start_km - 0.5
-                    <= projection.route_km
-                    <= item.span_end_km + 0.5
-                ):
+                if item.span_start_km - 0.5 <= projection.route_km <= item.span_end_km + 0.5:
                     continue
                 station = projection.station
                 if not station.is_mainline_barrier:
@@ -1125,15 +1116,9 @@ class TollPricingService:
             entry_keys = self._station_identity_keys(match.entry.station)
             exit_keys = self._station_identity_keys(match.exit.station)
 
-            if (
-                abs(route_km - start_km) <= 1.0
-                and keys.intersection(entry_keys)
-            ):
+            if abs(route_km - start_km) <= 1.0 and keys.intersection(entry_keys):
                 return True
-            if (
-                abs(route_km - end_km) <= 1.0
-                and keys.intersection(exit_keys)
-            ):
+            if abs(route_km - end_km) <= 1.0 and keys.intersection(exit_keys):
                 return True
 
             # The national inventory and the concessionaire catalogue can
@@ -1201,10 +1186,7 @@ class TollPricingService:
         }
 
         def meaningful_tokens(item: StationProjection) -> set[str]:
-            aliases = (
-                name_aliases(item.station.name)
-                | name_aliases(item.station.osm_name)
-            )
+            aliases = name_aliases(item.station.name) | name_aliases(item.station.osm_name)
             return {
                 token
                 for alias in aliases
@@ -1212,10 +1194,7 @@ class TollPricingService:
                 if len(token) >= 4 and token not in ignored_tokens
             }
 
-        return bool(
-            meaningful_tokens(projection)
-            & meaningful_tokens(boundary)
-        )
+        return bool(meaningful_tokens(projection) & meaningful_tokens(boundary))
 
     def _open_components_priced_by_events(
         self,
@@ -1239,10 +1218,7 @@ class TollPricingService:
         ):
             return []
 
-        closed_spans = [
-            (match.span_start_km, match.span_end_km)
-            for match in accepted_closed
-        ]
+        closed_spans = [(match.span_start_km, match.span_end_km) for match in accepted_closed]
         components = self._unresolved_class1_toll_intervals(
             toll_range,
             toll_state_intervals,
@@ -1254,9 +1230,7 @@ class TollPricingService:
             component_events = [
                 projection
                 for projection, _ in accepted_open
-                if start_km - 0.10
-                <= projection.route_km
-                <= end_km + 0.10
+                if start_km - 0.10 <= projection.route_km <= end_km + 0.10
             ]
             if not component_events:
                 continue
@@ -1296,11 +1270,7 @@ class TollPricingService:
         seen: set[str] = set()
 
         for projection in projections:
-            if not (
-                toll_range.start_km - 1.5
-                <= projection.route_km
-                <= toll_range.end_km + 1.5
-            ):
+            if not (toll_range.start_km - 1.5 <= projection.route_km <= toll_range.end_km + 1.5):
                 continue
             if self._open_projection_absorbed_by_closed_matches(
                 projection,
@@ -1323,11 +1293,7 @@ class TollPricingService:
             if station.system_type == "open":
                 ramp_station = self._is_open_ramp_station(station)
                 lateral_limit = (
-                    0.05
-                    if ramp_station
-                    else 0.12
-                    if station.is_mainline_barrier
-                    else 0.06
+                    0.05 if ramp_station else 0.12 if station.is_mainline_barrier else 0.06
                 )
                 if projection.lateral_km > lateral_limit:
                     continue
@@ -1350,15 +1316,10 @@ class TollPricingService:
 
             if not is_event:
                 continue
-            if (
-                not include_priced_unselected
-                and self._lookup_open(station) is not None
-            ):
+            if not include_priced_unselected and self._lookup_open(station) is not None:
                 continue
 
-            identity = sorted(keys)[0] if keys else (
-                f"{round(station.lat, 4)}:{round(station.lon, 4)}"
-            )
+            identity = min(keys) if keys else (f"{round(station.lat, 4)}:{round(station.lon, 4)}")
             if identity in seen:
                 continue
             seen.add(identity)
@@ -1394,10 +1355,7 @@ class TollPricingService:
         }
         station_tokens = {
             token
-            for alias in (
-                name_aliases(station.name)
-                | name_aliases(station.osm_name)
-            )
+            for alias in (name_aliases(station.name) | name_aliases(station.osm_name))
             for token in alias.split()
             if len(token) >= 4 and token not in ignored_tokens
         }
@@ -1411,23 +1369,22 @@ class TollPricingService:
                 continue
             if self._lookup_open(priced.station) is None:
                 continue
-            if not (
-                self._station_identity_keys(priced.station)
-                & used_station_keys
-            ):
+            if not (self._station_identity_keys(priced.station) & used_station_keys):
                 continue
             if abs(priced.route_km - projection.route_km) > 0.5:
                 continue
-            if haversine_km(
-                (priced.station.lon, priced.station.lat),
-                (station.lon, station.lat),
-            ) > 0.25:
+            if (
+                haversine_km(
+                    (priced.station.lon, priced.station.lat),
+                    (station.lon, station.lat),
+                )
+                > 0.25
+            ):
                 continue
             priced_tokens = {
                 token
                 for alias in (
-                    name_aliases(priced.station.name)
-                    | name_aliases(priced.station.osm_name)
+                    name_aliases(priced.station.name) | name_aliases(priced.station.osm_name)
                 )
                 for token in alias.split()
                 if len(token) >= 4 and token not in ignored_tokens
@@ -1494,19 +1451,14 @@ class TollPricingService:
             if chain_is_complete:
                 missing = max(
                     0.0,
-                    toll_range.distance_km
-                    - sum(
-                        max(0.0, item.coverage_km)
-                        for item in chain
-                    ),
+                    toll_range.distance_km - sum(max(0.0, item.coverage_km) for item in chain),
                 )
                 if missing > 0.0:
                     start_padding = min(
                         missing,
                         max(
                             0.0,
-                            chain[0].span_start_km
-                            - toll_range.start_km,
+                            chain[0].span_start_km - toll_range.start_km,
                         ),
                         25.0,
                     )
@@ -1517,8 +1469,7 @@ class TollPricingService:
                         missing,
                         max(
                             0.0,
-                            toll_range.end_km
-                            - chain[-1].span_end_km,
+                            toll_range.end_km - chain[-1].span_end_km,
                         ),
                         25.0,
                     )
@@ -1557,11 +1508,15 @@ class TollPricingService:
             )
             current = unique.get(key)
             current_score = (
-                int(current.full_range),
-                current.coverage_km,
-                current.span_km,
-                -(current.entry.lateral_km + current.exit.lateral_km),
-            ) if current is not None else None
+                (
+                    int(current.full_range),
+                    current.coverage_km,
+                    current.span_km,
+                    -(current.entry.lateral_km + current.exit.lateral_km),
+                )
+                if current is not None
+                else None
+            )
             item_score = (
                 int(item.full_range),
                 item.coverage_km,
@@ -1581,6 +1536,7 @@ class TollPricingService:
         raw_toll_state_intervals: list[dict[str, Any]] | None = None,
         street_name_details: list[list] | None = None,
         street_ref_details: list[list] | None = None,
+        fallback_eur_per_km: float | None = None,
     ) -> TollQuote | None:
         projections, cumulative = self._project_stations(geometry)
         toll_state_intervals = self._prepare_toll_state_intervals(
@@ -1761,16 +1717,15 @@ class TollPricingService:
                 fragments = self._unresolved_class1_toll_intervals(
                     toll_range,
                     toll_state_intervals,
-                    (
-                        closed_spans
-                        + open_resolved_spans
-                        + residual_component_spans
-                    ),
+                    (closed_spans + open_resolved_spans + residual_component_spans),
                 )
-                selected: tuple[
-                    ClosedMatch,
-                    tuple[float, float],
-                ] | None = None
+                selected: (
+                    tuple[
+                        ClosedMatch,
+                        tuple[float, float],
+                    ]
+                    | None
+                ) = None
 
                 for interval_start_km, interval_end_km in fragments:
                     match = self._select_unique_residual_closed_match(
@@ -1781,9 +1736,7 @@ class TollPricingService:
                         projections=projections,
                         existing_closed=accepted,
                         used_open=used_open,
-                        road_class_link_details=(
-                            road_class_link_details
-                        ),
+                        road_class_link_details=(road_class_link_details),
                         used_station_keys=used_station_keys,
                     )
                     if match is not None:
@@ -1818,16 +1771,8 @@ class TollPricingService:
                 entry_name = match.entry.station.display_name
                 exit_name = match.exit.station.display_name
                 station_names.extend([entry_name, exit_name])
-                used_station_keys.update(
-                    self._station_identity_keys(
-                        match.entry.station
-                    )
-                )
-                used_station_keys.update(
-                    self._station_identity_keys(
-                        match.exit.station
-                    )
-                )
+                used_station_keys.update(self._station_identity_keys(match.entry.station))
+                used_station_keys.update(self._station_identity_keys(match.exit.station))
                 segments.append(
                     TollSegmentQuote(
                         entry=entry_name,
@@ -1851,14 +1796,12 @@ class TollPricingService:
         # matrices résiduelles. Une ancienne alerte ne doit pas survivre si
         # l'événement est désormais expliqué par une matrice officielle.
         for range_index, toll_range in enumerate(ranges):
-            unpriced_events = (
-                self._unpriced_billing_events_in_range(
-                    projections,
-                    toll_range,
-                    road_class_link_details,
-                    accepted,
-                    used_station_keys,
-                )
+            unpriced_events = self._unpriced_billing_events_in_range(
+                projections,
+                toll_range,
+                road_class_link_details,
+                accepted,
+                used_station_keys,
             )
             if unpriced_events:
                 unresolved_event_ranges.add(range_index)
@@ -1866,30 +1809,21 @@ class TollPricingService:
             else:
                 unresolved_event_ranges.discard(range_index)
 
-        boundary_overhang_spans = (
-            self._closed_boundary_overhang_spans(
-                ranges=ranges,
-                toll_state_intervals=toll_state_intervals,
-                projections=projections,
-                accepted_closed=accepted,
-                road_class_link_details=(
-                    road_class_link_details
-                ),
-                used_station_keys=used_station_keys,
-            )
+        boundary_overhang_spans = self._closed_boundary_overhang_spans(
+            ranges=ranges,
+            toll_state_intervals=toll_state_intervals,
+            projections=projections,
+            accepted_closed=accepted,
+            road_class_link_details=(road_class_link_details),
+            used_station_keys=used_station_keys,
         )
 
         # Isolated OSM toll tags are not billing events. Resolve them as zero only
         # when no mainline barrier or exact open charge is physically crossed.
         exact_boundaries = [
-            value
-            for start_km, end_km in closed_spans
-            for value in (start_km, end_km)
+            value for start_km, end_km in closed_spans for value in (start_km, end_km)
         ]
-        exact_boundaries.extend(
-            projection.route_km
-            for projection, _ in used_open
-        )
+        exact_boundaries.extend(projection.route_km for projection, _ in used_open)
         ignored_noise_indexes: set[int] = set()
         for range_index, toll_range in enumerate(ranges):
             if range_index in resolved_ranges:
@@ -1928,9 +1862,7 @@ class TollPricingService:
                 resolved_ranges.add(range_index)
 
         candidate_unresolved_indexes = [
-            index
-            for index in range(len(ranges))
-            if index not in resolved_ranges
+            index for index in range(len(ranges)) if index not in resolved_ranges
         ]
         unresolved_intervals_by_range: dict[
             int,
@@ -1939,11 +1871,9 @@ class TollPricingService:
 
         for range_index in candidate_unresolved_indexes:
             toll_range = ranges[range_index]
-            has_detailed_states = (
-                self._range_has_detailed_toll_states(
-                    toll_range,
-                    toll_state_intervals,
-                )
+            has_detailed_states = self._range_has_detailed_toll_states(
+                toll_range,
+                toll_state_intervals,
             )
             fragments = self._unresolved_class1_toll_intervals(
                 toll_range,
@@ -1963,8 +1893,7 @@ class TollPricingService:
                 # être promu silencieusement en exact.
                 legacy_unresolved_km = max(
                     0.0,
-                    toll_range.distance_km
-                    - range_covered_km.get(range_index, 0.0),
+                    toll_range.distance_km - range_covered_km.get(range_index, 0.0),
                 )
                 if legacy_unresolved_km > 0.05:
                     fragments = [
@@ -1975,9 +1904,7 @@ class TollPricingService:
                     ]
 
             if fragments or range_index in unresolved_event_ranges:
-                unresolved_intervals_by_range[
-                    range_index
-                ] = fragments
+                unresolved_intervals_by_range[range_index] = fragments
             else:
                 # Cette promotion n'est autorisée que lorsqu'une preuve
                 # GraphHopper détaillée ou une couverture historique complète
@@ -1985,9 +1912,7 @@ class TollPricingService:
                 resolved_ranges.add(range_index)
 
         unresolved_indexes = [
-            index
-            for index in candidate_unresolved_indexes
-            if index not in resolved_ranges
+            index for index in candidate_unresolved_indexes if index not in resolved_ranges
         ]
         unresolved_km_by_range: dict[int, float] = {}
         for index in unresolved_indexes:
@@ -2004,8 +1929,7 @@ class TollPricingService:
                 # portions payantes classe 1 : la soustraction d'intervalles
                 # est alors la source de vérité.
                 unresolved_km_by_range[index] = sum(
-                    max(0.0, end_km - start_km)
-                    for start_km, end_km in fragments
+                    max(0.0, end_km - start_km) for start_km, end_km in fragments
                 )
             else:
                 # Compatibilité avec les candidats historiques qui ne
@@ -2015,16 +1939,13 @@ class TollPricingService:
                 # donc le calcul antérieur pour éviter toute sous-estimation.
                 unresolved_km_by_range[index] = max(
                     0.0,
-                    toll_range.distance_km
-                    - range_covered_km.get(index, 0.0),
+                    toll_range.distance_km - range_covered_km.get(index, 0.0),
                 )
         diagnostics = self._build_unresolved_diagnostics(
             ranges=ranges,
             unresolved_indexes=unresolved_indexes,
             unresolved_km_by_range=unresolved_km_by_range,
-            unresolved_intervals_by_range=(
-                unresolved_intervals_by_range
-            ),
+            unresolved_intervals_by_range=(unresolved_intervals_by_range),
             toll_state_intervals=toll_state_intervals,
             projections=projections,
             segments=segments,
@@ -2047,7 +1968,10 @@ class TollPricingService:
         )
 
         if plan.is_complete:
-            return self._finalize_toll_plan(plan)
+            return self._finalize_toll_plan(
+                plan,
+                fallback_eur_per_km=fallback_eur_per_km,
+            )
 
         if plan.unresolved_indexes and not plan.has_unresolved_events:
             combined = self._combined_range_if_contiguous(
@@ -2065,12 +1989,9 @@ class TollPricingService:
                     combined,
                     route_wide,
                 )
-                if (
-                    route_match is not None
-                    and self._route_wide_match_confirms_same_closed_journey(
-                        route_match,
-                        plan,
-                    )
+                if route_match is not None and self._route_wide_match_confirms_same_closed_journey(
+                    route_match,
+                    plan,
                 ):
                     return self._closed_quote(
                         route_match.record,
@@ -2078,20 +1999,24 @@ class TollPricingService:
                         route_match.exit,
                     )
 
-        return self._finalize_toll_plan(plan)
+        return self._finalize_toll_plan(
+            plan,
+            fallback_eur_per_km=fallback_eur_per_km,
+        )
 
     # ROUTECO_V034_TOLL_PLAN_PROOF
-    def _finalize_toll_plan(self, plan: TollPlan) -> TollQuote | None:
+    def _finalize_toll_plan(
+        self,
+        plan: TollPlan,
+        *,
+        fallback_eur_per_km: float | None = None,
+    ) -> TollQuote | None:
         # Seule cette méthode produit un TollQuote de niveau route exact.
         segments = sorted(
-            list(plan.segments),
+            plan.segments,
             key=lambda item: (
-                float("inf")
-                if item.route_start_km is None
-                else item.route_start_km,
-                float("inf")
-                if item.route_end_km is None
-                else item.route_end_km,
+                float("inf") if item.route_start_km is None else item.route_start_km,
+                float("inf") if item.route_end_km is None else item.route_end_km,
             ),
         )
         station_names = self._dedupe_names(plan.station_names)
@@ -2104,8 +2029,7 @@ class TollPricingService:
                     message = f"Tarif exact classe 1 : {details}."
                 if plan.ignored_noise_indexes:
                     message = (
-                        message.rstrip(".")
-                        + " (fragments OSM sans événement tarifaire ignorés)."
+                        message.rstrip(".") + " (fragments OSM sans événement tarifaire ignorés)."
                     )
                 return TollQuote(
                     round(plan.exact_cost, 2),
@@ -2120,13 +2044,25 @@ class TollPricingService:
                     0.0,
                     "none",
                     [],
-                    "Fragments OSM isolés ignorés : "
-                    "aucun événement de paiement traversé.",
+                    "Fragments OSM isolés ignorés : aucun événement de paiement traversé.",
                 )
             return None
 
+        estimated_total, estimated_low, estimated_high = self._estimated_cost_range(
+            plan.unresolved_km,
+            fallback_eur_per_km,
+            exact_cost=plan.exact_cost,
+        )
         estimated_part = round(
-            plan.unresolved_km * self.FALLBACK_EUR_PER_KM,
+            estimated_total - plan.exact_cost,
+            2,
+        )
+        estimated_part_low = round(
+            estimated_low - plan.exact_cost,
+            2,
+        )
+        estimated_part_high = round(
+            estimated_high - plan.exact_cost,
             2,
         )
 
@@ -2147,26 +2083,32 @@ class TollPricingService:
                     cost=estimated_part,
                     distance_km=round(plan.unresolved_km, 1),
                     confidence="estimated",
+                    cost_low=estimated_part_low,
+                    cost_high=estimated_part_high,
                 )
             )
 
+        rate = self._fallback_rate(fallback_eur_per_km)
         message = (
-            "Tarif partiellement apparié ; "
-            "le solde réel reste sans tarif officiel."
+            "Tarif partiellement apparié ; le solde réel reste sans tarif officiel."
             if plan.exact_cost > 0
-            else "Tronçon payant réel détecté, mais aucun tarif officiel "
-            "fiable n'est associé."
+            else "Tronçon payant réel détecté, mais aucun tarif officiel fiable n'est associé."
         )
         if plan.ignored_noise_indexes:
+            message += " Les fragments OSM sans événement tarifaire ont été exclus."
+        if estimated_part > 0:
             message += (
-                " Les fragments OSM sans événement tarifaire ont été exclus."
+                f" Solde estimé à {rate:.3f} €/km, "
+                f"fourchette totale {estimated_low:.2f}–{estimated_high:.2f} €."
             )
 
         return TollQuote(
-            round(plan.exact_cost + estimated_part, 2),
+            estimated_total,
             "estimated",
             station_names,
             message,
+            cost_low=estimated_low,
+            cost_high=estimated_high,
             segments=segments,
             diagnostics=plan.diagnostics,
         )
@@ -2201,9 +2143,7 @@ class TollPricingService:
                 continue
 
             value = str(item.get("value", "MISSING")).upper()
-            class1_status = str(
-                item.get("class1_status", "unknown")
-            ).lower()
+            class1_status = str(item.get("class1_status", "unknown")).lower()
             if class1_status not in {"toll", "free", "unknown"}:
                 class1_status = "unknown"
 
@@ -2234,8 +2174,7 @@ class TollPricingService:
         relevant = [
             item
             for item in intervals
-            if item.end_km > start_km + 0.01
-            and item.start_km < end_km - 0.01
+            if item.end_km > start_km + 0.01 and item.start_km < end_km - 0.01
         ]
         for item in relevant:
             if item.end_km <= cursor + 0.01:
@@ -2269,19 +2208,14 @@ class TollPricingService:
         if not cleaned:
             return []
 
-        merged: list[list[float]] = [
-            [cleaned[0][0], cleaned[0][1]]
-        ]
+        merged: list[list[float]] = [[cleaned[0][0], cleaned[0][1]]]
         for start_km, end_km in cleaned[1:]:
             current = merged[-1]
             if start_km <= current[1] + tolerance_km:
                 current[1] = max(current[1], end_km)
             else:
                 merged.append([start_km, end_km])
-        return [
-            (start_km, end_km)
-            for start_km, end_km in merged
-        ]
+        return [(start_km, end_km) for start_km, end_km in merged]
 
     @classmethod
     def _subtract_km_intervals(
@@ -2333,15 +2267,12 @@ class TollPricingService:
         overlapping = [
             item
             for item in toll_state_intervals
-            if item.end_km > toll_range.start_km + 0.01
-            and item.start_km < toll_range.end_km - 0.01
+            if item.end_km > toll_range.start_km + 0.01 and item.start_km < toll_range.end_km - 0.01
         ]
         if not overlapping:
             # Compatibility fallback for candidates produced without detailed
             # GraphHopper toll states. The complete range remains unresolved.
-            return [
-                (toll_range.start_km, toll_range.end_km)
-            ]
+            return [(toll_range.start_km, toll_range.end_km)]
 
         chargeable = [
             (
@@ -2359,8 +2290,7 @@ class TollPricingService:
         toll_state_intervals: list[TollStateInterval],
     ) -> bool:
         return any(
-            item.end_km > toll_range.start_km + 0.01
-            and item.start_km < toll_range.end_km - 0.01
+            item.end_km > toll_range.start_km + 0.01 and item.start_km < toll_range.end_km - 0.01
             for item in toll_state_intervals
         )
 
@@ -2381,8 +2311,7 @@ class TollPricingService:
                 min(toll_range.end_km, end_km),
             )
             for start_km, end_km in covered_closed_spans
-            if end_km > toll_range.start_km + 0.01
-            and start_km < toll_range.end_km - 0.01
+            if end_km > toll_range.start_km + 0.01 and start_km < toll_range.end_km - 0.01
         ]
         return cls._subtract_km_intervals(
             chargeable,
@@ -2417,15 +2346,9 @@ class TollPricingService:
         for projection in projections:
             if not self._closed_projection_is_credible(projection):
                 continue
-            identity = tuple(
-                sorted(self._station_identity_keys(projection.station))
-            )
+            identity = tuple(sorted(self._station_identity_keys(projection.station)))
             if not identity:
-                identity = (
-                    physical_label_key(
-                        projection.station.display_name
-                    ),
-                )
+                identity = (physical_label_key(projection.station.display_name),)
             key = (identity, round(projection.route_km * 10))
             current = unique.get(key)
             score = (
@@ -2458,16 +2381,11 @@ class TollPricingService:
         end_km: float,
         segment: TollSegmentQuote,
     ) -> float:
-        if (
-            segment.exit is None
-            or segment.route_start_km is None
-            or segment.route_end_km is None
-        ):
+        if segment.exit is None or segment.route_start_km is None or segment.route_end_km is None:
             return 0.0
         return max(
             0.0,
-            min(end_km, segment.route_end_km)
-            - max(start_km, segment.route_start_km),
+            min(end_km, segment.route_end_km) - max(start_km, segment.route_start_km),
         )
 
     # ROUTECO_V034_RESIDUAL_CLOSED_MATRICES
@@ -2475,10 +2393,7 @@ class TollPricingService:
     def _closed_projection_aliases(
         projection: StationProjection,
     ) -> set[str]:
-        return (
-            name_aliases(projection.station.name)
-            | name_aliases(projection.station.osm_name)
-        )
+        return name_aliases(projection.station.name) | name_aliases(projection.station.osm_name)
 
     @classmethod
     def _same_physical_closed_projection(
@@ -2491,8 +2406,7 @@ class TollPricingService:
             return False
 
         aliases_overlap = bool(
-            cls._closed_projection_aliases(first)
-            & cls._closed_projection_aliases(second)
+            cls._closed_projection_aliases(first) & cls._closed_projection_aliases(second)
         )
         geo_gap = haversine_km(
             (first.station.lon, first.station.lat),
@@ -2516,8 +2430,7 @@ class TollPricingService:
         second: ClosedMatch,
     ) -> bool:
         return (
-            (first.record.operator or "").upper()
-            == (second.record.operator or "").upper()
+            (first.record.operator or "").upper() == (second.record.operator or "").upper()
             and abs(first.record.price - second.record.price) <= 0.01
             and cls._same_optional_distance(
                 first.record.distance_km,
@@ -2552,28 +2465,15 @@ class TollPricingService:
             )
             <= 0.5
             and abs(
-                float(first.get("route_end_km") or 0.0)
-                - float(second.get("route_end_km") or 0.0)
+                float(first.get("route_end_km") or 0.0) - float(second.get("route_end_km") or 0.0)
             )
             <= 0.5
             and str(first.get("matrix_operator") or "").upper()
             == str(second.get("matrix_operator") or "").upper()
-            and abs(
-                float(first.get("price") or 0.0)
-                - float(second.get("price") or 0.0)
-            )
-            <= 0.01
+            and abs(float(first.get("price") or 0.0) - float(second.get("price") or 0.0)) <= 0.01
             and cls._same_optional_distance(
-                (
-                    float(first_distance)
-                    if first_distance is not None
-                    else None
-                ),
-                (
-                    float(second_distance)
-                    if second_distance is not None
-                    else None
-                ),
+                (float(first_distance) if first_distance is not None else None),
+                (float(second_distance) if second_distance is not None else None),
             )
         )
 
@@ -2599,9 +2499,7 @@ class TollPricingService:
                 group,
                 key=lambda item: (
                     float(item.get("boundary_gap_km") or 0.0),
-                    -float(
-                        item.get("interval_coverage_ratio") or 0.0
-                    ),
+                    -float(item.get("interval_coverage_ratio") or 0.0),
                     float(item.get("entry_lateral_km") or 999.0)
                     + float(item.get("exit_lateral_km") or 999.0),
                 ),
@@ -2631,14 +2529,12 @@ class TollPricingService:
         def score(
             item: ClosedMatch,
         ) -> tuple[int, int, float, float, float]:
-            boundary_gap = (
-                abs(item.span_start_km - interval_start_km)
-                + abs(item.span_end_km - interval_end_km)
+            boundary_gap = abs(item.span_start_km - interval_start_km) + abs(
+                item.span_end_km - interval_end_km
             )
             overlap = max(
                 0.0,
-                min(item.span_end_km, interval_end_km)
-                - max(item.span_start_km, interval_start_km),
+                min(item.span_end_km, interval_end_km) - max(item.span_start_km, interval_start_km),
             )
             return (
                 -int(item.record.source_id is not None),
@@ -2664,29 +2560,21 @@ class TollPricingService:
             if self._closed_spans_conflict(candidate, current):
                 return False
 
-            candidate_entry_same_current_entry = (
-                self._same_physical_closed_projection(
-                    candidate.entry,
-                    current.entry,
-                )
+            candidate_entry_same_current_entry = self._same_physical_closed_projection(
+                candidate.entry,
+                current.entry,
             )
-            candidate_entry_same_current_exit = (
-                self._same_physical_closed_projection(
-                    candidate.entry,
-                    current.exit,
-                )
+            candidate_entry_same_current_exit = self._same_physical_closed_projection(
+                candidate.entry,
+                current.exit,
             )
-            candidate_exit_same_current_entry = (
-                self._same_physical_closed_projection(
-                    candidate.exit,
-                    current.entry,
-                )
+            candidate_exit_same_current_entry = self._same_physical_closed_projection(
+                candidate.exit,
+                current.entry,
             )
-            candidate_exit_same_current_exit = (
-                self._same_physical_closed_projection(
-                    candidate.exit,
-                    current.exit,
-                )
+            candidate_exit_same_current_exit = self._same_physical_closed_projection(
+                candidate.exit,
+                current.exit,
             )
 
             # Le partage d'une gare n'est accepté qu'entre la sortie d'un
@@ -2697,20 +2585,12 @@ class TollPricingService:
                 return False
             if (
                 candidate_entry_same_current_exit
-                and abs(
-                    candidate.span_start_km
-                    - current.span_end_km
-                )
-                > 1.0
+                and abs(candidate.span_start_km - current.span_end_km) > 1.0
             ):
                 return False
             if (
                 candidate_exit_same_current_entry
-                and abs(
-                    candidate.span_end_km
-                    - current.span_start_km
-                )
-                > 1.0
+                and abs(candidate.span_end_km - current.span_start_km) > 1.0
             ):
                 return False
 
@@ -2750,24 +2630,16 @@ class TollPricingService:
             ]
         )
         boundary_starts = [
-            item
-            for item in nearby
-            if abs(item.route_km - interval_start_km)
-            <= boundary_window_km
+            item for item in nearby if abs(item.route_km - interval_start_km) <= boundary_window_km
         ]
         boundary_ends = [
-            item
-            for item in nearby
-            if abs(item.route_km - interval_end_km)
-            <= boundary_window_km
+            item for item in nearby if abs(item.route_km - interval_end_km) <= boundary_window_km
         ]
         internal_mainline = [
             item
             for item in nearby
             if (
-                interval_start_km + 0.5
-                < item.route_km
-                < interval_end_km - 0.5
+                interval_start_km + 0.5 < item.route_km < interval_end_km - 0.5
                 and item.station.is_mainline_barrier
             )
         ]
@@ -2775,20 +2647,10 @@ class TollPricingService:
         # even though the official closed-system journey ends there. Make those
         # physical boundaries discoverable; the stricter source, coverage and
         # remainder checks below decide whether they are admissible.
-        starts = self._dedupe_closed_topology_projections(
-            boundary_starts + internal_mainline
-        )
-        ends = self._dedupe_closed_topology_projections(
-            boundary_ends + internal_mainline
-        )
-        boundary_start_ids = {
-            id(item)
-            for item in boundary_starts
-        }
-        boundary_end_ids = {
-            id(item)
-            for item in boundary_ends
-        }
+        starts = self._dedupe_closed_topology_projections(boundary_starts + internal_mainline)
+        ends = self._dedupe_closed_topology_projections(boundary_ends + internal_mainline)
+        boundary_start_ids = {id(item) for item in boundary_starts}
+        boundary_end_ids = {id(item) for item in boundary_ends}
 
         candidates: list[ClosedMatch] = []
         for entry in starts:
@@ -2808,78 +2670,48 @@ class TollPricingService:
                 if record is None:
                     continue
                 discovered_from_internal_boundary = (
-                    id(entry) not in boundary_start_ids
-                    or id(exit_) not in boundary_end_ids
+                    id(entry) not in boundary_start_ids or id(exit_) not in boundary_end_ids
                 )
-                if (
-                    discovered_from_internal_boundary
-                    and record.source_id is None
-                ):
+                if discovered_from_internal_boundary and record.source_id is None:
                     continue
 
                 interval_overlap_km = max(
                     0.0,
-                    min(exit_.route_km, interval_end_km)
-                    - max(entry.route_km, interval_start_km),
+                    min(exit_.route_km, interval_end_km) - max(entry.route_km, interval_start_km),
                 )
                 coverage_ratio = interval_overlap_km / span_km
                 touches_boundary = (
                     abs(entry.route_km - interval_start_km) <= 0.5
                     or abs(exit_.route_km - interval_end_km) <= 0.5
                 )
-                starts_at_component_boundary = (
-                    abs(
-                        entry.route_km
-                        - interval_start_km
-                    )
-                    <= 0.5
-                )
-                ends_at_component_boundary = (
-                    abs(
-                        exit_.route_km
-                        - interval_end_km
-                    )
-                    <= 0.5
-                )
+                starts_at_component_boundary = abs(entry.route_km - interval_start_km) <= 0.5
+                ends_at_component_boundary = abs(exit_.route_km - interval_end_km) <= 0.5
                 internal_mainline_remainder_km = min(
                     (
                         max(
                             0.0,
-                            interval_end_km
-                            - exit_.route_km,
+                            interval_end_km - exit_.route_km,
                         )
-                        if (
-                            starts_at_component_boundary
-                            and exit_.station.is_mainline_barrier
-                        )
+                        if (starts_at_component_boundary and exit_.station.is_mainline_barrier)
                         else float("inf")
                     ),
                     (
                         max(
                             0.0,
-                            entry.route_km
-                            - interval_start_km,
+                            entry.route_km - interval_start_km,
                         )
-                        if (
-                            ends_at_component_boundary
-                            and entry.station.is_mainline_barrier
-                        )
+                        if (ends_at_component_boundary and entry.station.is_mainline_barrier)
                         else float("inf")
                     ),
                 )
                 official_internal_mainline_boundary = (
                     record.source_id is not None
                     and coverage_ratio >= 0.35
-                    and internal_mainline_remainder_km
-                    <= self.OSM_BOUNDARY_EVENT_GAP_KM
+                    and internal_mainline_remainder_km <= self.OSM_BOUNDARY_EVENT_GAP_KM
                 )
                 if (
-                    (
-                        coverage_ratio < 0.60
-                        and not official_internal_mainline_boundary
-                    )
-                    or not touches_boundary
-                ):
+                    coverage_ratio < 0.60 and not official_internal_mainline_boundary
+                ) or not touches_boundary:
                     continue
 
                 candidate = ClosedMatch(
@@ -2905,15 +2737,12 @@ class TollPricingService:
                         <= candidate.span_end_km + 0.10
                     ):
                         continue
-                    if (
-                        self._same_physical_closed_projection(
-                            open_projection,
-                            candidate.entry,
-                        )
-                        or self._same_physical_closed_projection(
-                            open_projection,
-                            candidate.exit,
-                        )
+                    if self._same_physical_closed_projection(
+                        open_projection,
+                        candidate.entry,
+                    ) or self._same_physical_closed_projection(
+                        open_projection,
+                        candidate.exit,
                     ):
                         continue
                     open_conflict = True
@@ -2923,12 +2752,10 @@ class TollPricingService:
 
                 candidates.append(candidate)
 
-        physical_candidates = (
-            self._dedupe_equivalent_residual_matches(
-                candidates,
-                interval_start_km=interval_start_km,
-                interval_end_km=interval_end_km,
-            )
+        physical_candidates = self._dedupe_equivalent_residual_matches(
+            candidates,
+            interval_start_km=interval_start_km,
+            interval_end_km=interval_end_km,
         )
         if len(physical_candidates) != 1:
             return None
@@ -2941,10 +2768,9 @@ class TollPricingService:
             end_km=interval_end_km,
             distance_km=span_km,
         )
-        candidate_keys = (
-            self._station_identity_keys(candidate.entry.station)
-            | self._station_identity_keys(candidate.exit.station)
-        )
+        candidate_keys = self._station_identity_keys(
+            candidate.entry.station
+        ) | self._station_identity_keys(candidate.exit.station)
         unpriced = self._unpriced_billing_events_in_range(
             projections,
             component,
@@ -2976,11 +2802,9 @@ class TollPricingService:
             ):
                 continue
 
-            chargeable = (
-                self._class1_chargeable_intervals_for_range(
-                    toll_range,
-                    toll_state_intervals,
-                )
+            chargeable = self._class1_chargeable_intervals_for_range(
+                toll_range,
+                toll_state_intervals,
             )
             for match in accepted_closed:
                 overhang_budget_km = (
@@ -2989,10 +2813,8 @@ class TollPricingService:
                     else 0.5
                 )
                 if (
-                    match.span_end_km
-                    <= toll_range.start_km + 0.01
-                    or match.span_start_km
-                    >= toll_range.end_km - 0.01
+                    match.span_end_km <= toll_range.start_km + 0.01
+                    or match.span_start_km >= toll_range.end_km - 0.01
                 ):
                     continue
 
@@ -3000,25 +2822,17 @@ class TollPricingService:
                     candidates: list[tuple[float, float]] = []
                     start_gap = match.span_start_km - start_km
                     if (
-                        0.01
-                        < start_gap
-                        <= overhang_budget_km
+                        0.01 < start_gap <= overhang_budget_km
                         and match.span_start_km <= end_km + 0.01
                     ):
-                        candidates.append(
-                            (start_km, match.span_start_km)
-                        )
+                        candidates.append((start_km, match.span_start_km))
 
                     end_gap = end_km - match.span_end_km
                     if (
-                        0.01
-                        < end_gap
-                        <= overhang_budget_km
+                        0.01 < end_gap <= overhang_budget_km
                         and match.span_end_km >= start_km - 0.01
                     ):
-                        candidates.append(
-                            (match.span_end_km, end_km)
-                        )
+                        candidates.append((match.span_end_km, end_km))
 
                     for fragment_start, fragment_end in candidates:
                         fragment = TollRange(
@@ -3026,23 +2840,17 @@ class TollPricingService:
                             end_index=toll_range.end_index,
                             start_km=fragment_start,
                             end_km=fragment_end,
-                            distance_km=(
-                                fragment_end - fragment_start
-                            ),
+                            distance_km=(fragment_end - fragment_start),
                         )
-                        unpriced = (
-                            self._unpriced_billing_events_in_range(
-                                projections,
-                                fragment,
-                                road_class_link_details,
-                                accepted_closed,
-                                used_station_keys,
-                            )
+                        unpriced = self._unpriced_billing_events_in_range(
+                            projections,
+                            fragment,
+                            road_class_link_details,
+                            accepted_closed,
+                            used_station_keys,
                         )
                         if not unpriced:
-                            resolved.append(
-                                (fragment_start, fragment_end)
-                            )
+                            resolved.append((fragment_start, fragment_end))
 
         return self._merge_km_intervals(
             resolved,
@@ -3080,14 +2888,12 @@ class TollPricingService:
         start_candidates = [
             projection
             for projection in nearby
-            if abs(projection.route_km - interval_start_km)
-            <= boundary_window_km
+            if abs(projection.route_km - interval_start_km) <= boundary_window_km
         ]
         end_candidates = [
             projection
             for projection in nearby
-            if abs(projection.route_km - interval_end_km)
-            <= boundary_window_km
+            if abs(projection.route_km - interval_end_km) <= boundary_window_km
         ]
 
         exact_closed_segments = [
@@ -3134,23 +2940,15 @@ class TollPricingService:
                         default=0.0,
                     )
                     if overlap_km > 1.0:
-                        reasons.append(
-                            "overlaps_existing_closed_segment"
-                        )
+                        reasons.append("overlaps_existing_closed_segment")
 
                 interval_overlap_km = max(
                     0.0,
-                    min(exit_.route_km, interval_end_km)
-                    - max(entry.route_km, interval_start_km),
+                    min(exit_.route_km, interval_end_km) - max(entry.route_km, interval_start_km),
                 )
-                coverage_ratio = (
-                    interval_overlap_km / span_km
-                    if span_km > 0.05
-                    else 0.0
-                )
-                boundary_gap_km = (
-                    abs(entry.route_km - interval_start_km)
-                    + abs(exit_.route_km - interval_end_km)
+                coverage_ratio = interval_overlap_km / span_km if span_km > 0.05 else 0.0
+                boundary_gap_km = abs(entry.route_km - interval_start_km) + abs(
+                    exit_.route_km - interval_end_km
                 )
 
                 matrix_candidates.append(
@@ -3169,20 +2967,10 @@ class TollPricingService:
                             exit_.lateral_km,
                             3,
                         ),
-                        "matrix_operator": (
-                            record.operator
-                            if record is not None
-                            else None
-                        ),
-                        "price": (
-                            round(record.price, 2)
-                            if record is not None
-                            else None
-                        ),
+                        "matrix_operator": (record.operator if record is not None else None),
+                        "price": (round(record.price, 2) if record is not None else None),
                         "official_distance_km": (
-                            record.distance_km
-                            if record is not None
-                            else None
+                            record.distance_km if record is not None else None
                         ),
                         "interval_coverage_ratio": round(
                             coverage_ratio,
@@ -3196,11 +2984,7 @@ class TollPricingService:
                             overlap_km,
                             1,
                         ),
-                        "status": (
-                            "available"
-                            if not reasons
-                            else "rejected"
-                        ),
+                        "status": ("available" if not reasons else "rejected"),
                         "reasons": reasons,
                     }
                 )
@@ -3214,16 +2998,8 @@ class TollPricingService:
                 item["exit"],
             )
         )
-        available = [
-            item
-            for item in matrix_candidates
-            if item["status"] == "available"
-        ]
-        physical_available = (
-            self._dedupe_equivalent_topology_candidates(
-                available
-            )
-        )
+        available = [item for item in matrix_candidates if item["status"] == "available"]
+        physical_available = self._dedupe_equivalent_topology_candidates(available)
 
         if len(physical_available) == 1:
             decision = "unique_official_matrix"
@@ -3232,10 +3008,7 @@ class TollPricingService:
         elif (
             start_candidates
             and end_candidates
-            and any(
-                "no_official_matrix" in item["reasons"]
-                for item in matrix_candidates
-            )
+            and any("no_official_matrix" in item["reasons"] for item in matrix_candidates)
         ):
             decision = "boundary_pair_without_matrix"
         elif not start_candidates or not end_candidates:
@@ -3251,8 +3024,7 @@ class TollPricingService:
                 "operator": projection.station.operator,
                 "system_type": projection.station.system_type,
                 "physical_type": (
-                    projection.station.physical_type
-                    or projection.station.system_type
+                    projection.station.physical_type or projection.station.system_type
                 ),
                 "route_km": round(projection.route_km, 1),
                 "lateral_km": round(
@@ -3267,14 +3039,8 @@ class TollPricingService:
                 boundary_window_km,
                 1,
             ),
-            "start_candidates": [
-                serialize(item)
-                for item in start_candidates[:12]
-            ],
-            "end_candidates": [
-                serialize(item)
-                for item in end_candidates[:12]
-            ],
+            "start_candidates": [serialize(item) for item in start_candidates[:12]],
+            "end_candidates": [serialize(item) for item in end_candidates[:12]],
             "matrix_candidates": matrix_candidates[:64],
             "available_matrix_count": len(physical_available),
             "raw_available_matrix_count": len(available),
@@ -3297,11 +3063,7 @@ class TollPricingService:
         segment_start_km = cumulative[segment_index - 1]
         segment_end_km = cumulative[segment_index]
         segment_km = segment_end_km - segment_start_km
-        fraction = (
-            0.0
-            if segment_km <= 1e-9
-            else (target - segment_start_km) / segment_km
-        )
+        fraction = 0.0 if segment_km <= 1e-9 else (target - segment_start_km) / segment_km
         start = geometry[segment_index - 1]
         end = geometry[segment_index]
         return {
@@ -3363,11 +3125,7 @@ class TollPricingService:
             if (
                 previous is not None
                 and previous["value"] == value
-                and abs(
-                    float(previous["route_end_km"])
-                    - float(item["route_start_km"])
-                )
-                <= 0.2
+                and abs(float(previous["route_end_km"]) - float(item["route_start_km"])) <= 0.2
             ):
                 previous["route_end_km"] = item["route_end_km"]
             else:
@@ -3384,9 +3142,7 @@ class TollPricingService:
         street_name_details: list[list],
         street_ref_details: list[list],
     ) -> dict[str, Any]:
-        midpoint_km = (
-            interval_start_km + interval_end_km
-        ) / 2.0
+        midpoint_km = (interval_start_km + interval_end_km) / 2.0
         return {
             "start_coordinate": self._coordinate_at_route_km(
                 geometry,
@@ -3449,9 +3205,7 @@ class TollPricingService:
             if event_only:
                 # An unresolved physical billing event can remain even when
                 # every kilometre is already covered by a known matrix.
-                fragments = [
-                    (toll_range.start_km, toll_range.end_km)
-                ]
+                fragments = [(toll_range.start_km, toll_range.end_km)]
 
             range_unresolved_km = max(
                 0.0,
@@ -3460,10 +3214,7 @@ class TollPricingService:
                     0.0,
                 ),
             )
-            physical_fragment_km = [
-                max(0.0, end_km - start_km)
-                for start_km, end_km in fragments
-            ]
+            physical_fragment_km = [max(0.0, end_km - start_km) for start_km, end_km in fragments]
             physical_total_km = sum(physical_fragment_km)
             allocated_km = 0.0
 
@@ -3485,11 +3236,7 @@ class TollPricingService:
                         range_unresolved_km - allocated_km,
                     )
                 elif physical_total_km > 0.01:
-                    unresolved_km = (
-                        range_unresolved_km
-                        * physical_km
-                        / physical_total_km
-                    )
+                    unresolved_km = range_unresolved_km * physical_km / physical_total_km
                     allocated_km += unresolved_km
                 else:
                     unresolved_km = 0.0
@@ -3528,22 +3275,17 @@ class TollPricingService:
                 nearby: list[dict[str, Any]] = []
                 for projection in projections:
                     if not (
-                        interval_start_km - 1.5
-                        <= projection.route_km
-                        <= interval_end_km + 1.5
+                        interval_start_km - 1.5 <= projection.route_km <= interval_end_km + 1.5
                     ):
                         continue
-                    open_price = self._lookup_open(
-                        projection.station
-                    )
+                    open_price = self._lookup_open(projection.station)
                     nearby.append(
                         {
                             "name": projection.station.display_name,
                             "operator": projection.station.operator,
                             "system_type": projection.station.system_type,
                             "physical_type": (
-                                projection.station.physical_type
-                                or projection.station.system_type
+                                projection.station.physical_type or projection.station.system_type
                             ),
                             "route_km": round(
                                 projection.route_km,
@@ -3554,22 +3296,14 @@ class TollPricingService:
                                 3,
                             ),
                             "open_price": (
-                                round(open_price, 2)
-                                if open_price is not None
-                                else None
+                                round(open_price, 2) if open_price is not None else None
                             ),
                             "distance_to_interval_start_km": round(
-                                abs(
-                                    projection.route_km
-                                    - interval_start_km
-                                ),
+                                abs(projection.route_km - interval_start_km),
                                 1,
                             ),
                             "distance_to_interval_end_km": round(
-                                abs(
-                                    projection.route_km
-                                    - interval_end_km
-                                ),
+                                abs(projection.route_km - interval_end_km),
                                 1,
                             ),
                         }
@@ -3578,12 +3312,8 @@ class TollPricingService:
                     key=lambda item: (
                         item["lateral_km"],
                         min(
-                            item[
-                                "distance_to_interval_start_km"
-                            ],
-                            item[
-                                "distance_to_interval_end_km"
-                            ],
+                            item["distance_to_interval_start_km"],
+                            item["distance_to_interval_end_km"],
                         ),
                         item["route_km"],
                         item["name"],
@@ -3596,21 +3326,15 @@ class TollPricingService:
                         "exit": segment.exit,
                         "operator": segment.operator,
                         "cost": segment.cost,
-                        "route_start_km": (
-                            segment.route_start_km
-                        ),
-                        "route_end_km": (
-                            segment.route_end_km
-                        ),
+                        "route_start_km": (segment.route_start_km),
+                        "route_end_km": (segment.route_end_km),
                     }
                     for segment in segments
                     if segment.confidence == "exact"
                     and segment.route_start_km is not None
                     and segment.route_end_km is not None
-                    and segment.route_end_km
-                    >= toll_range.start_km
-                    and segment.route_start_km
-                    <= toll_range.end_km
+                    and segment.route_end_km >= toll_range.start_km
+                    and segment.route_start_km <= toll_range.end_km
                 ]
 
                 diagnostics.append(
@@ -3669,12 +3393,8 @@ class TollPricingService:
                                 cumulative=cumulative,
                                 interval_start_km=interval_start_km,
                                 interval_end_km=interval_end_km,
-                                street_name_details=(
-                                    street_name_details
-                                ),
-                                street_ref_details=(
-                                    street_ref_details
-                                ),
+                                street_name_details=(street_name_details),
+                                street_ref_details=(street_ref_details),
                             )
                         ),
                         "nearby_stations": nearby[:16],
@@ -3717,12 +3437,8 @@ class TollPricingService:
             if match.span_end_km <= match.span_start_km + 0.05:
                 return False
 
-            entry_label = physical_label_key(
-                match.entry.station.display_name
-            )
-            exit_label = physical_label_key(
-                match.exit.station.display_name
-            )
+            entry_label = physical_label_key(match.entry.station.display_name)
+            exit_label = physical_label_key(match.exit.station.display_name)
             if not entry_label or not exit_label:
                 return False
 
@@ -3752,15 +3468,12 @@ class TollPricingService:
                     return False
                 if (
                     connector_status != "free"
-                    and connector_km
-                    > self.MAX_UNVERIFIED_CLOSED_CONNECTOR_KM
+                    and connector_km > self.MAX_UNVERIFIED_CLOSED_CONNECTOR_KM
                 ):
                     return False
 
             previous_end = (
-                match.span_end_km
-                if previous_end is None
-                else max(previous_end, match.span_end_km)
+                match.span_end_km if previous_end is None else max(previous_end, match.span_end_km)
             )
 
         return True
@@ -3776,11 +3489,7 @@ class TollPricingService:
         if plan.has_unresolved_events:
             return False
 
-        exact_segments = [
-            segment
-            for segment in plan.segments
-            if segment.confidence == "exact"
-        ]
+        exact_segments = [segment for segment in plan.segments if segment.confidence == "exact"]
         if len(exact_segments) != len(plan.segments):
             return False
         if len(exact_segments) != 1:
@@ -3792,20 +3501,13 @@ class TollPricingService:
             # Un portique ouvert ne peut pas être absorbé par une matrice
             # fermée entrée-sortie.
             return False
-        if (
-            segment.route_start_km is None
-            or segment.route_end_km is None
-        ):
+        if segment.route_start_km is None or segment.route_end_km is None:
             return False
 
         entry_label = physical_label_key(segment.entry or "")
         exit_label = physical_label_key(segment.exit or "")
-        match_entry_label = physical_label_key(
-            match.entry.station.display_name
-        )
-        match_exit_label = physical_label_key(
-            match.exit.station.display_name
-        )
+        match_entry_label = physical_label_key(match.entry.station.display_name)
+        match_exit_label = physical_label_key(match.exit.station.display_name)
         if not entry_label or entry_label != match_entry_label:
             return False
         if not exit_label or exit_label != match_exit_label:
@@ -3818,16 +3520,13 @@ class TollPricingService:
 
         segment_operator = (segment.operator or "").upper()
         matrix_operator = (match.record.operator or "").upper()
-        if (
+        return not (
             segment_operator
             and matrix_operator
             and segment_operator != "UNKNOWN"
             and matrix_operator != "UNKNOWN"
             and segment_operator != matrix_operator
-        ):
-            return False
-
-        return True
+        )
 
     def _best_closed_chain(
         self,
@@ -3954,20 +3653,16 @@ class TollPricingService:
         end_gap = max(0.0, toll_range.end_km - selected[-1].span_end_km)
         internal_gaps = [
             max(0.0, current.span_start_km - previous_item.span_end_km)
-            for previous_item, current in zip(selected, selected[1:])
+            for previous_item, current in itertools.pairwise(selected)
         ]
-        unexplained = max(0.0, toll_range.distance_km - covered)
+        max(0.0, toll_range.distance_km - covered)
         # Gaps before the first physical plaza and after the last one are
         # ordinary OSM boundary padding. Only internal holes can represent an
         # unpriced toll. Keep those internal holes at the strict 5 km / 1 euro
         # threshold introduced by the reliability patch.
         boundary_padding = min(start_gap, 25.0) + min(end_gap, 25.0)
-        unexplained_after_boundaries = max(
-            0.0, toll_range.distance_km - covered - boundary_padding
-        )
-        estimated_unexplained = (
-            unexplained_after_boundaries * self.FALLBACK_EUR_PER_KM
-        )
+        unexplained_after_boundaries = max(0.0, toll_range.distance_km - covered - boundary_padding)
+        estimated_unexplained = unexplained_after_boundaries * self.FALLBACK_EUR_PER_KM
         complete = (
             start_gap <= 25.0
             and end_gap <= 25.0
@@ -4010,9 +3705,7 @@ class TollPricingService:
             )
         )
         if quote is None:
-            raise RuntimeError(
-                "Une matrice fermée valide n'a pas produit de TollQuote."
-            )
+            raise RuntimeError("Une matrice fermée valide n'a pas produit de TollQuote.")
         return quote
 
     # ROUTECO_V034_MATRIX_SELECTION_HOTFIX
@@ -4035,11 +3728,7 @@ class TollPricingService:
 
         candidate_operator = (candidate.record.operator or "").upper()
         nested_operator = (nested.record.operator or "").upper()
-        if (
-            candidate_operator
-            and nested_operator
-            and candidate_operator != nested_operator
-        ):
+        if candidate_operator and nested_operator and candidate_operator != nested_operator:
             return False
 
         if (
@@ -4048,27 +3737,15 @@ class TollPricingService:
         ):
             return False
 
-        extends_before = (
-            candidate.span_start_km
-            < nested.span_start_km - 1.0
+        extends_before = candidate.span_start_km < nested.span_start_km - 1.0
+        extends_after = candidate.span_end_km > nested.span_end_km + 1.0
+        same_entry = extends_after and cls._same_physical_closed_projection(
+            candidate.entry,
+            nested.entry,
         )
-        extends_after = (
-            candidate.span_end_km
-            > nested.span_end_km + 1.0
-        )
-        same_entry = (
-            extends_after
-            and cls._same_physical_closed_projection(
-                candidate.entry,
-                nested.entry,
-            )
-        )
-        same_exit = (
-            extends_before
-            and cls._same_physical_closed_projection(
-                candidate.exit,
-                nested.exit,
-            )
+        same_exit = extends_before and cls._same_physical_closed_projection(
+            candidate.exit,
+            nested.exit,
         )
         return same_entry or same_exit
 
@@ -4112,24 +3789,19 @@ class TollPricingService:
             )
 
         def item_mainline_score(item: ClosedMatch) -> int:
-            return (
-                int(item.entry.station.is_mainline_barrier)
-                + int(item.exit.station.is_mainline_barrier)
+            return int(item.entry.station.is_mainline_barrier) + int(
+                item.exit.station.is_mainline_barrier
             )
 
         candidates.sort(
             key=lambda item: (
                 -potential(item),
                 -int(item.full_range),
-                abs(
-                    item.span_km
-                    - item.toll_range.distance_km
-                ),
+                abs(item.span_km - item.toll_range.distance_km),
                 -item_mainline_score(item),
                 -int(item.record.source_id is not None),
                 -int(item.record.distance_km is not None),
-                item.entry.lateral_km
-                + item.exit.lateral_km,
+                item.entry.lateral_km + item.exit.lateral_km,
                 item.span_start_km,
             )
         )
@@ -4139,16 +3811,12 @@ class TollPricingService:
             used_keys: set[str] = set()
             covered: dict[int, float] = {}
             for item in candidates:
-                keys = (
-                    self._station_identity_keys(item.entry.station)
-                    | self._station_identity_keys(item.exit.station)
-                )
+                keys = self._station_identity_keys(
+                    item.entry.station
+                ) | self._station_identity_keys(item.exit.station)
                 if keys & used_keys:
                     continue
-                if any(
-                    self._closed_spans_conflict(item, current)
-                    for current in accepted
-                ):
+                if any(self._closed_spans_conflict(item, current) for current in accepted):
                     continue
                 current = covered.get(item.range_index, 0.0)
                 new = min(
@@ -4165,15 +3833,9 @@ class TollPricingService:
 
         suffix = [0.0] * (len(candidates) + 1)
         for index in range(len(candidates) - 1, -1, -1):
-            suffix[index] = (
-                suffix[index + 1]
-                + potential(candidates[index])
-            )
+            suffix[index] = suffix[index + 1] + potential(candidates[index])
 
-        range_lengths = {
-            item.range_index: item.toll_range.distance_km
-            for item in candidates
-        }
+        range_lengths = {item.range_index: item.toll_range.distance_km for item in candidates}
         best_key = (
             -1.0,
             -1,
@@ -4202,10 +3864,8 @@ class TollPricingService:
             float,
         ]:
             full_ranges = sum(
-                covered.get(range_index, 0.0)
-                >= distance - 0.05
-                for range_index, distance
-                in range_lengths.items()
+                covered.get(range_index, 0.0) >= distance - 0.05
+                for range_index, distance in range_lengths.items()
             )
 
             grouped: dict[int, list[ClosedMatch]] = {}
@@ -4230,26 +3890,14 @@ class TollPricingService:
                 )
                 envelope = max(
                     0.0,
-                    last.span_end_km
-                    - first.span_start_km,
+                    last.span_end_km - first.span_start_km,
                 )
-                span_fit -= abs(
-                    envelope
-                    - range_lengths[range_index]
-                )
-                mainline_boundaries += int(
-                    first.entry.station.is_mainline_barrier
-                )
-                mainline_boundaries += int(
-                    last.exit.station.is_mainline_barrier
-                )
-                official_source_evidence += sum(
-                    item.record.source_id is not None
-                    for item in items
-                )
+                span_fit -= abs(envelope - range_lengths[range_index])
+                mainline_boundaries += int(first.entry.station.is_mainline_barrier)
+                mainline_boundaries += int(last.exit.station.is_mainline_barrier)
+                official_source_evidence += sum(item.record.source_id is not None for item in items)
                 matrix_distance_evidence += sum(
-                    item.record.distance_km is not None
-                    for item in items
+                    item.record.distance_km is not None for item in items
                 )
 
             return (
@@ -4273,12 +3921,7 @@ class TollPricingService:
         ) -> None:
             nonlocal best_key, best_selection
 
-            if (
-                exact_km
-                + suffix[index]
-                + 0.01
-                < best_key[0]
-            ):
+            if exact_km + suffix[index] + 0.01 < best_key[0]:
                 return
 
             if index >= len(candidates):
@@ -4303,16 +3946,12 @@ class TollPricingService:
                 lateral_sum,
             )
 
-            keys = (
-                self._station_identity_keys(item.entry.station)
-                | self._station_identity_keys(item.exit.station)
+            keys = self._station_identity_keys(item.entry.station) | self._station_identity_keys(
+                item.exit.station
             )
             if keys & used_keys:
                 return
-            if any(
-                self._closed_spans_conflict(item, current)
-                for current in accepted
-            ):
+            if any(self._closed_spans_conflict(item, current) for current in accepted):
                 return
 
             current_coverage = covered.get(
@@ -4338,9 +3977,7 @@ class TollPricingService:
                 next_used,
                 next_covered,
                 exact_km + increment,
-                lateral_sum
-                + item.entry.lateral_km
-                + item.exit.lateral_km,
+                lateral_sum + item.entry.lateral_km + item.exit.lateral_km,
             )
             accepted.pop()
 
@@ -4352,9 +3989,7 @@ class TollPricingService:
             0.0,
             0.0,
         )
-        best_selection.sort(
-            key=lambda item: item.span_start_km
-        )
+        best_selection.sort(key=lambda item: item.span_start_km)
         return best_selection
 
     @staticmethod
@@ -4401,9 +4036,7 @@ class TollPricingService:
         tariff plus geographic/route proximity, and either a shared normalized
         alias or near-identical coordinates.
         """
-        aliases = name_aliases(projection.station.name) | name_aliases(
-            projection.station.osm_name
-        )
+        aliases = name_aliases(projection.station.name) | name_aliases(projection.station.osm_name)
         for previous, previous_price in used:
             route_gap = abs(previous.route_km - projection.route_km)
             geo_gap = haversine_km(
@@ -4473,7 +4106,6 @@ class TollPricingService:
             previous_end = max(previous_end, segment.route_end_km)
         return True
 
-
     def _range_has_physical_billing_event(
         self,
         projections: list[StationProjection],
@@ -4481,21 +4113,13 @@ class TollPricingService:
         road_class_link_details: list[list],
     ) -> bool:
         for projection in projections:
-            if not (
-                toll_range.start_km - 1.5
-                <= projection.route_km
-                <= toll_range.end_km + 1.5
-            ):
+            if not (toll_range.start_km - 1.5 <= projection.route_km <= toll_range.end_km + 1.5):
                 continue
             station = projection.station
             if station.system_type == "open":
                 ramp_station = self._is_open_ramp_station(station)
                 lateral_limit = (
-                    0.05
-                    if ramp_station
-                    else 0.12
-                    if station.is_mainline_barrier
-                    else 0.06
+                    0.05 if ramp_station else 0.12 if station.is_mainline_barrier else 0.06
                 )
                 if projection.lateral_km > lateral_limit:
                     continue
@@ -4528,33 +4152,24 @@ class TollPricingService:
         accepted_closed: list[ClosedMatch],
         used_station_keys: set[str],
     ) -> bool:
-        unresolved_events = (
-            self._unpriced_billing_events_in_range(
-                projections,
-                toll_range,
-                road_class_link_details,
-                accepted_closed,
-                used_station_keys,
-                include_priced_unselected=True,
-            )
+        unresolved_events = self._unpriced_billing_events_in_range(
+            projections,
+            toll_range,
+            road_class_link_details,
+            accepted_closed,
+            used_station_keys,
+            include_priced_unselected=True,
         )
 
         if toll_range.distance_km <= self.OSM_NOISE_RANGE_KM:
             return not unresolved_events
 
-        if (
-            toll_range.distance_km <= self.OSM_BOUNDARY_FRAGMENT_KM
-            and exact_boundaries
-        ):
+        if toll_range.distance_km <= self.OSM_BOUNDARY_FRAGMENT_KM and exact_boundaries:
             boundary_gap = min(
                 min(abs(toll_range.start_km - boundary) for boundary in exact_boundaries),
                 min(abs(toll_range.end_km - boundary) for boundary in exact_boundaries),
             )
-            return (
-                boundary_gap
-                <= self.OSM_BOUNDARY_EVENT_GAP_KM
-                and not unresolved_events
-            )
+            return boundary_gap <= self.OSM_BOUNDARY_EVENT_GAP_KM and not unresolved_events
 
         return False
 
@@ -4566,7 +4181,7 @@ class TollPricingService:
             return ranges[0] if ranges else None
         gap_km = sum(
             max(0.0, current.start_km - previous.end_km)
-            for previous, current in zip(ranges, ranges[1:])
+            for previous, current in itertools.pairwise(ranges)
         )
         # OSM may split a single charged corridor around junctions or gantries.
         # A genuinely mixed itinerary such as Avallon→Chalon has a much larger
@@ -4647,57 +4262,70 @@ class TollPricingService:
             segment_lengths.append(length)
             cumulative.append(cumulative[-1] + length)
 
-        min_lon = min(point[0] for point in geometry) - 0.05
-        max_lon = max(point[0] for point in geometry) + 0.05
-        min_lat = min(point[1] for point in geometry) - 0.05
-        max_lat = max(point[1] for point in geometry) + 0.05
+        if self._station_grid_count != len(self.stations):
+            self._build_station_grid()
 
-        projections: list[StationProjection] = []
-        for station in self.stations:
-            if not (min_lon <= station.lon <= max_lon and min_lat <= station.lat <= max_lat):
-                continue
-            best_distance = float("inf")
-            best_route_km = 0.0
-            best_segment = -1
-            for index in range(1, len(geometry)):
-                start = geometry[index - 1]
-                end = geometry[index]
-                # Cheap rejection before doing the planar projection.
-                # A fixed longitude margin loses valid stations in northern France,
-                # where one degree of longitude is shorter than at the equator.
-                mean_lat = (start[1] + end[1]) / 2.0
-                margin_lat = 2.7 / 111.32
-                margin_lon = 2.7 / (
-                    111.32 * max(0.20, abs(math.cos(math.radians(mean_lat))))
-                )
-                if (
-                    station.lon < min(start[0], end[0]) - margin_lon
-                    or station.lon > max(start[0], end[0]) + margin_lon
-                ):
-                    continue
-                if (
-                    station.lat < min(start[1], end[1]) - margin_lat
-                    or station.lat > max(start[1], end[1]) + margin_lat
-                ):
-                    continue
-                lateral, fraction = point_segment_projection_km(
-                    (station.lon, station.lat),
-                    (start[0], start[1]),
-                    (end[0], end[1]),
-                )
-                if lateral < best_distance:
-                    best_distance = lateral
-                    best_route_km = cumulative[index - 1] + fraction * segment_lengths[index - 1]
-                    best_segment = index
-            if best_segment >= 0 and best_distance <= 2.5:
-                projections.append(
-                    StationProjection(
-                        station=station,
-                        route_km=best_route_km,
-                        lateral_km=best_distance,
-                        segment_index=best_segment,
-                    )
-                )
+        # Project only stations from grid cells crossed by each route segment.
+        # This is exactly the same geometric test as the former O(stations ×
+        # segments) scan, but avoids testing every French toll station against
+        # every polyline edge.
+        best_by_station: dict[int, tuple[float, float, int]] = {}
+        cell_size = self.STATION_GRID_DEGREES
+        for index in range(1, len(geometry)):
+            start = geometry[index - 1]
+            end = geometry[index]
+            mean_lat = (start[1] + end[1]) / 2.0
+            margin_lat = 2.7 / 111.32
+            margin_lon = 2.7 / (111.32 * max(0.20, abs(math.cos(math.radians(mean_lat)))))
+            min_lon = min(start[0], end[0]) - margin_lon
+            max_lon = max(start[0], end[0]) + margin_lon
+            min_lat = min(start[1], end[1]) - margin_lat
+            max_lat = max(start[1], end[1]) + margin_lat
+            min_cell_lon = math.floor(min_lon / cell_size)
+            max_cell_lon = math.floor(max_lon / cell_size)
+            min_cell_lat = math.floor(min_lat / cell_size)
+            max_cell_lat = math.floor(max_lat / cell_size)
+
+            for cell_lon in range(min_cell_lon, max_cell_lon + 1):
+                for cell_lat in range(min_cell_lat, max_cell_lat + 1):
+                    for station_index in self._station_grid.get(
+                        (cell_lon, cell_lat),
+                        [],
+                    ):
+                        station = self.stations[station_index]
+                        if not (
+                            min_lon <= station.lon <= max_lon and min_lat <= station.lat <= max_lat
+                        ):
+                            continue
+                        lateral, fraction = point_segment_projection_km(
+                            (station.lon, station.lat),
+                            (start[0], start[1]),
+                            (end[0], end[1]),
+                        )
+                        previous = best_by_station.get(station_index)
+                        if previous is not None and lateral >= previous[0]:
+                            continue
+                        route_km = cumulative[index - 1] + fraction * segment_lengths[index - 1]
+                        best_by_station[station_index] = (
+                            lateral,
+                            route_km,
+                            index,
+                        )
+
+        projections = [
+            StationProjection(
+                station=self.stations[station_index],
+                route_km=route_km,
+                lateral_km=lateral,
+                segment_index=segment_index,
+            )
+            for station_index, (
+                lateral,
+                route_km,
+                segment_index,
+            ) in best_by_station.items()
+            if lateral <= 2.5
+        ]
         projections.sort(key=lambda item: item.route_km)
         return projections, cumulative
 
@@ -4847,11 +4475,7 @@ class TollPricingService:
             if projection.lateral_km > lateral_limit:
                 continue
 
-            if not (
-                toll_range.start_km - 1.5
-                <= projection.route_km
-                <= toll_range.end_km + 1.5
-            ):
+            if not (toll_range.start_km - 1.5 <= projection.route_km <= toll_range.end_km + 1.5):
                 continue
 
             # An interchange tariff is charged only when the tolled OSM range
@@ -4945,10 +4569,7 @@ class TollPricingService:
             if projection.station.system_type != "open"
             and (
                 projection.lateral_km <= 0.32
-                or (
-                    projection.station.is_mainline_barrier
-                    and projection.lateral_km <= 1.15
-                )
+                or (projection.station.is_mainline_barrier and projection.lateral_km <= 1.15)
             )
         ]
         if len(close) < 2:
@@ -5030,16 +4651,10 @@ class TollPricingService:
         self,
         station: TollStation,
     ) -> list[PhysicalTariffAlias]:
-        station_aliases = (
-            name_aliases(station.name)
-            | name_aliases(station.osm_name)
-        )
+        station_aliases = name_aliases(station.name) | name_aliases(station.osm_name)
         output: list[PhysicalTariffAlias] = []
         for alias in self.physical_tariff_aliases:
-            if not (
-                station_aliases
-                & name_aliases(alias.physical_name)
-            ):
+            if not (station_aliases & name_aliases(alias.physical_name)):
                 continue
             if (
                 station.operator
@@ -5060,10 +4675,7 @@ class TollPricingService:
         self,
         station: TollStation,
     ) -> set[str]:
-        aliases = (
-            name_aliases(station.name)
-            | name_aliases(station.osm_name)
-        )
+        aliases = name_aliases(station.name) | name_aliases(station.osm_name)
         for mapping in self._validated_tariff_aliases(station):
             aliases.update(name_aliases(mapping.tariff_name))
         return aliases
@@ -5073,10 +4685,7 @@ class TollPricingService:
         station: TollStation,
     ) -> list[str]:
         operators = [station.operator]
-        operators.extend(
-            mapping.operator
-            for mapping in self._validated_tariff_aliases(station)
-        )
+        operators.extend(mapping.operator for mapping in self._validated_tariff_aliases(station))
         return list(dict.fromkeys(item for item in operators if item))
 
     @staticmethod
@@ -5091,17 +4700,10 @@ class TollPricingService:
         rejects the cell here: simplified polylines can shorten projections,
         while topology and physical boundary identity remain valid evidence.
         """
-        if (
-            record.source_id is None
-            or record.distance_km is None
-            or projected_span_km <= 0.0
-        ):
+        if record.source_id is None or record.distance_km is None or projected_span_km <= 0.0:
             return False
         tolerance_km = max(5.0, projected_span_km * 0.18)
-        return (
-            abs(record.distance_km - projected_span_km)
-            <= tolerance_km
-        )
+        return abs(record.distance_km - projected_span_km) <= tolerance_km
 
     def _lookup_closed(
         self,
@@ -5112,8 +4714,7 @@ class TollPricingService:
         aliases_b = self._closed_tariff_aliases(exit_)
         operators = list(
             dict.fromkeys(
-                self._closed_tariff_operators(entry)
-                + self._closed_tariff_operators(exit_)
+                self._closed_tariff_operators(entry) + self._closed_tariff_operators(exit_)
             )
         )
         preferred = set(operators)
@@ -5154,9 +4755,7 @@ class TollPricingService:
             for operator in operators:
                 for from_alias in from_aliases:
                     for to_alias in to_aliases:
-                        record = self.closed_prices.get(
-                            (operator, from_alias, to_alias)
-                        )
+                        record = self.closed_prices.get((operator, from_alias, to_alias))
                         if record is not None:
                             by_operator.append(record)
 
@@ -5241,9 +4840,7 @@ class TollPricingService:
             )
 
         preferred = [
-            candidate
-            for candidate in unique.values()
-            if candidate.operator in preferred_operators
+            candidate for candidate in unique.values() if candidate.operator in preferred_operators
         ]
         preferred_values = {(item.price, item.distance_km) for item in preferred}
         if len(preferred_values) == 1 and preferred:

@@ -5,6 +5,16 @@ from app.models import RouteResult
 TRUSTED_TOLL_CONFIDENCES = {"exact", "none", "missing"}
 
 
+def _total_cost_bounds(route: RouteResult) -> tuple[float, float]:
+    low = route.total_cost_low
+    high = route.total_cost_high
+    if low <= 0 < route.total_cost:
+        low = route.total_cost
+    if high <= 0 < route.total_cost:
+        high = route.total_cost
+    return min(low, high), max(low, high)
+
+
 def _motorway_anchor(routes: list[RouteResult]) -> RouteResult | None:
     """Return a genuinely different motorway-rich option when one exists."""
     if not routes:
@@ -20,15 +30,12 @@ def _motorway_anchor(routes: list[RouteResult]) -> RouteResult | None:
     )
     if anchor.id == fastest.id:
         motorway_ratio = anchor.motorway_km / max(1.0, anchor.distance_km)
-        if anchor.profile == "motorway" or (
-            anchor.motorway_km >= 30.0 and motorway_ratio >= 0.65
-        ):
+        if anchor.profile == "motorway" or (anchor.motorway_km >= 30.0 and motorway_ratio >= 0.65):
             return anchor
         return None
     motorway_gain = anchor.motorway_km - fastest.motorway_km
-    ratio_gain = (
-        anchor.motorway_km / max(1.0, anchor.distance_km)
-        - fastest.motorway_km / max(1.0, fastest.distance_km)
+    ratio_gain = anchor.motorway_km / max(1.0, anchor.distance_km) - fastest.motorway_km / max(
+        1.0, fastest.distance_km
     )
     if motorway_gain >= max(20.0, fastest.distance_km * 0.08) and ratio_gain >= 0.10:
         return anchor
@@ -80,17 +87,27 @@ def decorate_routes(routes: list[RouteResult], max_extra_minutes: int | None) ->
     limit = None if max_extra_minutes is None else fastest.duration_minutes + max_extra_minutes
 
     eligible = [route for route in routes if limit is None or route.duration_minutes <= limit]
-    trusted = [
-        route
-        for route in eligible
-        if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES
-    ]
+    trusted = [route for route in eligible if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES]
     recommended = min(trusted, key=lambda route: route.total_cost) if trusted else None
-    untrusted_best = min(eligible, key=lambda route: route.total_cost) if eligible else fastest
+    untrusted_best = (
+        min(
+            eligible,
+            key=lambda route: (
+                _total_cost_bounds(route)[1],
+                route.total_cost,
+            ),
+        )
+        if eligible
+        else fastest
+    )
+    fastest_low, fastest_high = _total_cost_bounds(fastest)
 
     for route in routes:
+        route_low, route_high = _total_cost_bounds(route)
         route.extra_minutes = max(0, route.duration_minutes - fastest.duration_minutes)
         route.savings = round(fastest.total_cost - route.total_cost, 2)
+        route.savings_low = round(fastest_low - route_high, 2)
+        route.savings_high = round(fastest_high - route_low, 2)
         route.within_limit = limit is None or route.duration_minutes <= limit
         tags: list[str] = []
         if route.id == fastest.id:
@@ -128,7 +145,9 @@ def decorate_routes(routes: list[RouteResult], max_extra_minutes: int | None) ->
             route.description = "La distance la plus courte parmi les itinéraires proposés."
         elif "À vérifier" in tags:
             route.label = "Compromis à vérifier"
-            route.description = "Potentiellement intéressant, mais une partie du péage reste estimée."
+            route.description = (
+                "Potentiellement intéressant, mais une partie du péage reste estimée."
+            )
         elif "Moins cher" in tags:
             route.label = "Le plus économique"
             route.description = "L'économie maximale parmi les alternatives proposées."
@@ -160,9 +179,7 @@ def select_economically_distinct_routes(
     best_cost = fastest.total_cost
     trusted_confidences = {"exact", "none", "missing"}
     best_trusted_cost = (
-        fastest.total_cost
-        if fastest.toll_confidence in trusted_confidences
-        else float("inf")
+        fastest.total_cost if fastest.toll_confidence in trusted_confidences else float("inf")
     )
     for route in sorted(
         (item for item in routes if item.id != fastest.id),
@@ -237,11 +254,7 @@ def select_representative_routes(
 
     fastest = min(routes, key=lambda route: route.duration_minutes)
     cheapest = min(routes, key=lambda route: route.total_cost)
-    trusted = [
-        route
-        for route in routes
-        if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES
-    ]
+    trusted = [route for route in routes if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES]
     cheapest_trusted = min(trusted, key=lambda route: route.total_cost) if trusted else None
 
     selected: list[RouteResult] = []
@@ -285,11 +298,7 @@ def select_representative_routes(
             remaining,
             key=lambda route: (
                 min(distance(route, current) for current in selected)
-                + (
-                    0.04
-                    if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES
-                    else 0.0
-                ),
+                + (0.04 if route.toll_confidence in TRUSTED_TOLL_CONFIDENCES else 0.0),
                 -route.duration_minutes,
             ),
         )

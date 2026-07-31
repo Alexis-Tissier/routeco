@@ -121,6 +121,7 @@ ensure_graph_cache_compatible() {
 }
 
 start_graphhopper() {
+  local mode="${1:-runtime}"
   ensure_graph_cache_compatible
   if curl -fsS http://127.0.0.1:8989/info >/dev/null 2>&1; then
     echo "GraphHopper est déjà opérationnel sur le port 8989."
@@ -138,12 +139,22 @@ start_graphhopper() {
   fi
   local wait_attempts=90
   if [[ ! -d "$GRAPH_CACHE" ]]; then
+    if [[ "$mode" != "import" ]]; then
+      echo "Le graphe France est absent. Démarrage automatique refusé pour éviter" >&2
+      echo "une reconstruction lourde et involontaire." >&2
+      echo "Lance explicitement : ./scripts/routeco.sh rebuild-graph" >&2
+      return 1
+    fi
     wait_attempts=3600
-    echo "Le graphe France est absent : reconstruction automatique en cours."
+    echo "Reconstruction explicite du graphe France en cours."
     echo "Cette étape peut prendre plusieurs minutes ; suivi : $LOG_DIR/graphhopper.log"
   fi
+  local java_heap="${GRAPHHOPPER_RAM:-8g}"
+  if [[ "$mode" == "import" ]]; then
+    java_heap="${GRAPHHOPPER_IMPORT_RAM:-10g}"
+  fi
   echo "Démarrage de GraphHopper…"
-  nohup java -Xms1g -Xmx"${GRAPHHOPPER_RAM:-8g}" \
+  nohup java -Xms1g -Xmx"$java_heap" \
     -jar "$jar" server "$ROOT/infra/graphhopper/config.yml" \
     >"$LOG_DIR/graphhopper.log" 2>&1 &
   echo $! > "$GRAPHHOPPER_PID"
@@ -271,7 +282,7 @@ rebuild_graph() {
     rm -rf -- "$resolved_cache"
     echo "Ancien graphe généré supprimé."
   fi
-  start_graphhopper
+  start_graphhopper import
   start_backend
   status
 }
@@ -287,6 +298,49 @@ status() {
     curl -fsS http://127.0.0.1:8000/api/health | python3 -m json.tool 2>/dev/null || true
   fi
   echo "Logs        : $LOG_DIR"
+}
+
+doctor() {
+  local memory_kb cpu_count disk_kb cache_size
+  memory_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)"
+  cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
+  disk_kb="$(df -Pk "$ROOT" | awk 'NR == 2 {print $4}')"
+  cache_size="absent"
+  if [[ -d "$GRAPH_CACHE" ]]; then
+    cache_size="$(du -sh "$GRAPH_CACHE" 2>/dev/null | awk '{print $1}')"
+  fi
+
+  echo "Diagnostic ressources Routeco"
+  echo "CPU                     : ${cpu_count} cœur(s)"
+  echo "RAM                     : $((memory_kb / 1024)) Mio"
+  echo "Disque libre            : $((disk_kb / 1024 / 1024)) Gio"
+  echo "Cache GraphHopper       : $cache_size"
+  echo "Heap GraphHopper runtime: ${GRAPHHOPPER_RAM:-8g}"
+  echo "Calculs simultanés      : ${ROUTECO_MAX_CONCURRENT_CALCULATIONS:-1}"
+  echo "Cache de trajets        : ${ROUTECO_ROUTING_CACHE_ENTRIES:-8} entrée(s), ${ROUTECO_ROUTING_CACHE_TTL:-1800} s"
+
+  local warnings=0
+  if (( memory_kb < 10 * 1024 * 1024 )); then
+    echo "AVERTISSEMENT : moins de 10 Gio de RAM ; graphe France + autres services risqués."
+    warnings=$((warnings + 1))
+  fi
+  if (( disk_kb < 35 * 1024 * 1024 )); then
+    echo "AVERTISSEMENT : moins de 35 Gio libres ; mise à jour du graphe déconseillée."
+    warnings=$((warnings + 1))
+  fi
+  if (( cpu_count < 2 )); then
+    echo "AVERTISSEMENT : un seul cœur ; les recherches multi-profils seront lentes."
+    warnings=$((warnings + 1))
+  fi
+  if [[ ! -d "$GRAPH_CACHE" ]]; then
+    echo "AVERTISSEMENT : cache GraphHopper absent ; import France requis avant utilisation."
+    warnings=$((warnings + 1))
+  fi
+  if (( warnings == 0 )); then
+    echo "Verdict : ressources minimales cohérentes pour un usage personnel."
+  else
+    echo "Verdict : corriger les avertissements avant une mise en ligne permanente."
+  fi
 }
 
 case "${1:-status}" in
@@ -315,6 +369,9 @@ case "${1:-status}" in
     ;;
   status)
     status
+    ;;
+  doctor)
+    doctor
     ;;
   logs)
     touch "$LOG_DIR/detour.log" "$LOG_DIR/graphhopper.log"
@@ -350,6 +407,10 @@ case "${1:-status}" in
     ensure_python
     exec .venv/bin/python -m scripts.verify_route_diversity
     ;;
+  verify-cache)
+    ensure_python
+    exec .venv/bin/python -m scripts.verify_runtime_cache
+    ;;
   update-communes)
     ensure_python
     exec .venv/bin/python scripts/update_communes.py --output "$COMMUNES_DB"
@@ -365,6 +426,7 @@ Usage : ./scripts/routeco.sh COMMANDE
   restart        redémarre les deux services
   rebuild-graph  reconstruit le graphe après un changement de profil
   status         affiche l'état détaillé
+  doctor         vérifie CPU, RAM, disque, cache et limites VPS
   logs           suit les deux fichiers de logs
   validate       vérifie la structure sur les trajets de couverture
   validate-random [N] teste N couples de villes sans règle par destination
@@ -372,6 +434,7 @@ Usage : ./scripts/routeco.sh COMMANDE
   verify-fastest vérifie la vraie référence rapide sur un trajet long
   verify-geocoding vérifie la couverture nationale et les homonymes
   verify-diversity vérifie les choix autoroutier et direct sur un trajet régional
+  verify-cache   vérifie la réutilisation des tracés lors d'un recalcul économique
   update-communes actualise l'index local de toutes les communes françaises
 EOF
     exit 2

@@ -19,7 +19,7 @@ from app.services.pareto import (
 from app.services.routing import GraphHopperClient
 from app.services.tolls import TollPricingService
 
-app = FastAPI(title="Routeco", version="0.3.9")
+app = FastAPI(title="Routeco", version="0.4.0")
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
 geocoder = LocalGeocoder(
@@ -27,8 +27,18 @@ geocoder = LocalGeocoder(
     settings.demo_places,
     settings.communes_database,
 )
-routing = GraphHopperClient(settings.graphhopper_url)
+routing = GraphHopperClient(
+    settings.graphhopper_url,
+    cache_ttl_seconds=settings.routing_cache_ttl_seconds,
+    cache_max_entries=settings.routing_cache_max_entries,
+    max_concurrent_calculations=settings.max_concurrent_calculations,
+)
 tolls = TollPricingService(settings.tolls_dir)
+
+
+@app.on_event("shutdown")
+async def close_routing_client() -> None:
+    await routing.close()
 
 
 @app.get("/", include_in_schema=False)
@@ -55,6 +65,8 @@ def public_config() -> dict:
             "communes": geocoder.commune_count,
             "detailed_addresses": settings.ban_database.exists(),
         },
+        "toll_estimate_eur_per_km": settings.toll_estimate_eur_per_km,
+        "routing_cache": routing.cache_info(),
     }
 
 
@@ -72,6 +84,7 @@ async def health() -> dict:
         "toll_official_sources": (settings.tolls_dir / "official" / "sources.json").exists(),
         "map_mode": "openstreetmap",
         "map_interactive": True,
+        "routing_cache": routing.cache_info(),
     }
 
 
@@ -99,12 +112,22 @@ def resolve_address(q: str = Query(min_length=2, max_length=160)) -> dict:
 @app.post("/api/routes", response_model=RouteResponse)
 async def calculate_routes(request: RouteRequest) -> RouteResponse:
     if request.start == request.end:
-        raise HTTPException(status_code=400, detail="Le départ et l'arrivée doivent être différents.")
+        raise HTTPException(
+            status_code=400, detail="Le départ et l'arrivée doivent être différents."
+        )
 
     engine_result = await routing.candidates(request.start, request.end)
     results: list[RouteResult] = []
+    fallback_rate = (
+        request.toll_estimate_rate
+        if request.toll_estimate_rate is not None
+        else settings.toll_estimate_eur_per_km
+    )
     for candidate in engine_result.candidates:
-        quote = tolls.quote_candidate(candidate)
+        quote = tolls.quote_candidate(
+            candidate,
+            fallback_eur_per_km=fallback_rate,
+        )
         costs = calculate_costs(
             candidate["motorway_km"],
             candidate["road_km"],
@@ -113,6 +136,8 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
             request.fuel_price,
             quote.cost,
         )
+        toll_cost_low = float(quote.cost if quote.cost_low is None else quote.cost_low)
+        toll_cost_high = float(quote.cost if quote.cost_high is None else quote.cost_high)
         results.append(
             RouteResult(
                 id=candidate["id"],
@@ -125,7 +150,17 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
                 fuel_liters=costs.fuel_liters,
                 fuel_cost=costs.fuel_cost,
                 toll_cost=quote.cost,
+                toll_cost_low=round(toll_cost_low, 2),
+                toll_cost_high=round(toll_cost_high, 2),
                 total_cost=costs.total_cost,
+                total_cost_low=round(
+                    costs.fuel_cost + toll_cost_low,
+                    2,
+                ),
+                total_cost_high=round(
+                    costs.fuel_cost + toll_cost_high,
+                    2,
+                ),
                 toll_confidence=quote.confidence,  # type: ignore[arg-type]
                 toll_stations=quote.stations,
                 toll_message=quote.message,
@@ -135,6 +170,12 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
                         exit=segment.exit,
                         operator=segment.operator,
                         cost=segment.cost,
+                        cost_low=float(
+                            segment.cost if segment.cost_low is None else segment.cost_low
+                        ),
+                        cost_high=float(
+                            segment.cost if segment.cost_high is None else segment.cost_high
+                        ),
                         distance_km=segment.distance_km,
                         confidence=segment.confidence,  # type: ignore[arg-type]
                         route_start_km=segment.route_start_km,
@@ -158,11 +199,7 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
     decorated = decorate_routes(results, request.max_extra_minutes)
     if not request.show_all:
         fastest = min(decorated, key=lambda route: route.duration_minutes)
-        decorated = [
-            route
-            for route in decorated
-            if route.within_limit or route.id == fastest.id
-        ]
+        decorated = [route for route in decorated if route.within_limit or route.id == fastest.id]
 
     eligible_count = len(decorated)
     decorated = select_useful_routes(
@@ -183,5 +220,9 @@ async def calculate_routes(request: RouteRequest) -> RouteResponse:
         eligible_count=eligible_count,
         merged_count=max(0, eligible_count - distinct_count),
         hidden_count=max(0, len(results) - len(decorated)),
+        routing_seconds=engine_result.routing_seconds,
+        cache_hit=engine_result.cache_hit,
+        cache_age_seconds=engine_result.cache_age_seconds,
+        profile_metrics=engine_result.profile_metrics,
         routes=decorated,
     )

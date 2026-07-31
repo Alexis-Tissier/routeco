@@ -22,6 +22,7 @@ class RouteRequest(BaseModel):
     show_all: bool = False
     motorway_consumption: float = Field(default=6.5, gt=0, le=30)
     road_consumption: float = Field(default=5.5, gt=0, le=30)
+    toll_estimate_rate: float | None = Field(default=None, ge=0.03, le=0.30)
 
     @field_validator("start_label", "end_label")
     @classmethod
@@ -47,6 +48,8 @@ class TollSegmentResult(BaseModel):
     exit: str | None = None
     operator: str = ""
     cost: float = 0.0
+    cost_low: float = 0.0
+    cost_high: float = 0.0
     distance_km: float | None = None
     confidence: Literal["exact", "estimated", "none", "missing"] = "missing"
     route_start_km: float | None = None
@@ -65,8 +68,14 @@ class RouteResult(BaseModel):
     fuel_liters: float
     fuel_cost: float
     toll_cost: float
+    toll_cost_low: float = 0.0
+    toll_cost_high: float = 0.0
     total_cost: float
+    total_cost_low: float = 0.0
+    total_cost_high: float = 0.0
     savings: float = 0
+    savings_low: float = 0
+    savings_high: float = 0
     toll_confidence: Literal["exact", "estimated", "none", "missing"] = "missing"
     toll_stations: list[str] = Field(default_factory=list)
     toll_message: str = ""
@@ -76,6 +85,15 @@ class RouteResult(BaseModel):
     geometry: list[list[float]] = Field(default_factory=list, description="[lon, lat]")
     source: Literal["graphhopper", "demo"]
     profile: str = ""
+
+
+class ProfileMetricResult(BaseModel):
+    name: str
+    seconds: float = 0.0
+    attempts: int = 0
+    candidates: int = 0
+    status: Literal["ok", "failed", "recovered", "skipped"] = "ok"
+    fallback_seconds: float = 0.0
 
 
 class RouteResponse(BaseModel):
@@ -88,4 +106,8 @@ class RouteResponse(BaseModel):
     eligible_count: int
     merged_count: int = 0
     hidden_count: int = 0
+    routing_seconds: float = 0.0
+    cache_hit: bool = False
+    cache_age_seconds: float = 0.0
+    profile_metrics: list[ProfileMetricResult] = Field(default_factory=list)
     routes: list[RouteResult]

@@ -1,0 +1,13 @@
+routeco.example.com {
+	# Insérer ici le bloc forward_auth Authentik déjà utilisé par les autres
+	# applications personnelles, puis conserver Routeco uniquement en local.
+	reverse_proxy 127.0.0.1:8000
+
+	encode zstd gzip
+	log {
+		output file /var/log/caddy/routeco-access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

@@ -67,7 +67,8 @@ h1 { font-size:32px; line-height:1.03; letter-spacing:-.045em; margin:8px 0 22px
 .unit-input { position:relative; }
 .unit-input input { padding-right:52px; }
 .unit-input b { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--muted); }
-.fuel-price { margin-top:16px; max-width:210px; }
+.cost-assumptions { margin-top:16px; }
+.estimate-note { display:block; margin-top:6px; color:var(--muted); font-size:9px; line-height:1.35; }
 .segmented { display:flex; padding:4px; border:1px solid var(--line); border-radius:14px; background:var(--soft); }
 .segmented button { flex:1; border:0; border-radius:10px; padding:9px 5px; background:transparent; }
 .segmented button.active { background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(20,30,25,.08); }
@@ -128,12 +129,14 @@ h2 { margin:6px 0 0; font-size:24px; letter-spacing:-.03em; }
 .main-metrics { display:flex; align-items:baseline; gap:9px; margin:18px 0 13px; }
 .main-metrics strong { font-size:27px; letter-spacing:-.04em; }
 .main-metrics span { color:var(--muted); font-size:11px; }
+.main-metrics .cost-range { margin-left:auto; color:#a06c1b; font-size:8px; font-weight:700; }
 .metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .metric { padding:9px; border-radius:12px; background:#f6f7f4; }
 .metric span,.metric strong { display:block; }
 .metric span { color:var(--muted); font-size:9px; }
 .metric strong { margin-top:3px; font-size:12px; }
 .saving { margin-top:11px; color:var(--green); font-size:10px; font-weight:800; }
+.saving.estimated-saving { color:#a06c1b; }
 .warning { margin-top:10px; color:#a06c1b; font-size:9px; }
 .toll-exact { margin-top:10px; color:var(--green); font-size:9px; font-weight:700; }
 .outside { opacity:.66; }

@@ -1,0 +1,21 @@
+[Unit]
+Description=Routeco GraphHopper France
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=routeco
+Group=routeco
+WorkingDirectory=/opt/routeco
+Environment=JAVA_TOOL_OPTIONS=-Xms1g -Xmx6g
+EnvironmentFile=-/etc/routeco/routeco.env
+ExecStart=/usr/bin/java -jar /opt/routeco/data/graphhopper-web-11.0.jar server /opt/routeco/infra/graphhopper/config.yml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

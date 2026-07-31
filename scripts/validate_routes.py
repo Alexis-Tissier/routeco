@@ -5,7 +5,7 @@ import argparse
 import asyncio
 import json
 import random
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.config import settings
@@ -45,14 +45,22 @@ def random_scenarios(cities_path: Path, count: int, seed: int) -> list[dict]:
 
 
 async def run(args: argparse.Namespace) -> int:
-    routing = GraphHopperClient(settings.graphhopper_url, timeout_seconds=args.timeout)
+    routing = GraphHopperClient(
+        settings.graphhopper_url,
+        timeout_seconds=args.timeout,
+        cache_ttl_seconds=settings.routing_cache_ttl_seconds,
+        cache_max_entries=settings.routing_cache_max_entries,
+        max_concurrent_calculations=settings.max_concurrent_calculations,
+    )
     tolls = TollPricingService(settings.tolls_dir)
 
     if not await routing.available():
         print(f"ERREUR : GraphHopper ne répond pas sur {settings.graphhopper_url}.")
+        await routing.close()
         return 2
     if not tolls.ready:
         print(f"ERREUR : données de péage absentes dans {settings.tolls_dir}.")
+        await routing.close()
         return 2
 
     if args.random:
@@ -77,6 +85,7 @@ async def run(args: argparse.Namespace) -> int:
             fuel_price=args.fuel_price,
             motorway_consumption=args.motorway_consumption,
             road_consumption=args.road_consumption,
+            toll_estimate_rate=settings.toll_estimate_eur_per_km,
             strict=args.strict,
             enforce_gold=args.gold,
         )
@@ -89,7 +98,7 @@ async def run(args: argparse.Namespace) -> int:
         )
 
     payload = report_payload(results, strict=args.strict)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(UTC).astimezone().strftime("%Y%m%d-%H%M%S")
     output_dir = args.output_dir or settings.reports_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = output_dir / f"validation-{stamp}.md"
@@ -126,9 +135,12 @@ async def run(args: argparse.Namespace) -> int:
     print(
         "Durées : "
         f"{summary['routing_seconds']:.1f} s de routage "
-        f"(moyenne {summary['routing_average_seconds']:.1f} s), "
+        f"(moyenne {summary['routing_average_seconds']:.1f} s, "
+        f"p50 {summary['routing_p50_seconds']:.1f} s, "
+        f"p95 {summary['routing_p95_seconds']:.1f} s), "
         f"{summary['toll_pricing_seconds']:.2f} s de calcul des péages."
     )
+    await routing.close()
     return 1 if summary["errors"] else 0
 
 
@@ -158,7 +170,9 @@ def main() -> None:
         type=Path,
         default=Path(__file__).resolve().parent.parent / "validation" / "cities.json",
     )
-    parser.add_argument("--strict", action="store_true", help="Traiter tout péage estimé comme une erreur.")
+    parser.add_argument(
+        "--strict", action="store_true", help="Traiter tout péage estimé comme une erreur."
+    )
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--fuel-price", type=float, default=1.82)
     parser.add_argument("--motorway-consumption", type=float, default=6.5)
