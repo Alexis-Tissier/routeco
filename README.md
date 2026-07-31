@@ -1,4 +1,4 @@
-# Détour 0.4.5
+# Détour 0.4.6
 
 Optimiseur de trajets routiers multicritère pour la France, auto-hébergeable et sans API commerciale obligatoire.
 
@@ -67,7 +67,7 @@ Les outils préparés dans cette version sont :
 ./.venv/bin/python scripts/build_data_release.py --version 1
 bash scripts/publish_data_release.sh dist/data-release/data-france-v1
 ./.venv/bin/python scripts/install_release_data.py \
-  https://github.com/Alexis-Tissier/routeco/releases/download/data-france-v1/detour-data-france-v1.json
+  https://github.com/Alexis-Tissier/detour/releases/download/data-france-v1/detour-data-france-v1.json
 ```
 
 Le pack peut être fractionné automatiquement en fichiers de 1 900 Mio maximum,
@@ -163,7 +163,7 @@ Les petites matrices normalisées de `data/tolls/*.csv` sont versionnées afin q
 ./.venv/bin/python -m pytest -q
 ```
 
-La version 0.4.5 contient **191 tests automatiques**.
+La version 0.4.6 contient **193 tests automatiques**.
 
 Une GitHub Action exécute également les tests à chaque push et pull request.
 

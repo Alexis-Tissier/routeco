@@ -8,7 +8,8 @@ Lire aussi `README.md`, `CHANGELOG-v3.7-fastest-time-baseline.md`,
 `CHANGELOG-v4.2-waypoints-addresses.md`,
 `CHANGELOG-v4.3-ui-polish.md`,
 `CHANGELOG-v4.4-segmented-location-controls.md`,
-`CHANGELOG-v4.5-distribution-foundation.md` et le dernier rapport dans
+`CHANGELOG-v4.5-distribution-foundation.md`,
+`CHANGELOG-v4.6-repository-rename.md` et le dernier rapport dans
 `docs/validation/`.
 
 ## Objectif produit
@@ -37,9 +38,9 @@ Le profil initial reste une Twingo 2 essence :
 
 ## Version de code
 
-- Version préparée : **0.4.5**.
+- Version préparée : **0.4.6**.
 - Point de départ de la migration v26 : dépôt Détour 0.4.4 propre.
-- Tests : **191**.
+- Tests : **193**.
 - Le profil GraphHopper préparé `car` utilise `distance_influence: 0`.
 - Le graphe France a déjà été reconstruit par la v9 chez l'utilisateur.
 

@@ -1,6 +1,6 @@
 [project]
 name = "routeco"
-version = "0.4.5"
+version = "0.4.6"
 description = "Optimiseur de trajets routiers multicritère, 100 % auto-hébergeable"
 requires-python = ">=3.11"
 dependencies = [
