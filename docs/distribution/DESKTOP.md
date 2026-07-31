@@ -116,3 +116,21 @@ Dans IONOS, il faut créer un enregistrement CNAME :
 
 Le domaine personnalisé doit ensuite être confirmé dans les paramètres
 GitHub Pages du dépôt.
+
+## Première publication des données France
+
+La publication de données utilise désormais un orchestrateur unique :
+
+```bash
+./.venv/bin/python scripts/prepare_data_release.py \
+  --version 1 \
+  --output /chemin/avec/assez/d-espace \
+  --publish
+```
+
+Avant l'envoi, le script vérifie chaque partie, reconstitue l'archive complète,
+contrôle son SHA-256 et teste toutes les entrées ZIP. Après l'envoi, il retélécharge
+le manifest depuis GitHub Releases et compare son empreinte au fichier local.
+
+Les releases `data-france-v*` sont explicitement créées avec `--latest=false` :
+elles ne remplacent donc jamais la dernière release de l'application Détour.

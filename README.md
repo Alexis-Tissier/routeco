@@ -206,3 +206,15 @@ GraphHopper local + OpenStreetMap France
 Les villes de validation servent uniquement de tests. Le moteur ne doit jamais contenir de correction du type « si départ = Paris et arrivée = Lyon ».
 
 Toute correction doit reposer sur des propriétés générales : géométrie du tracé, ordre des gares, réseau concessionnaire, sections payantes, matrices tarifaires et confiance du résultat.
+
+### Publier le pack France vérifié
+
+```bash
+./.venv/bin/python scripts/prepare_data_release.py \
+  --version 1 \
+  --output dist/data-release \
+  --publish
+```
+
+La release de données est fractionnée sous 2 Gio par fichier, vérifiée localement
+et publiée sans devenir la « dernière version » de l'application.
