@@ -2,85 +2,271 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Détour compare le temps, le carburant et les péages pour trouver le bon trajet au bon prix.">
+  <meta name="theme-color" content="#ef5a35">
+  <meta property="og:title" content="Détour">
+  <meta property="og:description" content="Le bon détour, au bon prix.">
+  <meta property="og:image" content="assets/detour-app.webp">
+  <meta property="og:type" content="website">
   <title>Détour — Le bon détour, au bon prix</title>
-  <link rel="icon" href="assets/detour-logo.svg">
+  <link rel="icon" href="assets/detour-logo.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#top" aria-label="Accueil Détour">
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="site-header" id="top">
+    <a class="brand" href="#top" aria-label="Détour, accueil">
       <img src="assets/detour-logo.svg" alt="">
-      <span><strong>Détour</strong><small>Optimiseur de trajet</small></span>
+      <span>
+        <strong>Détour</strong>
+        <small>Optimiseur de trajet</small>
+      </span>
     </a>
-    <a class="github-link" href="https://github.com/Alexis-Tissier/routeco">GitHub</a>
+
+    <nav class="desktop-nav" aria-label="Navigation principale">
+      <a href="#produit">Produit</a>
+      <a href="#demo">Démo</a>
+      <a href="#confidentialite">Confidentialité</a>
+      <a href="#telecharger">Télécharger</a>
+    </nav>
+
+    <div class="header-actions">
+      <a class="ghost-button compact" href="https://github.com/Alexis-Tissier/routeco" target="_blank" rel="noreferrer">
+        GitHub
+      </a>
+      <a class="primary-button compact" href="https://github.com/Alexis-Tissier/routeco/releases/latest">
+        Télécharger
+      </a>
+    </div>
   </header>
 
-  <main id="top">
-    <section class="hero">
+  <main>
+    <section class="hero section-shell">
       <div class="hero-copy">
-        <p class="eyebrow">APPLICATION DESKTOP</p>
-        <h1>Le bon détour,<br>au bon prix.</h1>
-        <p class="lead">
-          Comparez le temps, le carburant et les péages. Les calculs restent
-          sur votre ordinateur après le téléchargement initial des données France.
+        <div class="eyebrow"><span></span> Application de trajet locale</div>
+        <h1>Le bon détour,<br><em>au bon prix.</em></h1>
+        <p class="hero-lead">
+          Détour compare le temps, le carburant et les péages pour faire ressortir
+          les alternatives réellement pertinentes, avec des données téléchargées une fois
+          puis conservées localement sur votre ordinateur.
         </p>
-        <div class="actions">
-          <a class="button primary" href="https://github.com/Alexis-Tissier/routeco/releases/latest">
-            Télécharger la dernière version
+
+        <div class="hero-actions">
+          <a class="primary-button large" href="https://github.com/Alexis-Tissier/routeco/releases/latest">
+            <span class="button-icon">↓</span>
+            <span>Télécharger Détour</span>
           </a>
-          <a class="button secondary" href="#telecharger">Voir les systèmes</a>
+          <a class="ghost-button large" href="#telecharger">
+            Voir les systèmes
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <div class="hero-notes">
+          <span><i class="status-dot"></i> Linux, Windows et macOS</span>
+          <span>Données France téléchargées au premier lancement</span>
+          <span>Calcul local, sans abonnement</span>
         </div>
       </div>
-      <div class="hero-card">
-        <img src="assets/detour-app.webp" alt="Interface de Détour comparant deux itinéraires entre Versailles et Metz">
+
+      <div class="hero-visual" aria-label="Aperçu de l'application Détour">
+        <div class="app-window hero-window">
+          <div class="window-bar">
+            <div class="traffic"><span></span><span></span><span></span></div>
+            <div class="window-title">Détour</div>
+            <div class="window-state">Trajets locaux</div>
+          </div>
+          <img src="assets/detour-app.webp" alt="Interface de Détour comparant des itinéraires entre Versailles et Metz">
+        </div>
+
+        <div class="floating-card floating-local">
+          <span class="floating-mark">D</span>
+          <div>
+            <strong>100 % local</strong>
+            <small>Graphes, péages et calculs sur votre ordinateur</small>
+          </div>
+        </div>
+
+        <div class="floating-card floating-pack">
+          <span>Pack France</span>
+          <strong>Téléchargé une fois</strong>
+          <small>puis réutilisé à chaque lancement</small>
+        </div>
       </div>
     </section>
 
-    <section class="section" id="telecharger">
-      <p class="eyebrow">TÉLÉCHARGER</p>
-      <h2>Choisissez votre système</h2>
+    <section class="proof-strip" aria-label="Principes de Détour">
+      <div>TRAJETS PERTINENTS</div>
+      <div>CALCUL LOCAL</div>
+      <div>PÉAGES EXPLIQUÉS</div>
+      <div>DONNÉES FRANCE HORS LIGNE</div>
+    </section>
+
+    <section class="section-shell section-block" id="produit">
+      <div class="section-heading">
+        <div class="eyebrow"><span></span> Pensé pour décider vite</div>
+        <h2>Comparer sans se perdre.<br><em>Choisir sans deviner.</em></h2>
+        <p>
+          Détour ne se contente pas d'afficher un itinéraire : il compare plusieurs profils,
+          met en avant la meilleure référence rapide, un compromis économique crédible et les
+          autres options utiles, avec les coûts qui comptent vraiment.
+        </p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card large-card">
+          <div class="feature-kicker">01 — La promesse</div>
+          <h3>Le bon trajet n'est pas toujours le plus court ni le moins cher.</h3>
+          <p>
+            Détour met côte à côte durée, carburant, péages, kilomètres d'autoroute et alternatives.
+            L'objectif est simple : rendre visible le véritable compromis, pas seulement la route la plus rapide.
+          </p>
+          <div class="mini-dashboard">
+            <div class="mini-metrics">
+              <div><span>Référence rapide</span><strong>5 h 52</strong></div>
+              <div><span>Compromis</span><strong class="positive">−18,36 €</strong></div>
+              <div><span>Données</span><strong>France locale</strong></div>
+            </div>
+            <div class="mini-pills">
+              <span>Trajet rapide</span>
+              <span>Moins cher</span>
+              <span>Moins de km</span>
+              <span>Péages estimés ou exacts</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">⏱</div>
+          <div class="feature-kicker">02 — Arbitrage</div>
+          <h3>Temps maximal supplémentaire configurable.</h3>
+          <p>Tu définis la marge acceptable, Détour ne garde que les détours réellement cohérents.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">€</div>
+          <div class="feature-kicker">03 — Coût réel</div>
+          <h3>Carburant et péages intégrés dans le calcul.</h3>
+          <p>Profils véhicule, prix du carburant, péages officiels et fourchettes d'incertitude quand nécessaire.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">◎</div>
+          <div class="feature-kicker">04 — Précision</div>
+          <h3>Adresses et arrêt facultatif.</h3>
+          <p>Choix précis des localisations, clic sur la carte et arrêt intermédiaire imposé sur le trajet.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">⌂</div>
+          <div class="feature-kicker">05 — Local</div>
+          <h3>Une fois installé, le cœur reste sur la machine.</h3>
+          <p>Pas d'API payante obligatoire pour l'usage normal : l'application et le pack de données sont séparés.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-shell demo-section" id="demo">
+      <div class="demo-layout">
+        <div class="demo-copy">
+          <div class="eyebrow"><span></span> Aperçu de l'interface</div>
+          <h2>Une interface claire,<br><em>centrée sur la décision.</em></h2>
+          <p>
+            La carte, les alternatives et les paramètres restent lisibles dans le même écran.
+            L'essence et le profil véhicule sont présents mais discrets, tandis que les itinéraires
+            mis en avant gardent la priorité visuelle.
+          </p>
+          <ul class="demo-list">
+            <li>Comparaison directe des alternatives pertinentes</li>
+            <li>Recalcul rapide quand seuls les prix changent</li>
+            <li>Cartographie intégrée avec sélection visuelle</li>
+          </ul>
+        </div>
+
+        <div class="demo-panel">
+          <div class="app-window side-window">
+            <div class="window-bar">
+              <div class="traffic"><span></span><span></span><span></span></div>
+              <div class="window-title">Détour</div>
+              <div class="window-state">Aperçu</div>
+            </div>
+            <img src="assets/detour-app.webp" alt="Capture de l'application Détour">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell privacy-section" id="confidentialite">
+      <div class="privacy-card">
+        <div class="privacy-copy">
+          <div class="eyebrow"><span></span> Confidentialité et fonctionnement</div>
+          <h2>Télécharger d'abord.<br><em>Calculer ensuite en local.</em></h2>
+          <p>
+            L'application distribuée reste légère. Au premier lancement, elle télécharge le pack France depuis GitHub Releases,
+            le vérifie, puis l'installe localement. Les calculs routiers, les péages et les données locales tournent ensuite sur ta machine.
+          </p>
+        </div>
+        <div class="privacy-points">
+          <article>
+            <strong>Installateur léger</strong>
+            <p>Le binaire reste séparé du gros pack de données.</p>
+          </article>
+          <article>
+            <strong>Vérification SHA-256</strong>
+            <p>Chaque archive est contrôlée avant l'installation.</p>
+          </article>
+          <article>
+            <strong>Mises à jour indépendantes</strong>
+            <p>L'application et les données peuvent évoluer séparément.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell download-section" id="telecharger">
+      <div class="download-heading">
+        <div>
+          <div class="eyebrow"><span></span> Télécharger</div>
+          <h2>Choisir sa version.<br><em>Puis laisser Détour s'installer.</em></h2>
+        </div>
+        <a class="primary-button compact" href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière release</a>
+      </div>
+
       <p class="section-intro">
-        L'installateur est léger. Au premier lancement, Détour télécharge une
-        seule fois le pack routier France depuis GitHub Releases et le conserve localement.
+        Les liens ci-dessous pointent vers GitHub Releases. Chaque installateur télécharge ensuite le pack France nécessaire,
+        puis le garde en local pour les lancements suivants.
       </p>
-      <div class="downloads">
-        <article>
+
+      <div class="download-grid">
+        <article class="download-card">
           <span class="platform">Windows</span>
           <strong>Windows 10 / 11 · 64 bits</strong>
-          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière Release</a>
+          <p>Installeur principal pour PC Windows.</p>
+          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Télécharger la dernière version</a>
         </article>
-        <article>
+        <article class="download-card">
           <span class="platform">Linux</span>
           <strong>AppImage · x86_64</strong>
-          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière Release</a>
+          <p>Une seule application portable, simple à lancer.</p>
+          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Télécharger la dernière version</a>
         </article>
-        <article>
+        <article class="download-card">
           <span class="platform">macOS</span>
           <strong>Apple Silicon et Intel</strong>
-          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Voir la dernière Release</a>
+          <p>Version dédiée pour macOS, avec données téléchargées au premier lancement.</p>
+          <a href="https://github.com/Alexis-Tissier/routeco/releases/latest">Télécharger la dernière version</a>
         </article>
-      </div>
-    </section>
-
-    <section class="section features">
-      <div>
-        <p class="eyebrow">LOCAL PAR CONCEPTION</p>
-        <h2>Une installation, puis les données restent sur votre PC.</h2>
-      </div>
-      <div class="feature-grid">
-        <article><strong>Calcul local</strong><p>GraphHopper, les adresses et les péages restent sur l'ordinateur.</p></article>
-        <article><strong>Sans abonnement</strong><p>Aucune API commerciale obligatoire pour calculer un trajet.</p></article>
-        <article><strong>Mises à jour séparées</strong><p>L'application et les données France peuvent évoluer indépendamment.</p></article>
       </div>
     </section>
   </main>
 
-  <footer>
+  <footer class="site-footer section-shell">
     <span>© 2026 Alexis Tissier</span>
-    <span>Données cartographiques © OpenStreetMap</span>
+    <span>Détour · Données cartographiques © OpenStreetMap</span>
   </footer>
 </body>
 </html>
